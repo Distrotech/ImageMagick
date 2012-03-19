@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -190,7 +190,7 @@ static Image *ReadTTFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  PixelPacket
+  PixelInfo
     background_color;
 
   register ssize_t
@@ -213,7 +213,7 @@ static Image *ReadTTFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   image->columns=800;
   image->rows=480;
   type_info=GetTypeInfo(image_info->filename,exception);
@@ -237,7 +237,7 @@ static Image *ReadTTFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelPacket(image,&background_color,q);
+      SetPixelInfoPixel(image,&background_color,q);
       q+=GetPixelChannels(image);
     }
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -281,7 +281,7 @@ static Image *ReadTTFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       i+=6;
   }
   ConcatenateString(&draw_info->primitive,"pop graphic-context");
-  (void) DrawImage(image,draw_info);
+  (void) DrawImage(image,draw_info,exception);
   /*
     Relinquish resources.
   */

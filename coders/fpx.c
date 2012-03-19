@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,15 +40,16 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/property.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
 #include "MagickCore/color.h"
 #include "MagickCore/color-private.h"
-#include "magick/colormap.h"
-#include "magick/colorspace.h"
-#include "magick/colorspace-private.h"
+#include "MagickCore/colormap.h"
+#include "MagickCore/colorspace.h"
+#include "MagickCore/colorspace-private.h"
 #include "MagickCore/constitute.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
@@ -61,6 +62,8 @@
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/pixel.h"
+#include "MagickCore/pixel-accessor.h"
+#include "MagickCore/property.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
@@ -78,7 +81,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteFPXImage(const ImageInfo *,Image *);
+  WriteFPXImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 /*
@@ -215,7 +218,7 @@ static Image *ReadFPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -311,7 +314,7 @@ static Image *ReadFPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         (void) CopyMagickString(label,(char *) summary_info.title.ptr,
           summary_info.title.length+1);
-        (void) SetImageProperty(image,"label",label);
+        (void) SetImageProperty(image,"label",label,exception);
         label=DestroyString(label);
       }
   if (summary_info.comments_valid)
@@ -335,7 +338,7 @@ static Image *ReadFPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         (void) CopyMagickString(comments,(char *) summary_info.comments.ptr,
           summary_info.comments.length+1);
-        (void) SetImageProperty(image,"comment",comments);
+        (void) SetImageProperty(image,"comment",comments,exception);
         comments=DestroyString(comments);
       }
   /*
@@ -369,7 +372,7 @@ static Image *ReadFPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
         Create linear colormap.
       */
-      if (AcquireImageColormap(image,MaxColormapSize) == MagickFalse)
+      if (AcquireImageColormap(image,MaxColormapSize,exception) == MagickFalse)
         {
           FPX_ClearSystem();
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -423,7 +426,7 @@ static Image *ReadFPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     if ((y % tile_height) == 0)
       {
@@ -576,13 +579,16 @@ ModuleExport void UnregisterFPXImage(void)
 %
 %  The format of the WriteFPXImage method is:
 %
-%      MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteFPXImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
 %    o image_info: the image info.
 %
 %    o image:  The image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -767,7 +773,8 @@ static void SetSaturation(double saturation,FPXColorTwistMatrix *color_twist)
   *color_twist=result;
 }
 
-static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   FPXBackground
     background_color;
@@ -841,7 +848,9 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   (void) CloseBlob(image);
@@ -850,7 +859,7 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
   */
   image->depth=8;
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   memory_limit=20000000;
   fpx_status=FPX_SetToolkitMemoryLimit(&memory_limit);
   if (fpx_status != FPX_OK)
@@ -861,7 +870,7 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
   if (image->matte != MagickFalse)
     colorspace.numberOfComponents=4;
   if ((image_info->type != TrueColorType) &&
-      IsImageGray(image,&image->exception))
+      (IsImageGray(image,exception) != MagickFalse))
     {
       colorspace.numberOfComponents=1;
       colorspace.theComponents[0].myColor=MONOCHROME;
@@ -921,12 +930,9 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
   summary_info.thumbnail_valid=MagickFalse;
   summary_info.appname_valid=MagickFalse;
   summary_info.security_valid=MagickFalse;
-  label=GetImageProperty(image,"label");
+  label=GetImageProperty(image,"label",exception);
   if (label != (const char *) NULL)
     {
-      size_t
-        length;
-
       /*
         Note image label.
       */
@@ -941,7 +947,7 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
       (void) CopyMagickString((char *) summary_info.title.ptr,label,
         MaxTextExtent);
     }
-  comment=GetImageProperty(image,"comment");
+  comment=GetImageProperty(image,"comment",exception);
   if (comment != (const char *) NULL)
     {
       /*
@@ -987,11 +993,11 @@ static MagickBooleanType WriteFPXImage(const ImageInfo *image_info,Image *image)
     quantum_type=GrayQuantum;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-      quantum_type,pixels,&image->exception);
+      quantum_type,pixels,exception);
     fpx_status=FPX_WriteImageLine(flashpix,&fpx_info);
     if (fpx_status != FPX_OK)
       break;

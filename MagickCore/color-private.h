@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  MagickCore image color methods.
+  MagickCore private image color methods.
 */
 #ifndef _MAGICKCORE_COLOR_PRIVATE_H
 #define _MAGICKCORE_COLOR_PRIVATE_H
@@ -21,6 +21,14 @@
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
+
+#include "MagickCore/image.h"
+
+extern MagickPrivate MagickBooleanType
+  ColorComponentGenesis(void);
+
+extern MagickPrivate void
+  ColorComponentTerminus(void);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

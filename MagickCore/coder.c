@@ -17,7 +17,7 @@
 %                                 May 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -43,6 +43,7 @@
 #include "MagickCore/blob.h"
 #include "MagickCore/client.h"
 #include "MagickCore/coder.h"
+#include "MagickCore/coder-private.h"
 #include "MagickCore/configure.h"
 #include "MagickCore/draw.h"
 #include "MagickCore/exception.h"
@@ -56,6 +57,7 @@
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 
 /*
@@ -156,10 +158,12 @@ static const CoderMapInfo
     { "MP4", "MPEG" },
     { "MPG", "MPEG" },
     { "MPRI", "MPR" },
+    { "MEF", "DNG" },
     { "MRW", "DNG" },
     { "MSVG", "SVG" },
     { "NEF", "DNG" },
     { "NETSCAPE", "MAGICK" },
+    { "NRW", "DNG" },
     { "O", "RAW" },
     { "ORF", "DNG" },
     { "OTF", "TTF" },
@@ -252,7 +256,7 @@ static MagickBooleanType
 %      MagickBooleanType CoderComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType CoderComponentGenesis(void)
+MagickPrivate MagickBooleanType CoderComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&coder_semaphore);
   return(MagickTrue);
@@ -276,7 +280,7 @@ MagickExport MagickBooleanType CoderComponentGenesis(void)
 %      CoderComponentTerminus(void)
 %
 */
-MagickExport void CoderComponentTerminus(void)
+MagickPrivate void CoderComponentTerminus(void)
 {
   if (coder_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&coder_semaphore);

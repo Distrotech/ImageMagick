@@ -17,7 +17,7 @@
 %                            September 1994                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,6 +50,7 @@
 #include "MagickWand/studio.h"
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
+#include "MagickCore/string-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -312,11 +313,10 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
         filename=argv[i];
         if ((LocaleCompare(filename,"--") == 0) && (i < (ssize_t) (argc-1)))
           filename=argv[++i];
-        (void) CopyMagickString(identify_info->filename,filename,MaxTextExtent);
         if (identify_info->ping != MagickFalse)
-          images=PingImages(identify_info,exception);
+          images=PingImages(identify_info,filename,exception);
         else
-          images=ReadImages(identify_info,exception);
+          images=ReadImages(identify_info,filename,exception);
         identify_info=DestroyImageInfo(identify_info);
         status&=(images != (Image *) NULL) &&
           (exception->severity < ErrorException);
@@ -330,7 +330,7 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
             image->scene=count++;
           if (format == (char *) NULL)
             {
-              (void) IdentifyImage(image,stdout,image_info->verbose);
+              (void) IdentifyImage(image,stdout,image_info->verbose,exception);
               continue;
             }
           if (metadata != (char **) NULL)
@@ -338,7 +338,7 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
               char
                 *text;
 
-              text=InterpretImageProperties(image_info,image,format);
+              text=InterpretImageProperties(image_info,image,format,exception);
               if (text == (char *) NULL)
                 ThrowIdentifyException(ResourceLimitError,
                   "MemoryAllocationFailed",GetExceptionMessage(errno));
@@ -639,7 +639,7 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowIdentifyException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowIdentifyInvalidArgumentException(option,argv[i]);

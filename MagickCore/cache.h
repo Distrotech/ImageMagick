@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -26,45 +26,35 @@ extern "C" {
 
 extern MagickExport const Quantum
   *GetVirtualPixels(const Image *,const ssize_t,const ssize_t,const size_t,
-    const size_t,ExceptionInfo *),
-  *GetVirtualPixelQueue(const Image *);
+    const size_t,ExceptionInfo *) magick_hot_spot,
+  *GetVirtualPixelQueue(const Image *) magick_hot_spot;
 
 extern MagickExport const void
-  *AcquirePixelCachePixels(const Image *,MagickSizeType *,ExceptionInfo *),
   *GetVirtualMetacontent(const Image *);
 
 extern MagickExport MagickBooleanType
-  CacheComponentGenesis(void),
-  GetOneVirtualMagickPixel(const Image *,const ssize_t,const ssize_t,
-    PixelInfo *,ExceptionInfo *),
-  GetOneVirtualPixel(const Image *,const ssize_t,const ssize_t,PixelPacket *,
+  GetOneAuthenticPixel(Image *,const ssize_t,const ssize_t,Quantum *,
     ExceptionInfo *),
-  GetOneVirtualMethodPixel(const Image *,const VirtualPixelMethod,const ssize_t,
-    const ssize_t,PixelPacket *,ExceptionInfo *),
-  GetOneAuthenticPixel(Image *,const ssize_t,const ssize_t,PixelPacket *,
+  GetOneVirtualPixel(const Image *,const ssize_t,const ssize_t,Quantum *,
     ExceptionInfo *),
+  GetOneVirtualPixelInfo(const Image *,const VirtualPixelMethod,
+    const ssize_t,const ssize_t,PixelInfo *,ExceptionInfo *),
   PersistPixelCache(Image *,const char *,const MagickBooleanType,
     MagickOffsetType *,ExceptionInfo *),
-  SyncAuthenticPixels(Image *,ExceptionInfo *);
+  SyncAuthenticPixels(Image *,ExceptionInfo *) magick_hot_spot;
 
 extern MagickExport MagickSizeType
   GetImageExtent(const Image *);
 
 extern MagickExport Quantum
   *GetAuthenticPixels(Image *,const ssize_t,const ssize_t,const size_t,
-    const size_t,ExceptionInfo *),
-  *GetAuthenticPixelQueue(const Image *),
+    const size_t,ExceptionInfo *) magick_hot_spot,
+  *GetAuthenticPixelQueue(const Image *) magick_hot_spot,
   *QueueAuthenticPixels(Image *,const ssize_t,const ssize_t,const size_t,
-    const size_t,ExceptionInfo *);
-
-extern MagickExport VirtualPixelMethod
-  GetPixelCacheVirtualMethod(const Image *),
-  SetPixelCacheVirtualMethod(const Image *,const VirtualPixelMethod);
+    const size_t,ExceptionInfo *) magick_hot_spot;
 
 extern MagickExport void
-  CacheComponentTerminus(void),
-  *GetAuthenticMetacontent(const Image *),
-  *GetPixelCachePixels(Image *,MagickSizeType *,ExceptionInfo *);
+  *GetAuthenticMetacontent(const Image *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

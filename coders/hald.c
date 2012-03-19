@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -113,7 +113,7 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   level=0;
   if (*image_info->filename != '\0')
     level=StringToUnsignedLong(image_info->filename);
@@ -123,6 +123,9 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
   cube_size=level*level;
   image->columns=(size_t) (level*cube_size);
   image->rows=(size_t) (level*cube_size);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static,8) shared(status)
+#endif
   for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) level)
   {
     ssize_t
@@ -137,7 +140,7 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
       continue;
     q=QueueAuthenticPixels(image,0,y,image->columns,(size_t) level,
       exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -148,8 +151,8 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
       for (red=0; red < (ssize_t) cube_size; red++)
       {
         SetPixelRed(image,ClampToQuantum(QuantumRange*red/(cube_size-1.0)),q);
-        SetPixelGreen(image,ClampToQuantum(QuantumRange*green/
-          (cube_size-1.0)),q);
+        SetPixelGreen(image,ClampToQuantum(QuantumRange*green/(cube_size-1.0)),
+          q);
         SetPixelBlue(image,ClampToQuantum(QuantumRange*blue/(cube_size-1.0)),q);
         SetPixelAlpha(image,OpaqueAlpha,q);
         q+=GetPixelChannels(image);

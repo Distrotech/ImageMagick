@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@ extern MagickExport Image
   *TrimImage(const Image *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
-  TransformImage(Image **,const char *,const char *),
-  TransformImages(Image **,const char *,const char *);
+  TransformImage(Image **,const char *,const char *,ExceptionInfo *),
+  TransformImages(Image **,const char *,const char *,ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

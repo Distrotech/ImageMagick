@@ -17,7 +17,7 @@
 %                              July 1992                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -44,8 +44,8 @@
 #include "MagickWand/studio.h"
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
-#include "MagickCore/xwindow-private.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/xwindow-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -465,7 +465,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
         for (scene=0; scene < (size_t) MagickMax(snapshots,1); scene++)
         {
           (void) sleep(resource_info.pause);
-          images=XImportImage(image_info,&ximage_info);
+          images=XImportImage(image_info,&ximage_info,exception);
           status&=(images != (Image *) NULL) &&
             (exception->severity < ErrorException);
           if (images == (Image *) NULL)
@@ -944,7 +944,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowImportException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowImportInvalidArgumentException(option,argv[i]);

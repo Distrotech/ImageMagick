@@ -17,7 +17,7 @@
 %                                April 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -218,7 +218,7 @@ static void
 %      MagickBooleanType Classify(Image *image,short **extrema,
 %        const MagickRealType cluster_threshold,
 %        const MagickRealType weighting_exponent,
-%        const MagickBooleanType verbose)
+%        const MagickBooleanType verbose,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -237,10 +237,13 @@ static void
 %    o verbose:  A value greater than zero prints detailed information about
 %      the identified classes.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType Classify(Image *image,short **extrema,
   const MagickRealType cluster_threshold,
-  const MagickRealType weighting_exponent,const MagickBooleanType verbose)
+  const MagickRealType weighting_exponent,const MagickBooleanType verbose,
+  ExceptionInfo *exception)
 {
 #define SegmentImageTag  "Segment/Image"
 
@@ -252,9 +255,6 @@ static MagickBooleanType Classify(Image *image,short **extrema,
     *head,
     *last_cluster,
     *next_cluster;
-
-  ExceptionInfo
-    *exception;
 
   ExtentPacket
     blue,
@@ -352,7 +352,6 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   status=MagickTrue;
   count=0;
   progress=0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -404,8 +403,8 @@ static MagickBooleanType Classify(Image *image,short **extrema,
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
         #pragma omp critical (MagickCore_Classify)
 #endif
-        proceed=SetImageProgress(image,SegmentImageTag,progress++,
-          2*image->rows);
+        proceed=SetImageProgress(image,SegmentImageTag,progress++,2*
+          image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -512,34 +511,33 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   /*
     Allocate image colormap.
   */
-  if (AcquireImageColormap(image,number_clusters) == MagickFalse)
+  if (AcquireImageColormap(image,number_clusters,exception) == MagickFalse)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
   i=0;
   for (cluster=head; cluster != (Cluster *) NULL; cluster=cluster->next)
   {
-    image->colormap[i].red=ScaleCharToQuantum((unsigned char)
+    image->colormap[i].red=(double) ScaleCharToQuantum((unsigned char)
       (cluster->red.center+0.5));
-    image->colormap[i].green=ScaleCharToQuantum((unsigned char)
+    image->colormap[i].green=(double) ScaleCharToQuantum((unsigned char)
       (cluster->green.center+0.5));
-    image->colormap[i].blue=ScaleCharToQuantum((unsigned char)
+    image->colormap[i].blue=(double) ScaleCharToQuantum((unsigned char)
       (cluster->blue.center+0.5));
     i++;
   }
   /*
     Do course grain classes.
   */
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     Cluster
       *cluster;
 
-    register const PixelPacket
+    register const PixelInfo
       *restrict p;
 
     register ssize_t
@@ -551,7 +549,7 @@ static MagickBooleanType Classify(Image *image,short **extrema,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -604,22 +602,22 @@ static MagickBooleanType Classify(Image *image,short **extrema,
             p=image->colormap+j;
             distance_squared=squares[(ssize_t) ScaleQuantumToChar(
               GetPixelRed(image,q))-(ssize_t)
-              ScaleQuantumToChar(p->red)]+squares[(ssize_t)
+              ScaleQuantumToChar(ClampToQuantum(p->red))]+squares[(ssize_t)
               ScaleQuantumToChar(GetPixelGreen(image,q))-(ssize_t)
-              ScaleQuantumToChar(p->green)]+squares[(ssize_t)
+              ScaleQuantumToChar(ClampToQuantum(p->green))]+squares[(ssize_t)
               ScaleQuantumToChar(GetPixelBlue(image,q))-(ssize_t)
-              ScaleQuantumToChar(p->blue)];
+              ScaleQuantumToChar(ClampToQuantum(p->blue))];
             numerator=distance_squared;
             for (k=0; k < (ssize_t) image->colors; k++)
             {
               p=image->colormap+k;
                 distance_squared=squares[(ssize_t) ScaleQuantumToChar(
                   GetPixelRed(image,q))-(ssize_t)
-                  ScaleQuantumToChar(p->red)]+squares[(ssize_t)
-                  ScaleQuantumToChar(GetPixelGreen(image,q))-(ssize_t)
-                  ScaleQuantumToChar(p->green)]+squares[(ssize_t)
-                  ScaleQuantumToChar(GetPixelBlue(image,q))-(ssize_t)
-                  ScaleQuantumToChar(p->blue)];
+                  ScaleQuantumToChar(ClampToQuantum(p->red))]+squares[
+                  (ssize_t) ScaleQuantumToChar(GetPixelGreen(image,q))-(ssize_t)
+                  ScaleQuantumToChar(ClampToQuantum(p->green))]+squares[
+                  (ssize_t) ScaleQuantumToChar(GetPixelBlue(image,q))-(ssize_t)
+                  ScaleQuantumToChar(ClampToQuantum(p->blue))];
               ratio=numerator/distance_squared;
               sum+=SegmentPower(ratio);
             }
@@ -652,7 +650,7 @@ static MagickBooleanType Classify(Image *image,short **extrema,
       }
   }
   image_view=DestroyCacheView(image_view);
-  status&=SyncImage(image);
+  status&=SyncImage(image,exception);
   /*
     Relinquish resources.
   */
@@ -1768,7 +1766,8 @@ static void ScaleSpace(const ssize_t *histogram,const MagickRealType tau,
 %
 %      MagickBooleanType SegmentImage(Image *image,
 %        const ColorspaceType colorspace,const MagickBooleanType verbose,
-%        const double cluster_threshold,const double smooth_threshold)
+%        const double cluster_threshold,const double smooth_threshold,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -1787,10 +1786,13 @@ static void ScaleSpace(const ssize_t *histogram,const MagickRealType tau,
 %      derivative of the histogram.  As the value is increased, you can expect a
 %      smoother second derivative.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType SegmentImage(Image *image,
   const ColorspaceType colorspace,const MagickBooleanType verbose,
-  const double cluster_threshold,const double smooth_threshold)
+  const double cluster_threshold,const double smooth_threshold,
+  ExceptionInfo *exception)
 {
   MagickBooleanType
     status;
@@ -1827,11 +1829,11 @@ MagickExport MagickBooleanType SegmentImage(Image *image,
       }
   }
   if (IsRGBColorspace(colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,colorspace);
+    (void) TransformImageColorspace(image,colorspace,exception);
   /*
     Initialize histogram.
   */
-  InitializeHistogram(image,histogram,&image->exception);
+  InitializeHistogram(image,histogram,exception);
   (void) OptimalTau(histogram[Red],Tau,0.2,DeltaTau,
     smooth_threshold == 0.0 ? 1.0 : smooth_threshold,extrema[Red]);
   (void) OptimalTau(histogram[Green],Tau,0.2,DeltaTau,
@@ -1841,9 +1843,10 @@ MagickExport MagickBooleanType SegmentImage(Image *image,
   /*
     Classify using the fuzzy c-Means technique.
   */
-  status=Classify(image,extrema,cluster_threshold,WeightingExponent,verbose);
+  status=Classify(image,extrema,cluster_threshold,WeightingExponent,verbose,
+    exception);
   if (IsRGBColorspace(colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,colorspace);
+    (void) TransformImageColorspace(image,colorspace,exception);
   /*
     Relinquish resources.
   */

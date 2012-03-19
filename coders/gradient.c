@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -94,12 +94,15 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   char
     colorname[MaxTextExtent];
 
-  PixelPacket
-    start_color,
-    stop_color;
-
   Image
     *image;
+
+  MagickBooleanType
+    status;
+
+  PixelInfo
+    start_color,
+    stop_color;
 
   /*
     Initialize Image structure.
@@ -111,29 +114,32 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
-  (void) SetImageOpacity(image,(Quantum) TransparentAlpha);
+  (void) SetImageAlpha(image,(Quantum) TransparentAlpha,exception);
   (void) CopyMagickString(image->filename,image_info->filename,MaxTextExtent);
   (void) CopyMagickString(colorname,image_info->filename,MaxTextExtent);
   (void) sscanf(image_info->filename,"%[^-]",colorname);
-  if (QueryColorDatabase(colorname,&start_color,exception) == MagickFalse)
+  status=QueryColorCompliance(colorname,AllCompliance,&start_color,exception);
+  if (status == MagickFalse)
     {
       image=DestroyImage(image);
       return((Image *) NULL);
     }
   (void) CopyMagickString(colorname,"white",MaxTextExtent);
-  if (GetPixelPacketIntensity(&start_color) > (Quantum) (QuantumRange/2))
+  if (GetPixelInfoIntensity(&start_color) > (Quantum) (QuantumRange/2))
     (void) CopyMagickString(colorname,"black",MaxTextExtent);
   (void) sscanf(image_info->filename,"%*[^-]-%s",colorname);
-  if (QueryColorDatabase(colorname,&stop_color,exception) == MagickFalse)
+  status=QueryColorCompliance(colorname,AllCompliance,&stop_color,exception);
+  if (status == MagickFalse)
     {
       image=DestroyImage(image);
       return((Image *) NULL);
     }
   (void) GradientImage(image,LocaleCompare(image_info->magick,"GRADIENT") == 0 ?
-    LinearGradient : RadialGradient,PadSpread,&start_color,&stop_color);
+    LinearGradient : RadialGradient,PadSpread,&start_color,&stop_color,
+    exception);
   return(GetFirstImageInList(image));
 }
 

@@ -1,4 +1,4 @@
-#  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -15,7 +15,7 @@
 #  Makefile for building MagickWand API.
 #
 
-MagickWandincdir = $(topincludedir)/MagickWand
+MagickWandincdir = $(INCLUDE_PATH)/MagickWand
 
 MAGICKWAND_SOURCES = \
 	MagickWand/MagickWand.h \
@@ -39,22 +39,30 @@ MAGICKWAND_SOURCES = \
 	MagickWand/identify.h \
 	MagickWand/import.c \
 	MagickWand/import.h \
+	MagickWand/magick-cli.c \
+	MagickWand/magick-cli.h \
 	MagickWand/magick-image.c \
 	MagickWand/magick-image.h \
 	MagickWand/magick-property.c \
 	MagickWand/magick-property.h \
 	MagickWand/magick-wand.c \
 	MagickWand/magick-wand-private.h \
+	MagickWand/method-attribute.h \
 	MagickWand/mogrify.c \
 	MagickWand/mogrify.h \
 	MagickWand/mogrify-private.h \
 	MagickWand/montage.c \
 	MagickWand/montage.h \
+	MagickWand/operation.c \
+	MagickWand/operation.h \
+	MagickWand/operation-private.h \
 	MagickWand/pixel-iterator.c \
 	MagickWand/pixel-iterator.h \
 	MagickWand/pixel-wand.c \
 	MagickWand/pixel-wand.h \
 	MagickWand/pixel-wand-private.h \
+	MagickWand/script-token.c \
+	MagickWand/script-token.h \
 	MagickWand/stream.c \
 	MagickWand/stream.h \
 	MagickWand/studio.h \
@@ -75,10 +83,13 @@ MAGICKWAND_INCLUDE_HDRS = \
 	MagickWand/drawing-wand.h \
 	MagickWand/identify.h \
 	MagickWand/import.h \
+	MagickWand/magick-cli.h \
 	MagickWand/magick-image.h \
 	MagickWand/magick-property.h \
+	MagickWand/method-attribute.h \
 	MagickWand/mogrify.h \
 	MagickWand/montage.h \
+	MagickWand/operation.h \
 	MagickWand/pixel-iterator.h \
 	MagickWand/pixel-wand.h \
 	MagickWand/stream.h \
@@ -87,7 +98,9 @@ MAGICKWAND_INCLUDE_HDRS = \
 MAGICKWAND_NOINST_HDRS = \
 	MagickWand/mogrify-private.h \
 	MagickWand/magick-wand-private.h \
+	MagickWand/operation-private.h \
 	MagickWand/pixel-wand-private.h \
+	MagickWand/script-token.h \
 	MagickWand/studio.h \
 	MagickWand/wand.h
 

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ typedef Image
   *DecodeImageHandler(const ImageInfo *,ExceptionInfo *);
 
 typedef MagickBooleanType
-  EncodeImageHandler(const ImageInfo *,Image *);
+  EncodeImageHandler(const ImageInfo *,Image *,ExceptionInfo *);
 
 typedef MagickBooleanType
   IsImageFormatHandler(const unsigned char *,const size_t);
@@ -113,7 +113,6 @@ extern MagickExport MagickBooleanType
   GetMagickRawSupport(const MagickInfo *),
   GetMagickSeekableStream(const MagickInfo *),
   IsMagickInstantiated(void),
-  MagickComponentGenesis(void),
   UnregisterMagickInfo(const char *);
 
 extern const MagickExport MagickInfo
@@ -128,7 +127,6 @@ extern MagickExport MagickStatusType
   GetMagickThreadSupport(const MagickInfo *);
 
 extern MagickExport void
-  MagickComponentTerminus(void),
   MagickCoreGenesis(const char *,const MagickBooleanType),
   MagickCoreTerminus(void);
 

@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -49,7 +49,9 @@
 #include "MagickCore/color-private.h"
 #include "MagickCore/colormap.h"
 #include "MagickCore/composite.h"
+#include "MagickCore/constitute.h"
 #include "MagickCore/display.h"
+#include "MagickCore/distort.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/geometry.h"
@@ -62,6 +64,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/monitor.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/PreRvIcccm.h"
@@ -70,13 +73,14 @@
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/resize.h"
-#include "MagickCore/shear.h"
 #include "MagickCore/statistic.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/transform.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/widget.h"
+#include "MagickCore/widget-private.h"
 #include "MagickCore/xwindow.h"
 #include "MagickCore/xwindow-private.h"
 #include "MagickCore/version.h"
@@ -211,9 +215,9 @@ static MagickBooleanType
 
 static void
   XMakeImageLSBFirst(const XResourceInfo *,const XWindowInfo *,Image *,
-    XImage *,XImage *),
+    XImage *,XImage *,ExceptionInfo *),
   XMakeImageMSBFirst(const XResourceInfo *,const XWindowInfo *,Image *,
-    XImage *,XImage *);
+    XImage *,XImage *,ExceptionInfo *);
 
 static Window
   XSelectWindow(Display *,RectangleInfo *);
@@ -388,9 +392,11 @@ MagickExport void DestroyXResources(void)
   if (windows->class_hints != (XClassHint *) NULL)
     {
       if (windows->class_hints->res_name != (char *) NULL)
-        XFree(windows->class_hints->res_name);
+        windows->class_hints->res_name=DestroyString(
+          windows->class_hints->res_name);
       if (windows->class_hints->res_class != (char *) NULL)
-        XFree(windows->class_hints->res_class);
+        windows->class_hints->res_class=DestroyString(
+          windows->class_hints->res_class);
       XFree(windows->class_hints);
       windows->class_hints=(XClassHint *) NULL;
     }
@@ -438,7 +444,8 @@ MagickExport void DestroyXResources(void)
 %  The format of the XAnnotateImage method is:
 %
 %      MagickBooleanType XAnnotateImage(Display *display,
-%        const XPixelInfo *pixel,XAnnotateInfo *annotate_info,Image *image)
+%        const XPixelInfo *pixel,XAnnotateInfo *annotate_info,Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -451,18 +458,18 @@ MagickExport void DestroyXResources(void)
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType XAnnotateImage(Display *display,
-  const XPixelInfo *pixel,XAnnotateInfo *annotate_info,Image *image)
+MagickPrivate MagickBooleanType XAnnotateImage(Display *display,
+  const XPixelInfo *pixel,XAnnotateInfo *annotate_info,Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *annotate_view;
 
   GC
     annotate_context;
-
-  ExceptionInfo
-    *exception;
 
   Image
     *annotate_image;
@@ -536,7 +543,7 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
   /*
     Initialize annotated image.
   */
-  annotate_image=AcquireImage((ImageInfo *) NULL);
+  annotate_image=AcquireImage((ImageInfo *) NULL,exception);
   if (annotate_image == (Image *) NULL)
     return(MagickFalse);
   annotate_image->columns=annotate_info->width;
@@ -549,11 +556,10 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
   x=0;
   y=0;
   (void) XParseGeometry(annotate_info->geometry,&x,&y,&width,&height);
-  (void) GetOneVirtualPixel(image,(ssize_t) x,(ssize_t) y,
-    &annotate_image->background_color,&image->exception);
+  (void) GetOneVirtualPixelInfo(image,UndefinedVirtualPixelMethod,(ssize_t) x,
+    (ssize_t) y,&annotate_image->background_color,exception);
   if (annotate_info->stencil == ForegroundStencil)
     annotate_image->matte=MagickTrue;
-  exception=(&image->exception);
   annotate_view=AcquireCacheView(annotate_image);
   for (y=0; y < (int) annotate_image->rows; y++)
   {
@@ -565,7 +571,7 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
 
     q=GetCacheViewAuthenticPixels(annotate_view,0,(ssize_t) y,
       annotate_image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (int) annotate_image->columns; x++)
     {
@@ -621,7 +627,8 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
       */
       (void) FormatLocaleString(image_geometry,MaxTextExtent,"%ux%u",
         width,height);
-      (void) TransformImage(&annotate_image,(char *) NULL,image_geometry);
+      (void) TransformImage(&annotate_image,(char *) NULL,image_geometry,
+        exception);
     }
   if (annotate_info->degrees != 0.0)
     {
@@ -637,8 +644,7 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
       /*
         Rotate image.
       */
-      rotate_image=
-        RotateImage(annotate_image,annotate_info->degrees,&image->exception);
+      rotate_image=RotateImage(annotate_image,annotate_info->degrees,exception);
       if (rotate_image == (Image *) NULL)
         return(MagickFalse);
       annotate_image=DestroyImage(annotate_image);
@@ -690,7 +696,8 @@ MagickExport MagickBooleanType XAnnotateImage(Display *display,
   (void) XParseGeometry(annotate_info->geometry,&x,&y,&width,&height);
   matte=image->matte;
   (void) CompositeImage(image,annotate_image->matte != MagickFalse ?
-    OverCompositeOp : CopyCompositeOp,annotate_image,(ssize_t) x,(ssize_t) y);
+    OverCompositeOp : CopyCompositeOp,annotate_image,(ssize_t) x,(ssize_t) y,
+    exception);
   image->matte=matte;
   annotate_image=DestroyImage(annotate_image);
   return(MagickTrue);
@@ -781,7 +788,7 @@ static char **FontToList(char *font)
   return(fontlist);
 }
 
-MagickExport XFontStruct *XBestFont(Display *display,
+MagickPrivate XFontStruct *XBestFont(Display *display,
   const XResourceInfo *resource_info,const MagickBooleanType text_font)
 {
   static const char
@@ -889,7 +896,7 @@ MagickExport XFontStruct *XBestFont(Display *display,
 %    o image: the image.
 %
 */
-MagickExport void XBestIconSize(Display *display,XWindowInfo *window,
+MagickPrivate void XBestIconSize(Display *display,XWindowInfo *window,
   Image *image)
 {
   int
@@ -1017,7 +1024,7 @@ MagickExport void XBestIconSize(Display *display,XWindowInfo *window,
 %    o color: Specifies the desired RGB value to find in the colors array.
 %
 */
-MagickExport void XBestPixel(Display *display,const Colormap colormap,
+MagickPrivate void XBestPixel(Display *display,const Colormap colormap,
   XColor *colors,unsigned int number_colors,XColor *color)
 {
   MagickBooleanType
@@ -1154,7 +1161,7 @@ static inline size_t MagickMin(const unsigned int x,
   return(y);
 }
 
-MagickExport XVisualInfo *XBestVisualInfo(Display *display,
+MagickPrivate XVisualInfo *XBestVisualInfo(Display *display,
   XStandardColormap *map_info,XResourceInfo *resource_info)
 {
 #define MaxStandardColormaps  7
@@ -1460,7 +1467,7 @@ MagickExport XVisualInfo *XBestVisualInfo(Display *display,
 %    o cursor: the cursor.
 %
 */
-MagickExport int XCheckDefineCursor(Display *display,Window window,
+MagickPrivate int XCheckDefineCursor(Display *display,Window window,
   Cursor cursor)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -1496,7 +1503,7 @@ MagickExport int XCheckDefineCursor(Display *display,Window window,
 %    o windows: Specifies a pointer to a XWindows structure.
 %
 */
-MagickExport void XCheckRefreshWindows(Display *display,XWindows *windows)
+MagickPrivate void XCheckRefreshWindows(Display *display,XWindows *windows)
 {
   Window
     id;
@@ -1555,7 +1562,7 @@ MagickExport void XCheckRefreshWindows(Display *display,XWindows *windows)
 %    o timestamp: Specifies a value of type Time.
 %
 */
-MagickExport void XClientMessage(Display *display,const Window window,
+MagickPrivate void XClientMessage(Display *display,const Window window,
   const Atom protocol,const Atom reason,const Time timestamp)
 {
   XClientMessageEvent
@@ -1658,7 +1665,7 @@ static Window XClientWindow(Display *display,Window target_window)
 %      XComponentTerminus(void)
 %
 */
-MagickExport void XComponentTerminus(void)
+MagickPrivate void XComponentTerminus(void)
 {
   DestroyXResources();
 }
@@ -1679,7 +1686,8 @@ MagickExport void XComponentTerminus(void)
 %  The format of the XConfigureImageColormap method is:
 %
 %      void XConfigureImageColormap(Display *display,
-%        XResourceInfo *resource_info,XWindows *windows,Image *image)
+%        XResourceInfo *resource_info,XWindows *windows,Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1692,9 +1700,12 @@ MagickExport void XComponentTerminus(void)
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport void XConfigureImageColormap(Display *display,
-  XResourceInfo *resource_info,XWindows *windows,Image *image)
+MagickPrivate void XConfigureImageColormap(Display *display,
+  XResourceInfo *resource_info,XWindows *windows,Image *image,
+  ExceptionInfo *exception)
 {
   Colormap
     colormap;
@@ -1705,7 +1716,7 @@ MagickExport void XConfigureImageColormap(Display *display,
   XSetCursorState(display,windows,MagickTrue);
   XCheckRefreshWindows(display,windows);
   XMakeStandardColormap(display,windows->visual_info,resource_info,image,
-    windows->map_info,windows->pixel_info);
+    windows->map_info,windows->pixel_info,exception);
   colormap=windows->map_info->colormap;
   (void) XSetWindowColormap(display,windows->image.id,colormap);
   (void) XSetWindowColormap(display,windows->command.id,colormap);
@@ -1745,7 +1756,7 @@ MagickExport void XConfigureImageColormap(Display *display,
 %    o window_info: Specifies a pointer to a XWindowInfo structure.
 %
 */
-MagickExport void XConstrainWindowPosition(Display *display,
+MagickPrivate void XConstrainWindowPosition(Display *display,
   XWindowInfo *window_info)
 {
   int
@@ -1795,7 +1806,7 @@ MagickExport void XConstrainWindowPosition(Display *display,
 %      returning.
 %
 */
-MagickExport void XDelay(Display *display,const size_t milliseconds)
+MagickPrivate void XDelay(Display *display,const size_t milliseconds)
 {
   assert(display != (Display *) NULL);
   (void) XFlush(display);
@@ -1867,7 +1878,7 @@ MagickExport void XDestroyResourceInfo(XResourceInfo *resource_info)
 %    o window: Specifies a pointer to a Window structure.
 %
 */
-MagickExport void XDestroyWindowColors(Display *display,Window window)
+MagickPrivate void XDestroyWindowColors(Display *display,Window window)
 {
   Atom
     property,
@@ -1928,7 +1939,7 @@ MagickExport void XDestroyWindowColors(Display *display,Window window)
 %
 %      void XDisplayImageInfo(Display *display,
 %        const XResourceInfo *resource_info,XWindows *windows,Image *undo_image,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1943,10 +1954,12 @@ MagickExport void XDestroyWindowColors(Display *display,Window window)
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport void XDisplayImageInfo(Display *display,
+MagickPrivate void XDisplayImageInfo(Display *display,
   const XResourceInfo *resource_info,XWindows *windows,Image *undo_image,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   char
     filename[MaxTextExtent],
@@ -2035,7 +2048,7 @@ MagickExport void XDisplayImageInfo(Display *display,
   for (levels=0; undo_image != (Image *) NULL; levels++)
   {
     number_pixels=undo_image->list->columns*undo_image->list->rows;
-    bytes+=number_pixels*sizeof(PixelPacket);
+    bytes+=number_pixels*sizeof(PixelInfo);
     undo_image=GetPreviousImageInList(undo_image);
   }
   (void) FormatLocaleFile(file,"Undo Edit Cache\n  levels: %u\n",levels);
@@ -2046,9 +2059,9 @@ MagickExport void XDisplayImageInfo(Display *display,
   /*
     Write info about the image to a file.
   */
-  (void) IdentifyImage(image,file,MagickTrue);
+  (void) IdentifyImage(image,file,MagickTrue,exception);
   (void) fclose(file);
-  text=FileToString(filename,~0,&image->exception);
+  text=FileToString(filename,~0,exception);
   (void) RelinquishUniqueFileResource(filename);
   if (text == (char *) NULL)
     {
@@ -2095,7 +2108,7 @@ MagickExport void XDisplayImageInfo(Display *display,
 %
 %  The format of the XDitherImage method is:
 %
-%      void XDitherImage(Image *image,XImage *ximage)
+%      void XDitherImage(Image *image,XImage *ximage,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2104,8 +2117,10 @@ MagickExport void XDisplayImageInfo(Display *display,
 %    o ximage: Specifies a pointer to a XImage structure;  returned from
 %      XCreateImage.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static void XDitherImage(Image *image,XImage *ximage)
+static void XDitherImage(Image *image,XImage *ximage,ExceptionInfo *exception)
 {
   static const short int
     dither_red[2][16]=
@@ -2131,7 +2146,7 @@ static void XDitherImage(Image *image,XImage *ximage)
     value,
     y;
 
-  PixelPacket
+  PixelInfo
     color;
 
   register char
@@ -2215,17 +2230,17 @@ static void XDitherImage(Image *image,XImage *ximage)
   for (y=0; y < (int) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,(ssize_t) y,image->columns,1,
-      &image->exception);
+      exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (int) image->columns; x++)
     {
-      color.red=ClampToQuantum((MagickRealType) (red_map[i][j][(int)
-        ScaleQuantumToChar(GetPixelRed(image,p))] << 8));
-      color.green=ClampToQuantum((MagickRealType) (green_map[i][j][(int)
-        ScaleQuantumToChar(GetPixelGreen(image,p))] << 8));
-      color.blue=ClampToQuantum((MagickRealType) (blue_map[i][j][(int)
-        ScaleQuantumToChar(GetPixelBlue(image,p))] << 8));
+      color.red=(double) ClampToQuantum((MagickRealType) (red_map[i][j][
+        (int) ScaleQuantumToChar(GetPixelRed(image,p))] << 8));
+      color.green=(double) ClampToQuantum((MagickRealType) (green_map[i][j][
+        (int) ScaleQuantumToChar(GetPixelGreen(image,p))] << 8));
+      color.blue=(double) ClampToQuantum((MagickRealType) (blue_map[i][j][
+        (int) ScaleQuantumToChar(GetPixelBlue(image,p))] << 8));
       pixel=(size_t) (((size_t) color.red & 0xe0) |
         (((size_t) color.green & 0xe0) >> 3) |
         (((size_t) color.blue & 0xc0) >> 6));
@@ -2268,7 +2283,8 @@ static void XDitherImage(Image *image,XImage *ximage)
 %
 %  The format of the XDrawImage method is:
 %
-%    MagickBooleanType XDrawImage(display,pixel,draw_info,image)
+%    MagickBooleanType XDrawImage(Display *display,const XPixelInfo *pixel,
+%      XDrawInfo *draw_info,Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2281,15 +2297,15 @@ static void XDitherImage(Image *image,XImage *ximage)
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType XDrawImage(Display *display,
-  const XPixelInfo *pixel,XDrawInfo *draw_info,Image *image)
+MagickPrivate MagickBooleanType XDrawImage(Display *display,
+  const XPixelInfo *pixel,XDrawInfo *draw_info,Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *draw_view;
-
-  ExceptionInfo
-    *exception;
 
   GC
     draw_context;
@@ -2449,7 +2465,7 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
   /*
     Initialize draw image.
   */
-  draw_image=AcquireImage((ImageInfo *) NULL);
+  draw_image=AcquireImage((ImageInfo *) NULL,exception);
   if (draw_image == (Image *) NULL)
     return(MagickFalse);
   draw_image->columns=draw_info->width;
@@ -2462,12 +2478,11 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
   x=0;
   y=0;
   (void) XParseGeometry(draw_info->geometry,&x,&y,&width,&height);
-  (void) GetOneVirtualPixel(image,(ssize_t) x,(ssize_t) y,
-    &draw_image->background_color,&image->exception);
-  if (SetImageStorageClass(draw_image,DirectClass) == MagickFalse)
+  (void) GetOneVirtualPixelInfo(image,UndefinedVirtualPixelMethod,(ssize_t) x,
+    (ssize_t) y,&draw_image->background_color,exception);
+  if (SetImageStorageClass(draw_image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   draw_image->matte=MagickTrue;
-  exception=(&image->exception);
   draw_view=AcquireCacheView(draw_image);
   for (y=0; y < (int) draw_image->rows; y++)
   {
@@ -2479,7 +2494,7 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
 
     q=QueueCacheViewAuthenticPixels(draw_view,0,(ssize_t) y,draw_image->columns,
       1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (int) draw_image->columns; x++)
     {
@@ -2488,8 +2503,8 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
           /*
             Set this pixel to the background color.
           */
-          SetPixelPacket(draw_image,&draw_image->background_color,q);
-          SetPixelAlpha(draw_image,(Quantum) (draw_info->stencil == 
+          SetPixelInfoPixel(draw_image,&draw_image->background_color,q);
+          SetPixelAlpha(draw_image,(Quantum) (draw_info->stencil ==
             OpaqueStencil ? TransparentAlpha : OpaqueAlpha),q);
         }
       else
@@ -2528,7 +2543,8 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
       */
       (void) FormatLocaleString(image_geometry,MaxTextExtent,"%ux%u",
         width,height);
-      (void) TransformImage(&draw_image,(char *) NULL,image_geometry);
+      (void) TransformImage(&draw_image,(char *) NULL,image_geometry,
+        exception);
     }
   if (draw_info->degrees != 0.0)
     {
@@ -2544,7 +2560,7 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
       /*
         Rotate image.
       */
-      rotate_image=RotateImage(draw_image,draw_info->degrees,&image->exception);
+      rotate_image=RotateImage(draw_image,draw_info->degrees,exception);
       if (rotate_image == (Image *) NULL)
         return(MagickFalse);
       draw_image=DestroyImage(draw_image);
@@ -2604,7 +2620,7 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
 
     q=GetCacheViewAuthenticPixels(draw_view,0,(ssize_t) y,draw_image->columns,1,
       exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (int) draw_image->columns; x++)
     {
@@ -2618,13 +2634,13 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
   draw_view=DestroyCacheView(draw_view);
   (void) XParseGeometry(draw_info->geometry,&x,&y,&width,&height);
   if (draw_info->stencil == TransparentStencil)
-    (void) CompositeImage(image,CopyOpacityCompositeOp,draw_image,(ssize_t) x,
-      (ssize_t) y);
+    (void) CompositeImage(image,CopyAlphaCompositeOp,draw_image,(ssize_t) x,
+      (ssize_t) y,exception);
   else
     {
       matte=image->matte;
       (void) CompositeImage(image,OverCompositeOp,draw_image,(ssize_t) x,
-        (ssize_t) y);
+        (ssize_t) y,exception);
       image->matte=matte;
     }
   draw_image=DestroyImage(draw_image);
@@ -2644,12 +2660,12 @@ MagickExport MagickBooleanType XDrawImage(Display *display,
 %
 %  XError() ignores BadWindow errors for XQueryTree and XGetWindowAttributes,
 %  and ignores BadDrawable errors for XGetGeometry, and ignores BadValue errors
-%  for XQueryColor.  It returns MagickFalse in those cases.  Otherwise it returns
-%  True.
+%  for XQueryColor.  It returns MagickFalse in those cases.  Otherwise it
+%  returns True.
 %
 %  The format of the XError function is:
 %
-%      XError(display,error)
+%      int XError(display,error)
 %
 %  A description of each parameter follows:
 %
@@ -2739,7 +2755,7 @@ MagickExport int XError(Display *display,XErrorEvent *error)
 %    o window_info: Specifies a pointer to a X11 XWindowInfo structure.
 %
 */
-MagickExport void XFreeResources(Display *display,XVisualInfo *visual_info,
+MagickPrivate void XFreeResources(Display *display,XVisualInfo *visual_info,
   XStandardColormap *map_info,XPixelInfo *pixel,XFontStruct *font_info,
   XResourceInfo *resource_info,XWindowInfo *window_info)
 {
@@ -2833,7 +2849,7 @@ MagickExport void XFreeResources(Display *display,XVisualInfo *visual_info,
 %    o pixel: Specifies a pointer to a XPixelInfo structure.
 %
 */
-MagickExport void XFreeStandardColormap(Display *display,
+MagickPrivate void XFreeStandardColormap(Display *display,
   const XVisualInfo *visual_info,XStandardColormap *map_info,XPixelInfo *pixel)
 {
   /*
@@ -2886,7 +2902,7 @@ MagickExport void XFreeStandardColormap(Display *display,
 %    o annotate_info: Specifies a pointer to a XAnnotateInfo structure.
 %
 */
-MagickExport void XGetAnnotateInfo(XAnnotateInfo *annotate_info)
+MagickPrivate void XGetAnnotateInfo(XAnnotateInfo *annotate_info)
 {
   /*
     Initialize annotate structure.
@@ -2936,7 +2952,7 @@ MagickExport void XGetAnnotateInfo(XAnnotateInfo *annotate_info)
 %    o map_info: Specifies a pointer to a X11 XStandardColormap structure.
 %
 */
-MagickExport void XGetMapInfo(const XVisualInfo *visual_info,
+MagickPrivate void XGetMapInfo(const XVisualInfo *visual_info,
   const Colormap colormap,XStandardColormap *map_info)
 {
   /*
@@ -2984,7 +3000,7 @@ MagickExport void XGetMapInfo(const XVisualInfo *visual_info,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  XGetPixelInfo() initializes the PixelPacket structure.
+%  XGetPixelInfo() initializes the PixelInfo structure.
 %
 %  The format of the XGetPixelInfo method is:
 %
@@ -3011,7 +3027,7 @@ MagickExport void XGetMapInfo(const XVisualInfo *visual_info,
 %    o pixel: Specifies a pointer to a XPixelInfo structure.
 %
 */
-MagickExport void XGetPixelInfo(Display *display,
+MagickPrivate void XGetPixelInfo(Display *display,
   const XVisualInfo *visual_info,const XStandardColormap *map_info,
   const XResourceInfo *resource_info,Image *image,XPixelInfo *pixel)
 {
@@ -3818,7 +3834,7 @@ static Window XGetSubwindow(Display *display,Window window,int x,int y)
 %  The format of the XGetWindowColor method is:
 %
 %      MagickBooleanType XGetWindowColor(Display *display,XWindows *windows,
-%        char *name)
+%        char *name,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -3830,15 +3846,17 @@ static Window XGetSubwindow(Display *display,Window window,int x,int y)
 %    o name: the name of the color if found in the X Color Database is
 %      returned in this character string.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType XGetWindowColor(Display *display,
-  XWindows *windows,char *name)
+MagickPrivate MagickBooleanType XGetWindowColor(Display *display,
+  XWindows *windows,char *name,ExceptionInfo *exception)
 {
   int
     x,
     y;
 
-  PixelPacket
+  PixelInfo
     pixel;
 
   RectangleInfo
@@ -3909,12 +3927,12 @@ MagickExport MagickBooleanType XGetWindowColor(Display *display,
     Match color against the color database.
   */
   (void) XQueryColor(display,window_attributes.colormap,&color);
-  pixel.red=ScaleShortToQuantum(color.red);
-  pixel.green=ScaleShortToQuantum(color.green);
-  pixel.blue=ScaleShortToQuantum(color.blue);
+  pixel.red=(double) ScaleShortToQuantum(color.red);
+  pixel.green=(double) ScaleShortToQuantum(color.green);
+  pixel.blue=(double) ScaleShortToQuantum(color.blue);
   pixel.alpha=OpaqueAlpha;
   (void) QueryColorname(windows->image.image,&pixel,X11Compliance,name,
-    &windows->image.image->exception);
+    exception);
   return(MagickTrue);
 }
 
@@ -3938,7 +3956,8 @@ MagickExport MagickBooleanType XGetWindowColor(Display *display,
 %  The format of the XGetWindowImage method is:
 %
 %      Image *XGetWindowImage(Display *display,const Window window,
-%        const unsigned int borders,const unsigned int level)
+%        const unsigned int borders,const unsigned int level,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -3956,9 +3975,11 @@ MagickExport MagickBooleanType XGetWindowColor(Display *display,
 %      one call.  A value of one causes the function to descend the window
 %      hierarchy and overlay the target image with each subwindow image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static Image *XGetWindowImage(Display *display,const Window window,
-  const unsigned int borders,const unsigned int level)
+  const unsigned int borders,const unsigned int level,ExceptionInfo *exception)
 {
   typedef struct _ColormapInfo
   {
@@ -4140,7 +4161,8 @@ static Image *XGetWindowImage(Display *display,const Window window,
       if ((status == True) && (number_children != 0))
         {
           for (i=0; i < (int) number_children; i++)
-            (void) XGetWindowImage(display,children[i],MagickFalse,level+1);
+            (void) XGetWindowImage(display,children[i],MagickFalse,level+1,
+              exception);
           (void) XFree((void *) children);
         }
     }
@@ -4151,9 +4173,6 @@ static Image *XGetWindowImage(Display *display,const Window window,
 
       ColormapInfo
         *next;
-
-      ExceptionInfo
-        *exception;
 
       Image
         *composite_image,
@@ -4324,7 +4343,7 @@ static Image *XGetWindowImage(Display *display,const Window window,
         /*
           Allocate image structure.
         */
-        composite_image=AcquireImage((ImageInfo *) NULL);
+        composite_image=AcquireImage((ImageInfo *) NULL,exception);
         if (composite_image == (Image *) NULL)
           {
             XDestroyImage(ximage);
@@ -4338,7 +4357,6 @@ static Image *XGetWindowImage(Display *display,const Window window,
           composite_image->storage_class=PseudoClass;
         composite_image->columns=(size_t) ximage->width;
         composite_image->rows=(size_t) ximage->height;
-        exception=(&composite_image->exception);
         composite_view=AcquireCacheView(composite_image);
         switch (composite_image->storage_class)
         {
@@ -4390,7 +4408,7 @@ static Image *XGetWindowImage(Display *display,const Window window,
               {
                 q=QueueCacheViewAuthenticPixels(composite_view,0,(ssize_t) y,
                   composite_image->columns,1,exception);
-                if (q == (const Quantum *) NULL)
+                if (q == (Quantum *) NULL)
                   break;
                 for (x=0; x < (int) composite_image->columns; x++)
                 {
@@ -4406,7 +4424,8 @@ static Image *XGetWindowImage(Display *display,const Window window,
                     ScaleShortToQuantum(colors[index].blue),q);
                   q+=GetPixelChannels(composite_image);
                 }
-                if (SyncCacheViewAuthenticPixels(composite_view,exception) == MagickFalse)
+                status=SyncCacheViewAuthenticPixels(composite_view,exception);
+                if (status == MagickFalse)
                   break;
               }
             else
@@ -4414,7 +4433,7 @@ static Image *XGetWindowImage(Display *display,const Window window,
               {
                 q=QueueCacheViewAuthenticPixels(composite_view,0,(ssize_t) y,
                   composite_image->columns,1,exception);
-                if (q == (const Quantum *) NULL)
+                if (q == (Quantum *) NULL)
                   break;
                 for (x=0; x < (int) composite_image->columns; x++)
                 {
@@ -4433,7 +4452,8 @@ static Image *XGetWindowImage(Display *display,const Window window,
                     ScaleShortToQuantum((unsigned short) color),q);
                   q+=GetPixelChannels(composite_image);
                 }
-                if (SyncCacheViewAuthenticPixels(composite_view,exception) == MagickFalse)
+                status=SyncCacheViewAuthenticPixels(composite_view,exception);
+                if (status == MagickFalse)
                   break;
               }
             break;
@@ -4443,7 +4463,9 @@ static Image *XGetWindowImage(Display *display,const Window window,
             /*
               Create colormap.
             */
-            if (AcquireImageColormap(composite_image,number_colors) == MagickFalse)
+            status=AcquireImageColormap(composite_image,number_colors,
+              exception);
+            if (status == MagickFalse)
               {
                 XDestroyImage(ximage);
                 composite_image=DestroyImage(composite_image);
@@ -4451,11 +4473,11 @@ static Image *XGetWindowImage(Display *display,const Window window,
               }
             for (i=0; i < (int) composite_image->colors; i++)
             {
-              composite_image->colormap[colors[i].pixel].red=
+              composite_image->colormap[colors[i].pixel].red=(double)
                 ScaleShortToQuantum(colors[i].red);
-              composite_image->colormap[colors[i].pixel].green=
+              composite_image->colormap[colors[i].pixel].green=(double)
                 ScaleShortToQuantum(colors[i].green);
-              composite_image->colormap[colors[i].pixel].blue=
+              composite_image->colormap[colors[i].pixel].blue=(double)
                 ScaleShortToQuantum(colors[i].blue);
             }
             /*
@@ -4465,17 +4487,18 @@ static Image *XGetWindowImage(Display *display,const Window window,
             {
               q=QueueCacheViewAuthenticPixels(composite_view,0,(ssize_t) y,
                 composite_image->columns,1,exception);
-              if (q == (const Quantum *) NULL)
+              if (q == (Quantum *) NULL)
                 break;
               for (x=0; x < (int) composite_image->columns; x++)
               {
                 index=(Quantum) XGetPixel(ximage,x,y);
                 SetPixelIndex(composite_image,index,q);
-                SetPixelPacket(composite_image,
+                SetPixelInfoPixel(composite_image,
                   composite_image->colormap+(ssize_t) index,q);
                 q+=GetPixelChannels(composite_image);
               }
-              if (SyncCacheViewAuthenticPixels(composite_view,exception) == MagickFalse)
+              status=SyncCacheViewAuthenticPixels(composite_view,exception);
+              if (status == MagickFalse)
                 break;
             }
             break;
@@ -4500,7 +4523,8 @@ static Image *XGetWindowImage(Display *display,const Window window,
         if (y_offset < 0)
           y_offset=0;
         (void) CompositeImage(image,CopyCompositeOp,composite_image,(ssize_t)
-          x_offset,(ssize_t) y_offset);
+          x_offset,(ssize_t) y_offset,exception);
+        composite_image=DestroyImage(composite_image);
       }
       /*
         Relinquish resources.
@@ -4508,8 +4532,8 @@ static Image *XGetWindowImage(Display *display,const Window window,
       while (colormap_info != (ColormapInfo *) NULL)
       {
         next=colormap_info->next;
-        colormap_info->colors=(XColor *)
-          RelinquishMagickMemory(colormap_info->colors);
+        colormap_info->colors=(XColor *) RelinquishMagickMemory(
+          colormap_info->colors);
         colormap_info=(ColormapInfo *) RelinquishMagickMemory(colormap_info);
         colormap_info=next;
       }
@@ -4563,7 +4587,7 @@ static Image *XGetWindowImage(Display *display,const Window window,
 %    o resource_info: Specifies a pointer to a X11 XResourceInfo structure.
 %
 */
-MagickExport void XGetWindowInfo(Display *display,XVisualInfo *visual_info,
+MagickPrivate void XGetWindowInfo(Display *display,XVisualInfo *visual_info,
   XStandardColormap *map_info,XPixelInfo *pixel,XFontStruct *font_info,
   XResourceInfo *resource_info,XWindowInfo *window)
 {
@@ -4713,7 +4737,7 @@ MagickExport void XGetWindowInfo(Display *display,XVisualInfo *visual_info,
 %      contains the extents of any highlighting rectangle.
 %
 */
-MagickExport void XHighlightEllipse(Display *display,Window window,
+MagickPrivate void XHighlightEllipse(Display *display,Window window,
   GC annotate_context,const RectangleInfo *highlight_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -4763,7 +4787,7 @@ MagickExport void XHighlightEllipse(Display *display,Window window,
 %      contains the extents of any highlighting rectangle.
 %
 */
-MagickExport void XHighlightLine(Display *display,Window window,
+MagickPrivate void XHighlightLine(Display *display,Window window,
   GC annotate_context,const XSegment *highlight_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -4807,7 +4831,7 @@ MagickExport void XHighlightLine(Display *display,Window window,
 %      contains the extents of any highlighting rectangle.
 %
 */
-MagickExport void XHighlightRectangle(Display *display,Window window,
+MagickPrivate void XHighlightRectangle(Display *display,Window window,
   GC annotate_context,const RectangleInfo *highlight_info)
 {
   assert(display != (Display *) NULL);
@@ -4840,7 +4864,8 @@ MagickExport void XHighlightRectangle(Display *display,Window window,
 %
 %  The format of the XImportImage method is:
 %
-%      Image *XImportImage(const ImageInfo *image_info,XImportInfo *ximage_info)
+%      Image *XImportImage(const ImageInfo *image_info,XImportInfo *ximage_info,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -4848,9 +4873,11 @@ MagickExport void XHighlightRectangle(Display *display,Window window,
 %
 %    o ximage_info: Specifies a pointer to an XImportInfo structure.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport Image *XImportImage(const ImageInfo *image_info,
-  XImportInfo *ximage_info)
+  XImportInfo *ximage_info,ExceptionInfo *exception)
 {
   Colormap
     *colormaps;
@@ -4974,7 +5001,6 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
           if ((ximage_info->frame == MagickFalse) &&
               (prior_target != MagickFalse))
             target=prior_target;
-          XDelay(display,SuspendTime << 4);
         }
     }
   if (ximage_info->screen)
@@ -5043,7 +5069,7 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
   */
   (void) XGrabServer(display);
   image=XGetWindowImage(display,target,ximage_info->borders,
-    ximage_info->descend ? 1U : 0U);
+    ximage_info->descend ? 1U : 0U,exception);
   (void) XUngrabServer(display);
   if (image == (Image *) NULL)
     ThrowXWindowFatalException(XServerError,"UnableToReadXWindowImage",
@@ -5061,10 +5087,10 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
           /*
             Crop image as defined by the cropping rectangle.
           */
-          clone_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+          clone_image=CloneImage(image,0,0,MagickTrue,exception);
           if (clone_image != (Image *) NULL)
             {
-              crop_image=CropImage(clone_image,&crop_info,&image->exception);
+              crop_image=CropImage(clone_image,&crop_info,exception);
               if (crop_image != (Image *) NULL)
                 {
                   image=DestroyImage(image);
@@ -5122,7 +5148,7 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
 %    o resource_info: Specifies a pointer to a X11 XResourceInfo structure.
 %
 */
-MagickExport XWindows *XInitializeWindows(Display *display,
+MagickPrivate XWindows *XInitializeWindows(Display *display,
   XResourceInfo *resource_info)
 {
   Window
@@ -5319,7 +5345,7 @@ MagickExport XWindows *XInitializeWindows(Display *display,
 %    o foreground_color: Specifies the color to use for the cursor foreground.
 %
 */
-MagickExport Cursor XMakeCursor(Display *display,Window window,
+MagickPrivate Cursor XMakeCursor(Display *display,Window window,
   Colormap colormap,char *background_color,char *foreground_color)
 {
 #define scope_height 17
@@ -5398,7 +5424,7 @@ MagickExport Cursor XMakeCursor(Display *display,Window window,
 %
 %      MagickBooleanType XMakeImage(Display *display,
 %        const XResourceInfo *resource_info,XWindowInfo *window,Image *image,
-%        unsigned int width,unsigned int height)
+%        unsigned int width,unsigned int height,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -5417,10 +5443,12 @@ MagickExport Cursor XMakeCursor(Display *display,Window window,
 %    o height: Specifies the height in pixels of the rectangular area to
 %      display.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType XMakeImage(Display *display,
+MagickPrivate MagickBooleanType XMakeImage(Display *display,
   const XResourceInfo *resource_info,XWindowInfo *window,Image *image,
-  unsigned int width,unsigned int height)
+  unsigned int width,unsigned int height,ExceptionInfo *exception)
 {
 #define CheckOverflowException(length,width,height) \
   (((height) != 0) && ((length)/((size_t) height) != ((size_t) width)))
@@ -5470,8 +5498,8 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
           window->image->page.x=0;
           window->image->page.y=0;
           (void) ParsePageGeometry(window->image,window->crop_geometry,
-            &crop_info,&image->exception);
-          crop_image=CropImage(window->image,&crop_info,&image->exception);
+            &crop_info,exception);
+          crop_image=CropImage(window->image,&crop_info,exception);
           if (crop_image != (Image *) NULL)
             {
               if (window->image != image)
@@ -5491,11 +5519,9 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
           */
           resize_image=NewImageList();
           if (window->pixel_info->colors != 0)
-            resize_image=SampleImage(window->image,width,height,
-              &image->exception);
+            resize_image=SampleImage(window->image,width,height,exception);
           else
-            resize_image=ThumbnailImage(window->image,width,height,
-              &image->exception);
+            resize_image=ThumbnailImage(window->image,width,height,exception);
           if (resize_image != (Image *) NULL)
             {
               if (window->image != image)
@@ -5757,10 +5783,10 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
       if ((ximage->byte_order == LSBFirst) || ((ximage->format == XYBitmap) &&
           (ximage->bitmap_bit_order == LSBFirst)))
         XMakeImageLSBFirst(resource_info,window,window->image,ximage,
-          matte_image);
+          matte_image,exception);
       else
         XMakeImageMSBFirst(resource_info,window,window->image,ximage,
-          matte_image);
+          matte_image,exception);
     }
   if (window->matte_image != (XImage *) NULL)
     {
@@ -5820,7 +5846,8 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
 %
 %  The format of the XMakeImageLSBFirst method is:
 %
-%      void XMakeImageLSBFirst(Display *display,XWindows *windows)
+%      void XMakeImageLSBFirst(Display *display,XWindows *windows,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -5836,9 +5863,12 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
 %    o matte_image: Specifies a pointer to a XImage structure;  returned from
 %      XCreateImage.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
-  const XWindowInfo *window,Image *image,XImage *ximage,XImage *matte_image)
+  const XWindowInfo *window,Image *image,XImage *ximage,XImage *matte_image,
+  ExceptionInfo *exception)
 {
   CacheView
     *canvas_view;
@@ -5898,13 +5928,14 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
       (void) FormatLocaleString(size,MaxTextExtent,"%.20gx%.20g",(double)
         image->columns,(double) image->rows);
       image_info->size=ConstantString(size);
-      pattern=ReadImage(image_info,&image->exception);
+      pattern=ReadImage(image_info,exception);
       image_info=DestroyImageInfo(image_info);
       if (pattern != (Image *) NULL)
         {
-          canvas=CloneImage(image,0,0,MagickTrue,&image->exception);
+          canvas=CloneImage(image,0,0,MagickTrue,exception);
           if (canvas != (Image *) NULL)
-            (void) CompositeImage(canvas,DstOverCompositeOp,pattern,0,0);
+            (void) CompositeImage(canvas,DstOverCompositeOp,pattern,0,0,
+              exception);
           pattern=DestroyImage(pattern);
         }
     }
@@ -5933,15 +5964,15 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
       foreground=(unsigned char)
         (XPixelIntensity(&window->pixel_info->background_color) <
          XPixelIntensity(&window->pixel_info->foreground_color) ? 0x80 : 0x00);
-      polarity=(unsigned short) ((GetPixelPacketIntensity(
+      polarity=(unsigned short) ((GetPixelInfoIntensity(
         &canvas->colormap[0])) < ((Quantum) QuantumRange/2) ? 1 : 0);
       if (canvas->colors == 2)
-        polarity=GetPixelPacketIntensity(&canvas->colormap[0]) <
-          GetPixelPacketIntensity(&canvas->colormap[1]);
+        polarity=GetPixelInfoIntensity(&canvas->colormap[0]) <
+          GetPixelInfoIntensity(&canvas->colormap[1]);
       for (y=0; y < (int) canvas->rows; y++)
       {
         p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,canvas->columns,1,
-          &canvas->exception);
+          exception);
         if (p == (const Quantum *) NULL)
           break;
         bit=0;
@@ -5982,7 +6013,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6034,7 +6065,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6072,13 +6103,13 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           if (resource_info->color_recovery &&
               resource_info->quantize_info->dither)
             {
-              XDitherImage(canvas,ximage);
+              XDitherImage(canvas,ximage,exception);
               break;
             }
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
@@ -6109,7 +6140,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
@@ -6144,7 +6175,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           {
             nibble=0;
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
@@ -6196,7 +6227,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6235,13 +6266,13 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
           if (resource_info->color_recovery &&
               resource_info->quantize_info->dither)
             {
-              XDitherImage(canvas,ximage);
+              XDitherImage(canvas,ximage,exception);
               break;
             }
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
@@ -6267,7 +6298,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
               for (y=0; y < (int) canvas->rows; y++)
               {
                 p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                  canvas->columns,1,&canvas->exception);
+                  canvas->columns,1,exception);
                 if (p == (const Quantum *) NULL)
                   break;
                 if ((red_gamma != 1.0) || (green_gamma != 1.0) ||
@@ -6314,7 +6345,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
                 for (y=0; y < (int) canvas->rows; y++)
                 {
                   p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                    canvas->columns,1,&canvas->exception);
+                    canvas->columns,1,exception);
                   if (p == (const Quantum *) NULL)
                     break;
                   if ((red_gamma != 1.0) || (green_gamma != 1.0) ||
@@ -6367,7 +6398,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
                 for (y=0; y < (int) canvas->rows; y++)
                 {
                   p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                    canvas->columns,1,&canvas->exception);
+                    canvas->columns,1,exception);
                   if (p == (const Quantum *) NULL)
                     break;
                   for (x=0; x < (int) canvas->columns; x++)
@@ -6399,7 +6430,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
       for (y=0; y < (int) canvas->rows; y++)
       {
         p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,canvas->columns,1,
-          &canvas->exception);
+          exception);
         if (p == (const Quantum *) NULL)
           break;
         bit=0;
@@ -6447,7 +6478,8 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
 %
 %  The format of the XMakeImageMSBFirst method is:
 %
-%      XMakeImageMSBFirst(resource_info,window,image,ximage,matte_image)
+%      XMakeImageMSBFirst(resource_info,window,image,ximage,matte_image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -6463,9 +6495,12 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
 %    o matte_image: Specifies a pointer to a XImage structure;  returned from
 %      XCreateImage.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
-  const XWindowInfo *window,Image *image,XImage *ximage,XImage *matte_image)
+  const XWindowInfo *window,Image *image,XImage *ximage,XImage *matte_image,
+  ExceptionInfo *exception)
 {
   CacheView
     *canvas_view;
@@ -6525,13 +6560,14 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
       (void) FormatLocaleString(size,MaxTextExtent,"%.20gx%.20g",(double)
         image->columns,(double) image->rows);
       image_info->size=ConstantString(size);
-      pattern=ReadImage(image_info,&image->exception);
+      pattern=ReadImage(image_info,exception);
       image_info=DestroyImageInfo(image_info);
       if (pattern != (Image *) NULL)
         {
-          canvas=CloneImage(image,0,0,MagickTrue,&image->exception);
+          canvas=CloneImage(image,0,0,MagickTrue,exception);
           if (canvas != (Image *) NULL)
-            (void) CompositeImage(canvas,DstOverCompositeOp,pattern,0,0);
+            (void) CompositeImage(canvas,DstOverCompositeOp,pattern,0,0,
+              exception);
           pattern=DestroyImage(pattern);
         }
     }
@@ -6560,15 +6596,15 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
       foreground=(unsigned char)
         (XPixelIntensity(&window->pixel_info->background_color) <
          XPixelIntensity(&window->pixel_info->foreground_color) ?  0x01 : 0x00);
-      polarity=(unsigned short) ((GetPixelPacketIntensity(
+      polarity=(unsigned short) ((GetPixelInfoIntensity(
         &canvas->colormap[0])) < ((Quantum) QuantumRange/2) ? 1 : 0);
       if (canvas->colors == 2)
-        polarity=GetPixelPacketIntensity(&canvas->colormap[0]) <
-          GetPixelPacketIntensity(&canvas->colormap[1]);
+        polarity=GetPixelInfoIntensity(&canvas->colormap[0]) <
+          GetPixelInfoIntensity(&canvas->colormap[1]);
       for (y=0; y < (int) canvas->rows; y++)
       {
         p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,canvas->columns,1,
-          &canvas->exception);
+          exception);
         if (p == (const Quantum *) NULL)
           break;
         bit=0;
@@ -6609,7 +6645,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6662,7 +6698,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6701,19 +6737,18 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           if (resource_info->color_recovery &&
               resource_info->quantize_info->dither)
             {
-              XDitherImage(canvas,ximage);
+              XDitherImage(canvas,ximage,exception);
               break;
             }
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
             {
-              pixel=pixels[(ssize_t)
-                GetPixelIndex(canvas,p)];
+              pixel=pixels[(ssize_t) GetPixelIndex(canvas,p)];
               *q++=(unsigned char) pixel;
               p+=GetPixelChannels(canvas);
             }
@@ -6739,7 +6774,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (int) canvas->columns; x++)
@@ -6774,7 +6809,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6827,7 +6862,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             nibble=0;
@@ -6866,13 +6901,13 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           if (resource_info->color_recovery &&
               resource_info->quantize_info->dither)
             {
-              XDitherImage(canvas,ximage);
+              XDitherImage(canvas,ximage,exception);
               break;
             }
           for (y=0; y < (int) canvas->rows; y++)
           {
             p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-              canvas->columns,1,&canvas->exception);
+              canvas->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=(int) canvas->columns-1; x >= 0; x--)
@@ -6898,7 +6933,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
               for (y=0; y < (int) canvas->rows; y++)
               {
                 p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                  canvas->columns,1,&canvas->exception);
+                  canvas->columns,1,exception);
                 if (p == (const Quantum *) NULL)
                   break;
                 if ((red_gamma != 1.0) || (green_gamma != 1.0) ||
@@ -6945,7 +6980,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
                 for (y=0; y < (int) canvas->rows; y++)
                 {
                   p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                    canvas->columns,1,&canvas->exception);
+                    canvas->columns,1,exception);
                   if (p == (const Quantum *) NULL)
                     break;
                   if ((red_gamma != 1.0) || (green_gamma != 1.0) ||
@@ -6998,7 +7033,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
                 for (y=0; y < (int) canvas->rows; y++)
                 {
                   p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,
-                    canvas->columns,1,&canvas->exception);
+                    canvas->columns,1,exception);
                   if (p == (const Quantum *) NULL)
                     break;
                   for (x=(int) canvas->columns-1; x >= 0; x--)
@@ -7030,7 +7065,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
       for (y=0; y < (int) canvas->rows; y++)
       {
         p=GetCacheViewVirtualPixels(canvas_view,0,(ssize_t) y,canvas->columns,1,
-          &canvas->exception);
+          exception);
         if (p == (const Quantum *) NULL)
           break;
         bit=0;
@@ -7074,7 +7109,8 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
 %
 %  The format of the XMakeMagnifyImage method is:
 %
-%      void XMakeMagnifyImage(display,windows)
+%      void XMakeMagnifyImage(Display *display,XWindows *windows,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -7083,8 +7119,11 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
 %
 %    o windows: Specifies a pointer to a XWindows structure.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport void XMakeMagnifyImage(Display *display,XWindows *windows)
+MagickPrivate void XMakeMagnifyImage(Display *display,XWindows *windows,
+  ExceptionInfo *exception)
 {
   char
     tuple[MaxTextExtent];
@@ -7475,9 +7514,8 @@ MagickExport void XMakeMagnifyImage(Display *display,XWindows *windows)
   /*
     Show center pixel color.
   */
-  (void) GetOneVirtualMagickPixel(windows->image.image,(ssize_t)
-    windows->magnify.x,(ssize_t) windows->magnify.y,&pixel,
-    &windows->image.image->exception);
+  (void) GetOneVirtualPixelInfo(windows->image.image,TileVirtualPixelMethod,
+    (ssize_t) windows->magnify.x,(ssize_t) windows->magnify.y,&pixel,exception);
   (void) FormatLocaleString(tuple,MaxTextExtent,"%d,%d: ",
     windows->magnify.x,windows->magnify.y);
   (void) ConcatenateMagickString(tuple,"(",MaxTextExtent);
@@ -7507,8 +7545,8 @@ MagickExport void XMakeMagnifyImage(Display *display,XWindows *windows)
   y+=height;
   (void) XDrawImageString(display,windows->magnify.pixmap,
     windows->magnify.annotate_context,x,y,tuple,(int) strlen(tuple));
-  (void) QueryMagickColorname(windows->image.image,&pixel,SVGCompliance,tuple,
-     &windows->image.image->exception);
+  (void) QueryColorname(windows->image.image,&pixel,SVGCompliance,tuple,
+    exception);
   y+=height;
   (void) XDrawImageString(display,windows->magnify.pixmap,
     windows->magnify.annotate_context,x,y,tuple,(int) strlen(tuple));
@@ -7631,8 +7669,9 @@ static MagickBooleanType XMakePixmap(Display *display,
 %
 %  The format of the XMakeStandardColormap method is:
 %
-%      XMakeStandardColormap(display,visual_info,resource_info,image,
-%        map_info,pixel)
+%      void XMakeStandardColormap(Display *display,XVisualInfo *visual_info,
+%        XResourceInfo *resource_info,Image *image,XStandardColormap *map_info,
+%        XPixelInfo *pixel,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -7650,6 +7689,8 @@ static MagickBooleanType XMakePixmap(Display *display,
 %      initialized with info from the Standard Colormap.
 %
 %    o pixel: Specifies a pointer to a XPixelInfo structure.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -7704,15 +7745,12 @@ static inline Quantum ScaleXToQuantum(const size_t x,
   return((Quantum) (((MagickRealType) QuantumRange*x)/scale+0.5));
 }
 
-MagickExport void XMakeStandardColormap(Display *display,
+MagickPrivate void XMakeStandardColormap(Display *display,
   XVisualInfo *visual_info,XResourceInfo *resource_info,Image *image,
-  XStandardColormap *map_info,XPixelInfo *pixel)
+  XStandardColormap *map_info,XPixelInfo *pixel,ExceptionInfo *exception)
 {
   Colormap
     colormap;
-
-  ExceptionInfo
-    *exception;
 
   register ssize_t
     i;
@@ -7738,7 +7776,6 @@ MagickExport void XMakeStandardColormap(Display *display,
   assert(map_info != (XStandardColormap *) NULL);
   assert(resource_info != (XResourceInfo *) NULL);
   assert(pixel != (XPixelInfo *) NULL);
-  exception=(&image->exception);
   if (resource_info->map_type != (char *) NULL)
     {
       /*
@@ -7763,7 +7800,7 @@ MagickExport void XMakeStandardColormap(Display *display,
             /*
               Improve image appearance with error diffusion.
             */
-            affinity_image=AcquireImage((ImageInfo *) NULL);
+            affinity_image=AcquireImage((ImageInfo *) NULL,exception);
             if (affinity_image == (Image *) NULL)
               ThrowXWindowFatalException(ResourceLimitFatalError,
                 "UnableToDitherImage",image->filename);
@@ -7799,11 +7836,11 @@ MagickExport void XMakeStandardColormap(Display *display,
                 }
                 (void) SyncAuthenticPixels(affinity_image,exception);
                 (void) RemapImage(resource_info->quantize_info,image,
-                  affinity_image);
+                  affinity_image,exception);
               }
             XGetPixelInfo(display,visual_info,map_info,resource_info,image,
               pixel);
-            (void) SetImageStorageClass(image,DirectClass);
+            (void) SetImageStorageClass(image,DirectClass,exception);
             affinity_image=DestroyImage(affinity_image);
           }
       if (IsEventLogging())
@@ -7834,7 +7871,7 @@ MagickExport void XMakeStandardColormap(Display *display,
         */
         quantize_info=(*resource_info->quantize_info);
         quantize_info.number_colors=(size_t) visual_info->colormap_size;
-        (void) QuantizeImage(&quantize_info,image);
+        (void) QuantizeImage(&quantize_info,image,exception);
       }
   /*
     Free previous and create new colormap.
@@ -7961,9 +7998,9 @@ MagickExport void XMakeStandardColormap(Display *display,
               "UnableToCreateColormap",image->filename);
           for (i=0; i < (ssize_t) image->colors; i++)
           {
-            diversity[i].red=image->colormap[i].red;
-            diversity[i].green=image->colormap[i].green;
-            diversity[i].blue=image->colormap[i].blue;
+            diversity[i].red=ClampToQuantum(image->colormap[i].red);
+            diversity[i].green=ClampToQuantum(image->colormap[i].green);
+            diversity[i].blue=ClampToQuantum(image->colormap[i].blue);
             diversity[i].index=(unsigned short) i;
             diversity[i].count=0;
           }
@@ -8320,7 +8357,7 @@ MagickExport void XMakeStandardColormap(Display *display,
 %    o window_info: Specifies a pointer to a X11 XWindowInfo structure.
 %
 */
-MagickExport void XMakeWindow(Display *display,Window parent,char **argv,
+MagickPrivate void XMakeWindow(Display *display,Window parent,char **argv,
   int argc,XClassHint *class_hint,XWMHints *manager_hints,
   XWindowInfo *window_info)
 {
@@ -8597,7 +8634,7 @@ static const char *GetLocaleMonitorMessage(const char *text)
   return(locale_message);
 }
 
-MagickExport MagickBooleanType XMagickProgressMonitor(const char *tag,
+MagickPrivate MagickBooleanType XMagickProgressMonitor(const char *tag,
   const MagickOffsetType quantum,const MagickSizeType span,
   void *magick_unused(client_data))
 {
@@ -8624,22 +8661,22 @@ MagickExport MagickBooleanType XMagickProgressMonitor(const char *tag,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  XQueryColorDatabase() looks up a RGB values for a color given in the target
+%  XQueryColorCompliance() looks up a RGB values for a color given in the target
 %  string.
 %
 %  The format of the XQueryColorDatabase method is:
 %
-%      MagickBooleanType XQueryColorDatabase(const char *target,XColor *color)
+%      MagickBooleanType XQueryColorCompliance(const char *target,XColor *color)
 %
 %  A description of each parameter follows:
 %
 %    o target: Specifies the color to lookup in the X color database.
 %
-%    o color: A pointer to an PixelPacket structure.  The RGB value of the target
+%    o color: A pointer to an PixelInfo structure.  The RGB value of the target
 %      color is returned as this value.
 %
 */
-MagickExport MagickBooleanType XQueryColorDatabase(const char *target,
+MagickPrivate MagickBooleanType XQueryColorCompliance(const char *target,
   XColor *color)
 {
   Colormap
@@ -8719,7 +8756,7 @@ MagickExport MagickBooleanType XQueryColorDatabase(const char *target,
 %      window.
 %
 */
-MagickExport void XQueryPosition(Display *display,const Window window,int *x,int *y)
+MagickPrivate void XQueryPosition(Display *display,const Window window,int *x,int *y)
 {
   int
     x_root,
@@ -8769,7 +8806,7 @@ MagickExport void XQueryPosition(Display *display,const Window window,int *x,int
 %      the entire image is refreshed.
 %
 */
-MagickExport void XRefreshWindow(Display *display,const XWindowInfo *window,
+MagickPrivate void XRefreshWindow(Display *display,const XWindowInfo *window,
   const XEvent *event)
 {
   int
@@ -9200,7 +9237,7 @@ static Window XSelectWindow(Display *display,RectangleInfo *crop_info)
 %      to busy, otherwise the cursor are reset to their default.
 %
 */
-MagickExport void XSetCursorState(Display *display,XWindows *windows,
+MagickPrivate void XSetCursorState(Display *display,XWindows *windows,
   const MagickStatusType state)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -9256,7 +9293,7 @@ MagickExport void XSetCursorState(Display *display,XWindows *windows,
 %    o windows_info: Initialize the Windows structure with this information.
 %
 */
-MagickExport XWindows *XSetWindows(XWindows *windows_info)
+MagickPrivate XWindows *XSetWindows(XWindows *windows_info)
 {
   static XWindows
     *windows = (XWindows *) NULL;
@@ -9291,7 +9328,7 @@ MagickExport XWindows *XSetWindows(XWindows *windows_info)
 %    o resource_info: Specifies a pointer to a X11 XResourceInfo structure.
 %
 */
-MagickExport void XUserPreferences(XResourceInfo *resource_info)
+MagickPrivate void XUserPreferences(XResourceInfo *resource_info)
 {
 #if defined(X11_PREFERENCES_PATH)
   char
@@ -9418,7 +9455,7 @@ static const char *XVisualClassName(const int visual_class)
 %    o description: Specifies any description to the reason.
 %
 */
-MagickExport void XWarning(const ExceptionType magick_unused(warning),
+MagickPrivate void XWarning(const ExceptionType magick_unused(warning),
   const char *reason,const char *description)
 {
   char
@@ -9465,7 +9502,7 @@ MagickExport void XWarning(const ExceptionType magick_unused(warning),
 %    o id: Specifies the id of the window to locate.
 %
 */
-MagickExport Window XWindowByID(Display *display,const Window root_window,
+MagickPrivate Window XWindowByID(Display *display,const Window root_window,
   const size_t id)
 {
   RectangleInfo
@@ -9543,7 +9580,7 @@ MagickExport Window XWindowByID(Display *display,const Window root_window,
 %    o name: Specifies the name of the window to locate.
 %
 */
-MagickExport Window XWindowByName(Display *display,const Window root_window,
+MagickPrivate Window XWindowByName(Display *display,const Window root_window,
   const char *name)
 {
   register int
@@ -9620,7 +9657,7 @@ MagickExport Window XWindowByName(Display *display,const Window root_window,
 %    o property: Specifies the property of the window to locate.
 %
 */
-MagickExport Window XWindowByProperty(Display *display,const Window window,
+MagickPrivate Window XWindowByProperty(Display *display,const Window window,
   const Atom property)
 {
   Atom
@@ -9690,7 +9727,8 @@ MagickExport Window XWindowByProperty(Display *display,const Window window,
 %
 %  The format of the XImportImage method is:
 %
-%      Image *XImportImage(const ImageInfo *image_info,XImportInfo *ximage_info)
+%      Image *XImportImage(const ImageInfo *image_info,XImportInfo *ximage_info,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -9698,9 +9736,11 @@ MagickExport Window XWindowByProperty(Display *display,const Window window,
 %
 %    o ximage_info: Specifies a pointer to an XImportInfo structure.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport Image *XImportImage(const ImageInfo *image_info,
-  XImportInfo *ximage_info)
+MagickPrivate Image *XImportImage(const ImageInfo *image_info,
+  XImportInfo *ximage_info,ExceptionInfo *exception)
 {
   assert(image_info != (const ImageInfo *) NULL);
   assert(image_info->signature == MagickSignature);
@@ -9708,6 +9748,8 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
   assert(ximage_info != (XImportInfo *) NULL);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
   return((Image *) NULL);
 }
 #endif
@@ -9730,7 +9772,7 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
 %      MagickBooleanType XComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType XComponentGenesis(void)
+MagickPrivate MagickBooleanType XComponentGenesis(void)
 {
   return(MagickTrue);
 }

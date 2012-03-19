@@ -18,7 +18,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -127,7 +127,7 @@ static Image *ReadMACImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -146,7 +146,7 @@ static Image *ReadMACImage(const ImageInfo *image_info,ExceptionInfo *exception)
   image->columns=576;
   image->rows=720;
   image->depth=1;
-  if (AcquireImageColormap(image,2) == MagickFalse)
+  if (AcquireImageColormap(image,2,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   if (image_info->ping != MagickFalse)
     {
@@ -179,7 +179,7 @@ static Image *ReadMACImage(const ImageInfo *image_info,ExceptionInfo *exception)
           if (offset >= (ssize_t) length)
             {
               q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-              if (q == (const Quantum *) NULL)
+              if (q == (Quantum *) NULL)
                 break;
               p=pixels;
               bit=0;
@@ -214,7 +214,7 @@ static Image *ReadMACImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (offset >= (ssize_t) length)
         {
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           p=pixels;
           bit=0;

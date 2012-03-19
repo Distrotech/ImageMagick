@@ -24,7 +24,7 @@
 %                                March 2002                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -83,7 +83,7 @@ static MagickBooleanType ScribbleImage (MagickWand *canvas)
     (void) PixelSetColor(color,"#ffffff");
     DrawSetFillColor(picasso,color);
     DrawRectangle(picasso,23.69,22.97,564.6,802.2);
-    DrawSetFillOpacity(picasso,1.0);
+    DrawSetFillAlpha(picasso,1.0);
     (void) PixelSetColor(color,"none");
     DrawSetFillColor(picasso,color);
     DrawSetStrokeColor(picasso,color);

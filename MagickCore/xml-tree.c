@@ -23,7 +23,7 @@
 %                               December 2004                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -58,7 +58,9 @@
 #include "MagickCore/string-private.h"
 #include "MagickCore/token-private.h"
 #include "MagickCore/xml-tree.h"
+#include "MagickCore/xml-tree-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 /*
   Define declarations.
@@ -207,7 +209,7 @@ MagickExport XMLTreeInfo *AddChildToXMLTree(XMLTreeInfo *xml_info,
 %    o offset: the tag offset.
 %
 */
-MagickExport XMLTreeInfo *AddPathToXMLTree(XMLTreeInfo *xml_info,
+MagickPrivate XMLTreeInfo *AddPathToXMLTree(XMLTreeInfo *xml_info,
   const char *path,const size_t offset)
 {
   char
@@ -291,7 +293,7 @@ MagickExport XMLTreeInfo *AddPathToXMLTree(XMLTreeInfo *xml_info,
 %      entities.
 %
 */
-MagickExport char *CanonicalXMLContent(const char *content,
+MagickPrivate char *CanonicalXMLContent(const char *content,
   const MagickBooleanType pedantic)
 {
   char
@@ -650,7 +652,7 @@ MagickExport const char *GetXMLTreeAttribute(XMLTreeInfo *xml_info,
 %    o attributes: the attribute splay-tree.
 %
 */
-MagickExport MagickBooleanType GetXMLTreeAttributes(const XMLTreeInfo *xml_info,
+MagickPrivate MagickBooleanType GetXMLTreeAttributes(const XMLTreeInfo *xml_info,
   SplayTreeInfo *attributes)
 {
   register ssize_t
@@ -767,7 +769,7 @@ MagickExport const char *GetXMLTreeContent(XMLTreeInfo *xml_info)
 %    o xml_info: the xml info.
 %
 */
-MagickExport XMLTreeInfo *GetXMLTreeOrdered(XMLTreeInfo *xml_info)
+MagickPrivate XMLTreeInfo *GetXMLTreeOrdered(XMLTreeInfo *xml_info)
 {
   assert(xml_info != (XMLTreeInfo *) NULL);
   assert((xml_info->signature == MagickSignature) ||
@@ -801,7 +803,7 @@ MagickExport XMLTreeInfo *GetXMLTreeOrdered(XMLTreeInfo *xml_info)
 %    o path: the path (e.g. property/elapsed-time).
 %
 */
-MagickExport XMLTreeInfo *GetXMLTreePath(XMLTreeInfo *xml_info,const char *path)
+MagickPrivate XMLTreeInfo *GetXMLTreePath(XMLTreeInfo *xml_info,const char *path)
 {
   char
     **components,
@@ -875,7 +877,7 @@ MagickExport XMLTreeInfo *GetXMLTreePath(XMLTreeInfo *xml_info,const char *path)
 %    o xml_info: the xml info.
 %
 */
-MagickExport const char **GetXMLTreeProcessingInstructions(
+MagickPrivate const char **GetXMLTreeProcessingInstructions(
   XMLTreeInfo *xml_info,const char *target)
 {
   register ssize_t
@@ -990,7 +992,7 @@ MagickExport const char *GetXMLTreeTag(XMLTreeInfo *xml_info)
 %    o offset: the tag offset.
 %
 */
-MagickExport XMLTreeInfo *InsertTagIntoXMLTree(XMLTreeInfo *xml_info,
+MagickPrivate XMLTreeInfo *InsertTagIntoXMLTree(XMLTreeInfo *xml_info,
   XMLTreeInfo *child,const size_t offset)
 {
   XMLTreeInfo
@@ -1766,8 +1768,9 @@ MagickExport XMLTreeInfo *NewXMLTree(const char *xml,ExceptionInfo *exception)
   {
     attributes=(char **) sentinel;
     tag=p;
+    c=(*p);
     if ((isalpha((int) ((unsigned char) *p)) !=0) || (*p == '_') ||
-        (*p == ':') || (((int) *p) < '\0'))
+        (*p == ':') || (c < '\0'))
       {
         /*
           Tag.
@@ -2131,7 +2134,7 @@ MagickExport XMLTreeInfo *NewXMLTreeTag(const char *tag)
 %    o xml_info: the xml info.
 %
 */
-MagickExport XMLTreeInfo *PruneTagFromXMLTree(XMLTreeInfo *xml_info)
+MagickPrivate XMLTreeInfo *PruneTagFromXMLTree(XMLTreeInfo *xml_info)
 {
   XMLTreeInfo
     *node;
@@ -2204,7 +2207,7 @@ MagickExport XMLTreeInfo *PruneTagFromXMLTree(XMLTreeInfo *xml_info)
 %    o value:  The attribute value.
 %
 */
-MagickExport XMLTreeInfo *SetXMLTreeAttribute(XMLTreeInfo *xml_info,
+MagickPrivate XMLTreeInfo *SetXMLTreeAttribute(XMLTreeInfo *xml_info,
   const char *tag,const char *value)
 {
   register ssize_t

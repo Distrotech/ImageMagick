@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -36,13 +36,11 @@ extern MagickExport char
 extern MagickExport MagickBooleanType
   DefineImageRegistry(const RegistryType,const char *,ExceptionInfo *),
   DeleteImageRegistry(const char *),
-  RegistryComponentGenesis(void),
   SetImageRegistry(const RegistryType,const char *,const void *,
     ExceptionInfo *);
 
 extern MagickExport void
   *GetImageRegistry(const RegistryType,const char *,ExceptionInfo *),
-  RegistryComponentTerminus(void),
   *RemoveImageRegistry(const char *),
   ResetImageRegistryIterator(void);
 

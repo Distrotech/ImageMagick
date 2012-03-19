@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -166,7 +166,7 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -202,9 +202,9 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   separations_mask=ReadBlobMSBShort(image);
   count=ReadBlob(image,14,buffer);
   buffer[14]='\0';
-  height=InterpretLocaleValue((char *) buffer,(char **) NULL);
+  height=StringToDouble((char *) buffer,(char **) NULL);
   count=ReadBlob(image,14,buffer);
-  width=InterpretLocaleValue((char *) buffer,(char **) NULL);
+  width=StringToDouble((char *) buffer,(char **) NULL);
   count=ReadBlob(image,12,buffer);
   buffer[12]='\0';
   image->rows=StringToUnsignedLong((char *) buffer);
@@ -214,8 +214,8 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   count=ReadBlob(image,768,buffer);
   if (separations_mask == 0x0f)
     image->colorspace=CMYKColorspace;
-  image->x_resolution=1.0*image->columns/width;
-  image->y_resolution=1.0*image->rows/height;
+  image->resolution.x=1.0*image->columns/width;
+  image->resolution.y=1.0*image->rows/height;
   if (image_info->ping != MagickFalse)
     {
       (void) CloseBlob(image);
@@ -229,7 +229,7 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     for (i=0; i < (ssize_t) separations; i++)
     {
       q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
       {

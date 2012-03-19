@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -99,7 +99,7 @@ typedef struct _PCXInfo
   Forward declarations.
 */
 static MagickBooleanType
-  WritePCXImage(const ImageInfo *,Image *);
+  WritePCXImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -278,7 +278,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -347,8 +347,8 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     image->depth=pcx_info.bits_per_pixel <= 8 ? 8U : MAGICKCORE_QUANTUM_DEPTH;
     image->units=PixelsPerInchResolution;
-    image->x_resolution=(double) pcx_info.horizontal_resolution;
-    image->y_resolution=(double) pcx_info.vertical_resolution;
+    image->resolution.x=(double) pcx_info.horizontal_resolution;
+    image->resolution.y=(double) pcx_info.vertical_resolution;
     image->colors=16;
     pcx_colormap=(unsigned char *) AcquireQuantumMemory(256UL,
       3*sizeof(*pcx_colormap));
@@ -363,7 +363,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
           ((pcx_info.bits_per_pixel*pcx_info.planes) == 1))
         image->colors=(size_t) MagickMin(one << (1UL*
           (pcx_info.bits_per_pixel*pcx_info.planes)),256UL);
-    if (AcquireImageColormap(image,image->colors) == MagickFalse)
+    if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
       ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
     if ((pcx_info.bits_per_pixel >= 8) && (pcx_info.planes != 1))
       image->storage_class=DirectClass;
@@ -478,7 +478,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     {
       p=pcx_pixels+(y*pcx_info.bytes_per_line*pcx_info.planes);
       q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         break;
       r=scanline;
       if (image->storage_class == DirectClass)
@@ -623,7 +623,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         }
     }
     if (image->storage_class == PseudoClass)
-      (void) SyncImage(image);
+      (void) SyncImage(image,exception);
     scanline=(unsigned char *) RelinquishMagickMemory(scanline);
     if (pcx_colormap != (unsigned char *) NULL)
       pcx_colormap=(unsigned char *) RelinquishMagickMemory(pcx_colormap);
@@ -653,7 +653,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -761,7 +761,8 @@ ModuleExport void UnregisterPCXImage(void)
 %
 %  The format of the WritePCXImage method is:
 %
-%      MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WritePCXImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -769,8 +770,10 @@ ModuleExport void UnregisterPCXImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
 %
 */
+
 static MagickBooleanType PCXWritePixels(PCXInfo *pcx_info,
   const unsigned char *pixels,Image *image)
 {
@@ -828,7 +831,8 @@ static MagickBooleanType PCXWritePixels(PCXInfo *pcx_info,
   return (MagickTrue);
 }
 
-static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   MagickBooleanType
     status;
@@ -870,11 +874,13 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   page_table=(MagickOffsetType *) NULL;
   if ((LocaleCompare(image_info->magick,"DCX") == 0) ||
       ((GetNextImageInList(image) != (Image *) NULL) &&
@@ -904,7 +910,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
     pcx_info.encoding=image_info->compression == NoCompression ? 0 : 1;
     pcx_info.bits_per_pixel=8;
     if ((image->storage_class == PseudoClass) &&
-        (IsImageMonochrome(image,&image->exception) != MagickFalse))
+        (IsImageMonochrome(image,exception) != MagickFalse))
       pcx_info.bits_per_pixel=1;
     pcx_info.left=0;
     pcx_info.top=0;
@@ -916,16 +922,16 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
       case PixelsPerInchResolution:
       default:
       {
-        pcx_info.horizontal_resolution=(unsigned short) image->x_resolution;
-        pcx_info.vertical_resolution=(unsigned short) image->y_resolution;
+        pcx_info.horizontal_resolution=(unsigned short) image->resolution.x;
+        pcx_info.vertical_resolution=(unsigned short) image->resolution.y;
         break;
       }
       case PixelsPerCentimeterResolution:
       {
         pcx_info.horizontal_resolution=(unsigned short)
-          (2.54*image->x_resolution+0.5);
+          (2.54*image->resolution.x+0.5);
         pcx_info.vertical_resolution=(unsigned short)
-          (2.54*image->y_resolution+0.5);
+          (2.54*image->resolution.y+0.5);
         break;
       }
     }
@@ -993,8 +999,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
         */
         for (y=0; y < (ssize_t) image->rows; y++)
         {
-          pixels=GetVirtualPixels(image,0,y,image->columns,1,
-            &image->exception);
+          pixels=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (pixels == (const Quantum *) NULL)
             break;
           q=pcx_pixels;
@@ -1058,7 +1063,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
         if (pcx_info.bits_per_pixel > 1)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
-            p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+            p=GetVirtualPixels(image,0,y,image->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             q=pcx_pixels;
@@ -1089,15 +1094,14 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
             /*
               Convert PseudoClass image to a PCX monochrome image.
             */
-            polarity=(Quantum) (GetPixelPacketIntensity(
+            polarity=(Quantum) (GetPixelInfoIntensity(
               &image->colormap[0]) < ((Quantum) QuantumRange/2) ? 1 : 0);
             if (image->colors == 2)
-              polarity=(Quantum) (GetPixelPacketIntensity(&image->colormap[0]) <
-                GetPixelPacketIntensity(&image->colormap[1]) ? 1 : 0);
+              polarity=(Quantum) (GetPixelInfoIntensity(&image->colormap[0]) <
+                GetPixelInfoIntensity(&image->colormap[1]) ? 1 : 0);
             for (y=0; y < (ssize_t) image->rows; y++)
             {
-              p=GetVirtualPixels(image,0,y,image->columns,1,
-                &image->exception);
+              p=GetVirtualPixels(image,0,y,image->columns,1,exception);
               if (p == (const Quantum *) NULL)
                 break;
               bit=0;
@@ -1167,8 +1171,8 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image)
         *message;
 
       message=GetExceptionMessage(errno);
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
-        FileOpenError,"UnableToWriteFile","`%s': %s",image->filename,message);
+      (void) ThrowMagickException(exception,GetMagickModule(),FileOpenError,
+        "UnableToWriteFile","`%s': %s",image->filename,message);
       message=DestroyString(message);
     }
   (void) CloseBlob(image);

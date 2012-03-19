@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ extern "C" {
 #define PrependMagickMethod(method) \
   EvaluateMagickPrefix(MAGICKCORE_NAMESPACE_PREFIX,method)
 
-#define AcquireAlignedMemory  PrependMagickMethod(AcquireAlignedMemory)
+#define AcquireQuantumMemory  PrependMagickMethod(AcquireQuantumMemory)
 #define AcquireCacheViewIndexes  PrependMagickMethod(AcquireCacheViewIndexes)
 #define AcquireCacheViewPixels  PrependMagickMethod(AcquireCacheViewPixels)
 #define AcquireCacheView  PrependMagickMethod(AcquireCacheView)
@@ -543,7 +543,7 @@ extern "C" {
 #define GetOneCacheViewVirtualMethodPixel  PrependMagickMethod(GetOneCacheViewVirtualMethodPixel)
 #define GetOneCacheViewVirtualPixel  PrependMagickMethod(GetOneCacheViewVirtualPixel)
 #define GetOnePixel  PrependMagickMethod(GetOnePixel)
-#define GetOneVirtualMagickPixel  PrependMagickMethod(GetOneVirtualMagickPixel)
+#define GetOneVirtualPixelInfo  PrependMagickMethod(GetOneVirtualPixelInfo)
 #define GetOneVirtualMethodPixel  PrependMagickMethod(GetOneVirtualMethodPixel)
 #define GetOneVirtualPixel  PrependMagickMethod(GetOneVirtualPixel)
 #define GetOptimalKernelWidth1D  PrependMagickMethod(GetOptimalKernelWidth1D)
@@ -652,7 +652,7 @@ extern "C" {
 #define IsBlobExempt  PrependMagickMethod(IsBlobExempt)
 #define IsBlobSeekable  PrependMagickMethod(IsBlobSeekable)
 #define IsBlobTemporary  PrependMagickMethod(IsBlobTemporary)
-#define IsFuzzyEquivalencePixelPacket  PrependMagickMethod(IsFuzzyEquivalencePixelPacket)
+#define IsFuzzyEquivalencePixelInfo  PrependMagickMethod(IsFuzzyEquivalencePixelInfo)
 #define IsEventLogging  PrependMagickMethod(IsEventLogging)
 #define IsGeometry  PrependMagickMethod(IsGeometry)
 #define IsGlob  PrependMagickMethod(IsGlob)
@@ -836,9 +836,9 @@ extern "C" {
 #define QuantizeImages  PrependMagickMethod(QuantizeImages)
 #define QueryColorDatabase  PrependMagickMethod(QueryColorDatabase)
 #define QueryColorname  PrependMagickMethod(QueryColorname)
-#define QueryMagickColorname  PrependMagickMethod(QueryMagickColorname)
+#define QueryColorname  PrependMagickMethod(QueryColorname)
 #define QueryMagickColor  PrependMagickMethod(QueryMagickColor)
-#define QueueAuthenticNexus  PrependMagickMethod(QueueAuthenticNexus)
+#define QueueAuthenticPixelCacheNexus  PrependMagickMethod(QueueAuthenticPixelCacheNexus)
 #define QueueAuthenticPixels  PrependMagickMethod(QueueAuthenticPixels)
 #define QueueCacheViewAuthenticPixels  PrependMagickMethod(QueueCacheViewAuthenticPixels)
 #define RadialBlurImage  PrependMagickMethod(RadialBlurImage)
@@ -980,7 +980,7 @@ extern "C" {
 #define RegisterYUVImage  PrependMagickMethod(RegisterYUVImage)
 #define RegistryComponentGenesis  PrependMagickMethod(RegistryComponentGenesis)
 #define RegistryComponentTerminus  PrependMagickMethod(RegistryComponentTerminus)
-#define RelinquishAlignedMemory  PrependMagickMethod(RelinquishAlignedMemory)
+#define RelinquishMagickMemory  PrependMagickMethod(RelinquishMagickMemory)
 #define RelinquishMagickMatrix  PrependMagickMethod(RelinquishMagickMatrix)
 #define RelinquishMagickMemory  PrependMagickMethod(RelinquishMagickMemory)
 #define RelinquishMagickResource  PrependMagickMethod(RelinquishMagickResource)

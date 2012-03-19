@@ -17,7 +17,7 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -53,13 +53,16 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/module.h"
+#include "MagickCore/module-private.h"
 #include "MagickCore/policy.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #if defined(MAGICKCORE_MODULES_SUPPORT)
 #if defined(MAGICKCORE_LTDL_DELEGATE)
 #include "ltdl.h"
@@ -101,6 +104,7 @@ static const ModuleInfo
 
 static MagickBooleanType
   GetMagickModulePath(const char *,MagickModuleType,char *,ExceptionInfo *),
+  InitializeModuleList(ExceptionInfo *),
   UnregisterModule(const ModuleInfo *,ExceptionInfo *);
 
 static void
@@ -750,7 +754,7 @@ static MagickBooleanType GetMagickModulePath(const char *filename,
         case MagickImageCoderModule:
         default:
         {
-          directory="modules";
+          directory="coders";
           break;
         }
         case MagickImageFilterModule:
@@ -859,7 +863,7 @@ static void *DestroyModuleNode(void *module_info)
   return(RelinquishMagickMemory(p));
 }
 
-MagickExport MagickBooleanType InitializeModuleList(
+static MagickBooleanType InitializeModuleList(
   ExceptionInfo *magick_unused(exception))
 {
   if ((module_list == (SplayTreeInfo *) NULL) &&
@@ -1153,7 +1157,7 @@ MagickExport MagickBooleanType ListModuleInfo(FILE *file,
 %      MagickBooleanType ModuleComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType ModuleComponentGenesis(void)
+MagickPrivate MagickBooleanType ModuleComponentGenesis(void)
 {
   ExceptionInfo
     *exception;
@@ -1186,7 +1190,7 @@ MagickExport MagickBooleanType ModuleComponentGenesis(void)
 %      ModuleComponentTerminus(void)
 %
 */
-MagickExport void ModuleComponentTerminus(void)
+MagickPrivate void ModuleComponentTerminus(void)
 {
   if (module_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&module_semaphore);
@@ -1219,7 +1223,7 @@ MagickExport void ModuleComponentTerminus(void)
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport MagickBooleanType OpenModule(const char *module,
+MagickPrivate MagickBooleanType OpenModule(const char *module,
   ExceptionInfo *exception)
 {
   char
@@ -1347,7 +1351,7 @@ MagickExport MagickBooleanType OpenModule(const char *module,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport MagickBooleanType OpenModules(ExceptionInfo *exception)
+MagickPrivate MagickBooleanType OpenModules(ExceptionInfo *exception)
 {
   char
     **modules;

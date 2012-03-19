@@ -100,7 +100,7 @@ push(@$images,$example);
 print "Charcoal...\n";
 $example=$model->Clone();
 $example->Label('Charcoal');
-$example->Charcoal('0x1');
+$example->Charcoal('2x1');
 push(@$images,$example);
 
 print "ColorMatrix...\n";
@@ -130,7 +130,7 @@ push(@$images,$example);
 print "Convolve...\n";
 $example=$model->Clone();
 $example->Label('Convolve');
-$example->Convolve([0.0.125, 0.0.125, 0.0.125, 0.0.125, 1, 0.0.125, 0.0.125, 0.0.125, 0.0.125]);
+$example->Convolve([0.125, 0.125, 0.125, 0.125, 0.5, 0.125, 0.125, 0.125, 0.125]);
 push(@$images,$example);
 
 print "Crop...\n";
@@ -162,7 +162,7 @@ push(@$images,$example);
 print "Detect Edges...\n";
 $example=$model->Clone();
 $example->Label('Detect Edges');
-$example->Edge();
+$example->Edge('2x0.5');
 push(@$images,$example);
 
 print "Emboss...\n";
@@ -247,13 +247,13 @@ push(@$images,$example);
 print "Median Filter...\n";
 $example=$model->Clone();
 $example->Label('Median Filter');
-$example->MedianFilter();
+$example->MedianFilter('4x4');
 push(@$images,$example);
 
 print "Mode...\n";
 $example=$model->Clone();
 $example->Label('Mode');
-$example->Mode();
+$example->Mode('4x4');
 push(@$images,$example);
 
 print "Modulate...\n";
@@ -272,7 +272,7 @@ push(@$images,$example);
 print "Morphology...\n";
 $example=$model->Clone();
 $example->Label('Morphology');
-$example->Morphology(method=>'Dilate',kernel=>'Diamond',iterations=>3);
+$example->Morphology(method=>'Dilate',kernel=>'Diamond',iterations=>2);
 push(@$images,$example);
 
 print "Motion Blur...\n";
@@ -296,7 +296,7 @@ push(@$images,$example);
 print "Oil Paint...\n";
 $example=$model->Clone();
 $example->Label('Oil Paint');
-$example->OilPaint();
+$example->OilPaint('2x0.5');
 push(@$images,$example);
 
 print "Plasma...\n";
@@ -310,7 +310,7 @@ push(@$images,$plasma);
 print "Polaroid...\n";
 $example=$model->Clone();
 $example->Label('Polaroid');
-$example->Polaroid(caption=>'Magick',rotate=>-5.0,gravity=>'center');
+$example->Polaroid(caption=>'Magick',angle=>-5.0,gravity=>'center');
 push(@$images,$example);
 
 print "Posterize...\n";
@@ -340,7 +340,7 @@ push(@$images,$example);
 print "Reduce Noise...\n";
 $example=$model->Clone();
 $example->Label('Reduce Noise');
-$example->ReduceNoise();
+$example->ReduceNoise('2x2');
 push(@$images,$example);
 
 print "Resize...\n";
@@ -434,6 +434,12 @@ $example->Label('Swirl');
 $example->Swirl(90);
 push(@$images,$example);
 
+print "Tint...\n";
+$example=$model->Clone();
+$example->Label('Tint');
+$example->Tint('wheat');
+push(@$images,$example);
+
 print "Unsharp Mask...\n";
 $example=$model->Clone();
 $example->Label('Unsharp Mask');
@@ -456,9 +462,8 @@ push(@$images,$example);
 #
 print "Montage...\n";
 $montage=$images->Montage(geometry=>'128x160+8+4>',gravity=>'Center',
-  tile=>'5x+10+200',compose=>'over',background=>'#ffffff',
-  font=>'Generic.ttf',pointsize=>18,fill=>'#600',stroke=>'none',
-  shadow=>'true');
+  tile=>'5x+10+200',compose=>'over',background=>'#ffffff',font=>'Generic.ttf',
+  pointsize=>18,fill=>'#600',stroke=>'none',shadow=>'true');
 
 $logo=Image::Magick->new();
 $logo->Read('logo:');

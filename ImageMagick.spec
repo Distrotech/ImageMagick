@@ -8,7 +8,7 @@ Summary:        Use ImageMagick to convert, edit, or compose bitmap images in a 
 Group:          Applications/Multimedia
 License:        http://www.imagemagick.org/script/license.php
 Url:            http://www.imagemagick.org/
-Source0:        ftp://ftp.imagemagick.org/pub/%{name}/%{name}-%{VERSION}-%{Patchlevel}.tar.bz2
+Source0:        http://www.imagemagick.org/download/%{name}/%{name}-%{VERSION}-%{Patchlevel}.tar.bz2
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  bzip2-devel, freetype-devel, libjpeg-devel, libpng-devel
@@ -99,7 +99,6 @@ http://www.imagemagick.org/.
 %package perl
 Summary: ImageMagick perl bindings
 Group: System Environment/Libraries
-Requires: perl-base
 Requires: %{name} = %{version}-%{release}
 Requires: perl(:MODULE_COMPAT_%(eval "`%{__perl} -V:version`"; echo $version))
 
@@ -166,7 +165,7 @@ cp -p Magick++/demo/*.cpp Magick++/demo/*.miff Magick++/examples
            --with-lcms \
            --with-rsvg \
            --with-xml \
-           --with-perl-options='INSTALLDIRS=vendor' \
+           --with-perl-options="INSTALLDIRS=vendor %{?perl_prefix} CC='%__cc -L$PWD/magick/.libs' LDDLFLAGS='-shared -L$PWD/magick/.libs'" \
            --without-dps \
            --without-included-ltdl --with-ltdl-include=%{_includedir} \
            --with-ltdl-lib=%{_libdir}
@@ -178,29 +177,29 @@ make
 
 
 %install
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 
-make install DESTDIR=$RPM_BUILD_ROOT INSTALL="install -p"
-cp -a www/source $RPM_BUILD_ROOT%{_datadir}/doc/%{name}-%{VERSION}
-rm $RPM_BUILD_ROOT%{_libdir}/*.la
+make install DESTDIR=%{buildroot} INSTALL="install -p"
+cp -a www/source %{buildroot}%{_datadir}/doc/%{name}
+rm %{buildroot}%{_libdir}/*.la
 
 # fix weird perl Magick.so permissions
-chmod 755 $RPM_BUILD_ROOT%{perl_vendorarch}/auto/Image/Magick/Magick.so
+chmod 755 %{buildroot}%{perl_vendorarch}/auto/Image/Magick/Magick.so
 
 # perlmagick: fix perl path of demo files
 %{__perl} -MExtUtils::MakeMaker -e 'MY->fixin(@ARGV)' PerlMagick/demo/*.pl
 
 # perlmagick: cleanup various perl tempfiles from the build which get installed
-find $RPM_BUILD_ROOT -name "*.bs" |xargs rm -f
-find $RPM_BUILD_ROOT -name ".packlist" |xargs rm -f
-find $RPM_BUILD_ROOT -name "perllocal.pod" |xargs rm -f
+find %{buildroot} -name "*.bs" |xargs rm -f
+find %{buildroot} -name ".packlist" |xargs rm -f
+find %{buildroot} -name "perllocal.pod" |xargs rm -f
 
 # perlmagick: build files list
 echo "%defattr(-,root,root,-)" > perl-pkg-files
-find $RPM_BUILD_ROOT/%{_libdir}/perl* -type f -print \
-        | sed "s@^$RPM_BUILD_ROOT@@g" > perl-pkg-files 
-find $RPM_BUILD_ROOT%{perl_vendorarch} -type d -print \
-        | sed "s@^$RPM_BUILD_ROOT@%dir @g" \
+find %{buildroot}/%{_libdir}/perl* -type f -print \
+        | sed "s@^%{buildroot}@@g" > perl-pkg-files 
+find %{buildroot}%{perl_vendorarch} -type d -print \
+        | sed "s@^%{buildroot}@%dir @g" \
         | grep -v '^%dir %{perl_vendorarch}$' \
         | grep -v '/auto$' >> perl-pkg-files 
 if [ -z perl-pkg-files ] ; then
@@ -215,10 +214,10 @@ fi
 %define wordsize 32
 %endif
 
-mv $RPM_BUILD_ROOT%{_includedir}/%{name}/magick/magick-config.h \
-   $RPM_BUILD_ROOT%{_includedir}/%{name}/magick/magick-config-%{wordsize}.h
+mv %{buildroot}%{_includedir}/%{name}/magick/magick-config.h \
+   %{buildroot}%{_includedir}/%{name}/magick/magick-config-%{wordsize}.h
 
-cat >$RPM_BUILD_ROOT%{_includedir}/%{name}/magick/magick-config.h <<EOF
+cat >%{buildroot}%{_includedir}/%{name}/magick/magick-config.h <<EOF
 #ifndef IMAGEMAGICK_MULTILIB
 #define IMAGEMAGICK_MULTILIB
 
@@ -236,8 +235,7 @@ cat >$RPM_BUILD_ROOT%{_includedir}/%{name}/magick/magick-config.h <<EOF
 EOF
 
 %clean
-rm -rf $RPM_BUILD_ROOT
-
+rm -rf %{buildroot}
 
 %post -p /sbin/ldconfig
 
@@ -247,13 +245,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %postun c++ -p /sbin/ldconfig
 
-
 %files
 %defattr(-,root,root,-)
 %doc QuickStart.txt ChangeLog Platforms.txt
 %doc README.txt LICENSE NOTICE AUTHORS.txt NEWS.txt
-%{_libdir}/libMagickCore.so.4*
-%{_libdir}/libMagickWand.so.4*
+%{_libdir}/libMagickCore.so*
+%{_libdir}/libMagickWand.so*
+%{_libdir}/%{name}-%{VERSION}
 %{_bindir}/[a-z]*
 %{_sysconfdir}/%{name}
 %{_libdir}/%{name}-%{VERSION}
@@ -266,21 +264,16 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(-,root,root,-)
 %{_bindir}/MagickCore-config
-%{_bindir}/Magick-config
 %{_bindir}/MagickWand-config
-%{_bindir}/Wand-config
-%{_libdir}/libMagickCore.so
-%{_libdir}/libMagickWand.so
+%{_libdir}/libMagickCore.so*
+%{_libdir}/libMagickWand.so*
 %{_libdir}/pkgconfig/MagickCore.pc
 %{_libdir}/pkgconfig/ImageMagick.pc
 %{_libdir}/pkgconfig/MagickWand.pc
-%{_libdir}/pkgconfig/Wand.pc
 %dir %{_includedir}/%{name}
-%{_includedir}/%{name}/magick
-%{_includedir}/%{name}/wand
-%{_mandir}/man1/Magick-config.*
+%{_includedir}/%{name}/MagickCore
+%{_includedir}/%{name}/MagickWand
 %{_mandir}/man1/MagickCore-config.*
-%{_mandir}/man1/Wand-config.*
 %{_mandir}/man1/MagickWand-config.*
 
 %files djvu
@@ -289,14 +282,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %files doc
 %defattr(-,root,root,-)
-%doc %{_datadir}/doc/%{name}-%{VERSION}
+%doc %{_datadir}/doc/%{name}
 %doc LICENSE
 
 %files c++
 %defattr(-,root,root,-)
 %doc Magick++/AUTHORS Magick++/ChangeLog Magick++/NEWS Magick++/README
 %doc www/Magick++/COPYING
-%{_libdir}/libMagick++.so.4*
+%{_libdir}/libMagick++.so*
 
 %files c++-devel
 %defattr(-,root,root,-)
@@ -304,7 +297,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/Magick++-config
 %{_includedir}/%{name}/Magick++
 %{_includedir}/%{name}/Magick++.h
-%{_libdir}/libMagick++.so
+%{_libdir}/libMagick++.so*
 %{_libdir}/pkgconfig/Magick++.pc
 %{_libdir}/pkgconfig/ImageMagick++.pc
 %{_mandir}/man1/Magick++-config.*

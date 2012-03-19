@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ extern MagickExport MagickBooleanType
   IsImageGray(const Image *,ExceptionInfo *),
   IsImageMonochrome(const Image *,ExceptionInfo *),
   IsImageOpaque(const Image *,ExceptionInfo *),
-  SetImageDepth(Image *,const size_t);
+  SetImageDepth(Image *,const size_t,ExceptionInfo *);
 
 extern MagickExport RectangleInfo
   GetImageBoundingBox(const Image *,ExceptionInfo *exception);

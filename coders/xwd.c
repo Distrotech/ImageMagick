@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -77,7 +77,7 @@
 */
 #if defined(MAGICKCORE_X11_DELEGATE)
 static MagickBooleanType
-  WriteXWDImage(const ImageInfo *,Image *);
+  WriteXWDImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 /*
@@ -209,7 +209,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -244,7 +244,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   count=ReadBlob(image,length,(unsigned char *) comment);
   comment[length]='\0';
-  (void) SetImageProperty(image,"comment",comment);
+  (void) SetImageProperty(image,"comment",comment,exception);
   comment=DestroyString(comment);
   if (count != (ssize_t) length)
     ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
@@ -398,7 +398,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -425,7 +425,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -458,7 +458,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Convert X image to PseudoClass packets.
         */
-        if (AcquireImageColormap(image,image->colors) == MagickFalse)
+        if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         for (i=0; i < (ssize_t) image->colors; i++)
         {
@@ -469,14 +469,14 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         for (y=0; y < (ssize_t) image->rows; y++)
         {
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
             index=ConstrainColormapIndex(image,XGetPixel(ximage,(int) x,
-              (int) y));
+              (int) y),exception);
             SetPixelIndex(image,index,q);
-            SetPixelPacket(image,image->colormap+(ssize_t) index,q);
+            SetPixelInfoPixel(image,image->colormap+(ssize_t) index,q);
             q+=GetPixelChannels(image);
           }
           if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -586,7 +586,8 @@ ModuleExport void UnregisterXWDImage(void)
 %
 %  The format of the WriteXWDImage method is:
 %
-%      MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteXWDImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -594,8 +595,11 @@ ModuleExport void UnregisterXWDImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   const char
     *value;
@@ -640,17 +644,19 @@ static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Initialize XWD file header.
   */
   (void) ResetMagickMemory(&xwd_info,0,sizeof(xwd_info));
   xwd_info.header_size=(CARD32) sz_XWDheader;
-  value=GetImageProperty(image,"comment");
+  value=GetImageProperty(image,"comment",exception);
   if (value != (const char *) NULL)
     xwd_info.header_size+=(CARD32) strlen(value);
   xwd_info.header_size++;
@@ -756,7 +762,7 @@ static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image)
   scanline_pad=(bytes_per_line-((image->columns*bits_per_pixel) >> 3));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     q=pixels;

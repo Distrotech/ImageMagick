@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  MagickCore image constitute methods.
+  MagickCore image pixel methods.
 */
 #ifndef _MAGICKCORE_PIXEL_H
 #define _MAGICKCORE_PIXEL_H
@@ -23,10 +23,37 @@ extern "C" {
 #endif
 
 #include <MagickCore/colorspace.h>
-#include <MagickCore/constitute.h>
 
 #define MaxPixelChannels  32
-#define MaxPixelChannelMaps  8
+#undef index
+
+typedef enum
+{
+  UndefinedChannel = 0x0000,
+  RedChannel = 0x0001,
+  GrayChannel = 0x0001,
+  CyanChannel = 0x0001,
+  GreenChannel = 0x0002,
+  MagentaChannel = 0x0002,
+  BlueChannel = 0x0004,
+  YellowChannel = 0x0004,
+  BlackChannel = 0x0008,
+  AlphaChannel = 0x0010,
+  OpacityChannel = 0x0010,
+  IndexChannel = 0x0020,
+  MaskChannel = 0x0040,
+  MetaChannel = 0x0080,
+  CompositeChannels = 0x002F,
+  AllChannels = 0x7ffffff,
+  /*
+    Special purpose channel types.
+  */
+  TrueAlphaChannel = 0x0100, /* extract actual alpha channel from opacity */
+  RGBChannels = 0x0200,      /* set alpha from grayscale mask in RGB */
+  GrayChannels = 0x0400,
+  SyncChannels = 0x1000,     /* channels should be modified equally */
+  DefaultChannels = ((AllChannels | SyncChannels) &~ AlphaChannel)
+} ChannelType;  /* must correspond to PixelChannel */
 
 typedef enum
 {
@@ -39,10 +66,11 @@ typedef enum
   MeshInterpolatePixel,
   NearestNeighborInterpolatePixel,
   SplineInterpolatePixel
-} InterpolatePixelMethod;
+} PixelInterpolateMethod;
 
 typedef enum
 {
+  UndefinedPixelChannel = 0,
   RedPixelChannel = 0,
   CyanPixelChannel = 0,
   GrayPixelChannel = 0,
@@ -53,13 +81,15 @@ typedef enum
   BluePixelChannel = 2,
   YellowPixelChannel = 2,
   CrPixelChannel = 2,
-  AlphaPixelChannel = 3,
-  BlackPixelChannel = 4,
-  IndexPixelChannel = 4,
-  MaskPixelChannel = 5,
+  BlackPixelChannel = 3,
+  AlphaPixelChannel = 4,
+  IndexPixelChannel = 5,
+  MaskPixelChannel = 6,
+  MetaPixelChannel = 7,
   IntensityPixelChannel = MaxPixelChannels,
+  CompositePixelChannel = MaxPixelChannels,
   SyncPixelChannel = MaxPixelChannels+1
-} PixelChannel;
+} PixelChannel;  /* must correspond to ChannelType */
 
 typedef enum
 {
@@ -69,26 +99,6 @@ typedef enum
   BlendPixelTrait = 0x000004
 } PixelTrait;
 
-typedef struct _DoublePixelPacket
-{
-  double
-    red,
-    green,
-    blue,
-    alpha,
-    black;
-} DoublePixelPacket;
-
-typedef struct _LongPixelPacket
-{
-  unsigned int
-    red,
-    green,
-    blue,
-    alpha,
-    black;
-} LongPixelPacket;
-
 typedef struct _PixelChannelMap
 {
   PixelChannel
@@ -96,6 +106,9 @@ typedef struct _PixelChannelMap
 
   PixelTrait
     traits;
+
+  ssize_t
+    offset;
 } PixelChannelMap;
 
 typedef struct _PixelInfo
@@ -115,63 +128,77 @@ typedef struct _PixelInfo
   size_t
     depth;
 
-  MagickRealType
+  MagickSizeType
+    count;
+
+  double
     red,
     green,
     blue,
-    alpha,
     black,
+    alpha,
     index;
 } PixelInfo;
 
 typedef struct _PixelPacket
 {
-  Quantum
+  unsigned int
     red,
     green,
     blue,
     alpha,
-    black,
-    index;
-
- MagickSizeType
-    count;
+    black;
 } PixelPacket;
+
+typedef enum
+{
+  UndefinedPixel,
+  CharPixel,
+  DoublePixel,
+  FloatPixel,
+  LongPixel,
+  LongLongPixel,
+  QuantumPixel,
+  ShortPixel
+} StorageType;
 
 typedef struct _CacheView
   CacheView_;
+
+extern MagickExport ChannelType
+  SetPixelChannelMask(Image *,const ChannelType);
 
 extern MagickExport MagickBooleanType
   ExportImagePixels(const Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,const char *,const StorageType,void *,ExceptionInfo *),
   ImportImagePixels(Image *,const ssize_t,const ssize_t,const size_t,
-    const size_t,const char *,const StorageType,const void *),
+    const size_t,const char *,const StorageType,const void *,ExceptionInfo *),
   InterpolatePixelChannel(const Image *,const CacheView_ *,
-    const PixelChannel,const InterpolatePixelMethod,const double,const double,
+    const PixelChannel,const PixelInterpolateMethod,const double,const double,
     double *,ExceptionInfo *),
-  InterpolatePixelInfo(const Image *,const CacheView_ *,
-    const InterpolatePixelMethod,const double,const double,PixelInfo *,
+  InterpolatePixelChannels(const Image *,const CacheView_ *,const Image *,
+    const PixelInterpolateMethod,const double,const double,Quantum *,
     ExceptionInfo *),
-  IsFuzzyEquivalencePixel(const Image *,const Quantum *,
+  InterpolatePixelInfo(const Image *,const CacheView_ *,
+    const PixelInterpolateMethod,const double,const double,PixelInfo *,
+    ExceptionInfo *),
+  IsFuzzyEquivalencePixel(const Image *,const Quantum *,const Image *,
     const Quantum *),
   IsFuzzyEquivalencePixelInfo(const PixelInfo *,const PixelInfo *),
-  IsFuzzyEquivalencePixelPacket(const Image *,const PixelPacket *,
-    const PixelPacket *);
+  SetPixelMetaChannels(Image *,const size_t,ExceptionInfo *);
 
 extern MagickExport PixelChannelMap
-  **AcquirePixelChannelMap(void),
-  **ClonePixelChannelMap(PixelChannelMap **),
-  **DestroyPixelChannelMap(PixelChannelMap **);
+  *AcquirePixelChannelMap(void),
+  *ClonePixelChannelMap(PixelChannelMap *),
+  *DestroyPixelChannelMap(PixelChannelMap *);
 
 extern MagickExport PixelInfo
   *ClonePixelInfo(const PixelInfo *);
 
 extern MagickExport void
-  StandardPixelChannelMap(Image *),
+  InitializePixelChannelMap(Image *),
   GetPixelInfo(const Image *,PixelInfo *),
-  PopPixelChannelMap(Image *),
-  PushPixelChannelMap(Image *,const ChannelType),
-  SetPixelChannelMap(Image *,const ChannelType);
+  SetPixelChannelMapMask(Image *,const ChannelType);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

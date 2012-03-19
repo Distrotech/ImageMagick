@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -111,7 +111,7 @@ typedef struct _DIBInfo
   Forward declarations.
 */
 static MagickBooleanType
-  WriteDIBImage(const ImageInfo *,Image *);
+  WriteDIBImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -501,7 +501,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -578,7 +578,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
         Read DIB raster colormap.
       */
-      if (AcquireImageColormap(image,image->colors) == MagickFalse)
+      if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       length=(size_t) image->colors;
       dib_colormap=(unsigned char *) AcquireQuantumMemory(length,
@@ -632,8 +632,8 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
     Initialize image structure.
   */
   image->units=PixelsPerCentimeterResolution;
-  image->x_resolution=(double) dib_info.x_pixels/100.0;
-  image->y_resolution=(double) dib_info.y_pixels/100.0;
+  image->resolution.x=(double) dib_info.x_pixels/100.0;
+  image->resolution.y=(double) dib_info.y_pixels/100.0;
   /*
     Convert DIB raster image to pixel packets.
   */
@@ -648,7 +648,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         p=pixels+(image->rows-y-1)*bytes_per_line;
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < ((ssize_t) image->columns-7); x+=8)
         {
@@ -680,7 +680,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
               break;
           }
       }
-      (void) SyncImage(image);
+      (void) SyncImage(image,exception);
       break;
     }
     case 4:
@@ -692,21 +692,21 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         p=pixels+(image->rows-y-1)*bytes_per_line;
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < ((ssize_t) image->columns-1); x+=2)
         {
-          index=ConstrainColormapIndex(image,(*p >> 4) & 0xf);
+          index=ConstrainColormapIndex(image,(*p >> 4) & 0xf,exception);
           SetPixelIndex(image,index,q);
           q+=GetPixelChannels(image);
-          index=ConstrainColormapIndex(image,*p & 0xf);
+          index=ConstrainColormapIndex(image,*p & 0xf,exception);
           SetPixelIndex(image,index,q);
           p++;
           q+=GetPixelChannels(image);
         }
         if ((image->columns % 2) != 0)
           {
-            index=ConstrainColormapIndex(image,(*p >> 4) & 0xf);
+            index=ConstrainColormapIndex(image,(*p >> 4) & 0xf,exception);
             SetPixelIndex(image,index,q);
             q+=GetPixelChannels(image);
             p++;
@@ -721,7 +721,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
               break;
           }
       }
-      (void) SyncImage(image);
+      (void) SyncImage(image,exception);
       break;
     }
     case 8:
@@ -736,11 +736,11 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         p=pixels+(image->rows-y-1)*bytes_per_line;
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          index=ConstrainColormapIndex(image,*p);
+          index=ConstrainColormapIndex(image,*p,exception);
           SetPixelIndex(image,index,q);
           p++;
           q+=GetPixelChannels(image);
@@ -755,7 +755,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
               break;
           }
       }
-      (void) SyncImage(image);
+      (void) SyncImage(image,exception);
       break;
     }
     case 16:
@@ -773,7 +773,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         p=pixels+(image->rows-y-1)*bytes_per_line;
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
@@ -821,7 +821,7 @@ static Image *ReadDIBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         p=pixels+(image->rows-y-1)*bytes_per_line;
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
@@ -952,7 +952,8 @@ ModuleExport void UnregisterDIBImage(void)
 %
 %  The format of the WriteDIBImage method is:
 %
-%      MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteDIBImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -960,8 +961,11 @@ ModuleExport void UnregisterDIBImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   DIBInfo
     dib_info;
@@ -998,14 +1002,16 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   /*
     Initialize DIB raster file header.
   */
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   if (image->storage_class == DirectClass)
     {
       /*
@@ -1022,7 +1028,7 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
       dib_info.bits_per_pixel=8;
       if (image_info->depth > 8)
         dib_info.bits_per_pixel=16;
-      if (IsImageMonochrome(image,&image->exception) != MagickFalse)
+      if (IsImageMonochrome(image,exception) != MagickFalse)
         dib_info.bits_per_pixel=1;
       dib_info.number_colors=(dib_info.bits_per_pixel == 16) ? 0 :
         (1UL << dib_info.bits_per_pixel);
@@ -1042,14 +1048,14 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
     case UndefinedResolution:
     case PixelsPerInchResolution:
     {
-      dib_info.x_pixels=(size_t) (100.0*image->x_resolution/2.54);
-      dib_info.y_pixels=(size_t) (100.0*image->y_resolution/2.54);
+      dib_info.x_pixels=(size_t) (100.0*image->resolution.x/2.54);
+      dib_info.y_pixels=(size_t) (100.0*image->resolution.y/2.54);
       break;
     }
     case PixelsPerCentimeterResolution:
     {
-      dib_info.x_pixels=(size_t) (100.0*image->x_resolution);
-      dib_info.y_pixels=(size_t) (100.0*image->y_resolution);
+      dib_info.x_pixels=(size_t) (100.0*image->resolution.x);
+      dib_info.y_pixels=(size_t) (100.0*image->resolution.y);
       break;
     }
   }
@@ -1075,7 +1081,7 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
       */
       for (y=0; y < (ssize_t) image->rows; y++)
       {
-        p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+        p=GetVirtualPixels(image,0,y,image->columns,1,exception);
         if (p == (const Quantum *) NULL)
           break;
         q=pixels+(image->rows-y-1)*bytes_per_line;
@@ -1115,7 +1121,7 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
       */
       for (y=0; y < (ssize_t) image->rows; y++)
       {
-        p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+        p=GetVirtualPixels(image,0,y,image->columns,1,exception);
         if (p == (const Quantum *) NULL)
           break;
         q=pixels+(image->rows-y-1)*bytes_per_line;
@@ -1142,7 +1148,7 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
       */
       for (y=0; y < (ssize_t) image->rows; y++)
       {
-        p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+        p=GetVirtualPixels(image,0,y,image->columns,1,exception);
         if (p == (const Quantum *) NULL)
           break;
         q=pixels+(image->rows-y-1)*bytes_per_line;
@@ -1174,7 +1180,7 @@ static MagickBooleanType WriteDIBImage(const ImageInfo *image_info,Image *image)
       */
       for (y=0; y < (ssize_t) image->rows; y++)
       {
-        p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+        p=GetVirtualPixels(image,0,y,image->columns,1,exception);
         if (p == (const Quantum *) NULL)
           break;
         q=pixels+(image->rows-y-1)*bytes_per_line;

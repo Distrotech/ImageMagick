@@ -13,6 +13,7 @@ MAGICKPP_MANS = $(MAGICKPP_MANS_OPT)
 MAGICKPP_PKGCONFIG = $(MAGICKPP_PKGCONFIG_OPT)
 MAGICKPP_SCRPTS = $(MAGICKPP_SCRIPTS_OPT)
 MAGICKPP_TESTS = $(MAGICKPP_TEST_SCRIPTS_OPT)
+MAGICKPP_TOP_INCHEADERS = $(MAGICKPP_TOP_INCHEADERS_OPT)
 MAGICKPP_INCHEADERS = $(MAGICKPP_INCHEADERS_OPT)
 else
 MAGICKPP_LIBS = 
@@ -21,6 +22,7 @@ MAGICKPP_MANS =
 MAGICKPP_PKGCONFIG = 
 MAGICKPP_SCRPTS =
 MAGICKPP_TESTS = 
+MAGICKPP_TOP_INCHEADERS =
 MAGICKPP_INCHEADERS =
 endif
 
@@ -134,15 +136,17 @@ Magick___lib_libMagick___la_SOURCES = \
 	Magick++/lib/Magick++/Thread.h \
 	Magick++/lib/Magick++/TypeMetric.h
 
-magickpptopincdir = $(topincludedir)
-magickpptopinc_HEADERS = 
+magickpptopincdir = $(INCLUDE_PATH)
+magickpptopinc_HEADERS = $(MAGICKPP_TOP_INCHEADERS)
 
-magickppincdir = $(topincludedir)/Magick++
+MAGICKPP_TOP_INCHEADERS_OPT = \
+  Magick++/lib/Magick++.h
+
+magickppincdir = $(INCLUDE_PATH)/Magick++
 
 magickppinc_HEADERS = $(MAGICKPP_INCHEADERS)
 
 MAGICKPP_INCHEADERS_OPT = \
-	Magick++/lib/Magick++.h
 	Magick++/lib/Magick++/Blob.h \
 	Magick++/lib/Magick++/CoderInfo.h \
 	Magick++/lib/Magick++/Color.h \

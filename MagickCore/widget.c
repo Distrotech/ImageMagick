@@ -18,7 +18,7 @@
 %                              September 1993                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -51,9 +51,12 @@
 #include "MagickCore/PreRvIcccm.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/token.h"
+#include "MagickCore/token-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xwindow-private.h"
 #include "MagickCore/widget.h"
+#include "MagickCore/widget-private.h"
 
 #if defined(MAGICKCORE_X11_DELEGATE)
 
@@ -184,7 +187,7 @@ static void
 %  A description of each parameter follows:
 %
 */
-MagickExport void DestroyXWidget(void)
+MagickPrivate void DestroyXWidget(void)
 {
   if (selection_info != (XWidgetInfo *) NULL)
     selection_info=(XWidgetInfo *) RelinquishMagickMemory(selection_info);
@@ -1377,7 +1380,12 @@ static int XScreenEvent(Display *display,XEvent *event,char *data)
         if (event->xexpose.count == 0)
           if (windows->magnify.mapped)
             {
-              XMakeMagnifyImage(display,windows);
+              ExceptionInfo
+                *exception;
+
+              exception=AcquireExceptionInfo();
+              XMakeMagnifyImage(display,windows,exception);
+              exception=DestroyExceptionInfo(exception);
               break;
             }
       if (event->xexpose.window == windows->command.id)
@@ -1615,7 +1623,7 @@ static void XSetTextColor(Display *display,const XWindowInfo *window_info,
 %    o reply: the response from the user is returned in this parameter.
 %
 */
-MagickExport void XColorBrowserWidget(Display *display,XWindows *windows,
+MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
   const char *action,char *reply)
 {
 #define CancelButtonText  "Cancel"
@@ -2351,9 +2359,10 @@ MagickExport void XColorBrowserWidget(Display *display,XWindows *windows,
               if (MatteIsActive(grab_info,event.xbutton))
                 {
                   /*
-                    Select a pen color from the X server.
+                    Select a fill color from the X server.
                   */
-                  (void) XGetWindowColor(display,windows,reply_info.text);
+                  (void) XGetWindowColor(display,windows,reply_info.text,
+                    exception);
                   reply_info.marker=reply_info.text;
                   reply_info.cursor=reply_info.text+Extent(reply_info.text);
                   XDrawMatteText(display,&windows->widget,&reply_info);
@@ -2806,7 +2815,7 @@ MagickExport void XColorBrowserWidget(Display *display,XWindows *windows,
 %    o event: Specifies a pointer to a X11 XEvent structure.
 %
 */
-MagickExport int XCommandWidget(Display *display,XWindows *windows,
+MagickPrivate int XCommandWidget(Display *display,XWindows *windows,
   const char **selections,XEvent *event)
 {
 #define tile_width 112
@@ -3232,7 +3241,7 @@ MagickExport int XCommandWidget(Display *display,XWindows *windows,
 %    o description: Specifies any description to the message.
 %
 */
-MagickExport int XConfirmWidget(Display *display,XWindows *windows,
+MagickPrivate int XConfirmWidget(Display *display,XWindows *windows,
   const char *reason,const char *description)
 {
 #define CancelButtonText  "Cancel"
@@ -3640,7 +3649,7 @@ MagickExport int XConfirmWidget(Display *display,XWindows *windows,
 %    o reply: the response from the user is returned in this parameter.
 %
 */
-MagickExport int XDialogWidget(Display *display,XWindows *windows,
+MagickPrivate int XDialogWidget(Display *display,XWindows *windows,
   const char *action,const char *query,char *reply)
 {
 #define CancelButtonText  "Cancel"
@@ -4215,7 +4224,7 @@ MagickExport int XDialogWidget(Display *display,XWindows *windows,
 %    o reply: the response from the user is returned in this parameter.
 %
 */
-MagickExport void XFileBrowserWidget(Display *display,XWindows *windows,
+MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
   const char *action,char *reply)
 {
 #define CancelButtonText  "Cancel"
@@ -5474,7 +5483,7 @@ static int FontCompare(const void *x,const void *y)
 }
 #endif
 
-MagickExport void XFontBrowserWidget(Display *display,XWindows *windows,
+MagickPrivate void XFontBrowserWidget(Display *display,XWindows *windows,
   const char *action,char *reply)
 {
 #define BackButtonText  "Back"
@@ -6651,7 +6660,7 @@ MagickExport void XFontBrowserWidget(Display *display,XWindows *windows,
 %      displayed in the Info widget.
 %
 */
-MagickExport void XInfoWidget(Display *display,XWindows *windows,
+MagickPrivate void XInfoWidget(Display *display,XWindows *windows,
   const char *activity)
 {
   unsigned int
@@ -6752,7 +6761,7 @@ MagickExport void XInfoWidget(Display *display,XWindows *windows,
 %    o reply: the response from the user is returned in this parameter.
 %
 */
-MagickExport void XListBrowserWidget(Display *display,XWindows *windows,
+MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
   XWindowInfo *window_info,const char **list,const char *action,
   const char *query,char *reply)
 {
@@ -7663,7 +7672,7 @@ MagickExport void XListBrowserWidget(Display *display,XWindows *windows,
 %      is returned here.
 %
 */
-MagickExport int XMenuWidget(Display *display,XWindows *windows,
+MagickPrivate int XMenuWidget(Display *display,XWindows *windows,
   const char *title,const char **selections,char *item)
 {
   Cursor
@@ -8093,7 +8102,7 @@ MagickExport int XMenuWidget(Display *display,XWindows *windows,
 %    o description: Specifies any description to the message.
 %
 */
-MagickExport void XNoticeWidget(Display *display,XWindows *windows,
+MagickPrivate void XNoticeWidget(Display *display,XWindows *windows,
   const char *reason,const char *description)
 {
 #define DismissButtonText  "Dismiss"
@@ -8422,7 +8431,7 @@ MagickExport void XNoticeWidget(Display *display,XWindows *windows,
 %    o window: Specifies a pointer to a XWindows structure.
 %
 */
-MagickExport MagickBooleanType XPreferencesWidget(Display *display,
+MagickPrivate MagickBooleanType XPreferencesWidget(Display *display,
   XResourceInfo *resource_info,XWindows *windows)
 {
 #define ApplyButtonText  "Apply"
@@ -8880,7 +8889,7 @@ MagickExport MagickBooleanType XPreferencesWidget(Display *display,
 %    o span: Specifies the span relative to completing a task.
 %
 */
-MagickExport void XProgressMonitorWidget(Display *display,XWindows *windows,
+MagickPrivate void XProgressMonitorWidget(Display *display,XWindows *windows,
   const char *task,const MagickOffsetType offset,const MagickSizeType span)
 {
   unsigned int
@@ -8959,7 +8968,7 @@ MagickExport void XProgressMonitorWidget(Display *display,XWindows *windows,
 %    o textlist: This string list is displayed within the Text View widget.
 %
 */
-MagickExport void XTextViewWidget(Display *display,
+MagickPrivate void XTextViewWidget(Display *display,
   const XResourceInfo *resource_info,XWindows *windows,
   const MagickBooleanType mono,const char *title,const char **textlist)
 {

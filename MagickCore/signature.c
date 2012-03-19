@@ -16,7 +16,7 @@
 %                              December 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -46,6 +46,7 @@
 #include "MagickCore/property.h"
 #include "MagickCore/image.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/signature.h"
@@ -112,7 +113,7 @@ static void
 %      SignatureInfo *AcquireSignatureInfo(void)
 %
 */
-MagickExport SignatureInfo *AcquireSignatureInfo(void)
+MagickPrivate SignatureInfo *AcquireSignatureInfo(void)
 {
   SignatureInfo
     *signature_info;
@@ -164,7 +165,7 @@ MagickExport SignatureInfo *AcquireSignatureInfo(void)
 %    o signature_info: the cipher signature_info.
 %
 */
-MagickExport SignatureInfo *DestroySignatureInfo(SignatureInfo *signature_info)
+MagickPrivate SignatureInfo *DestroySignatureInfo(SignatureInfo *signature_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(signature_info != (SignatureInfo *) NULL);
@@ -203,7 +204,7 @@ MagickExport SignatureInfo *DestroySignatureInfo(SignatureInfo *signature_info)
 %    o signature_info: the address of a structure of type SignatureInfo.
 %
 */
-MagickExport void FinalizeSignature(SignatureInfo *signature_info)
+MagickPrivate void FinalizeSignature(SignatureInfo *signature_info)
 {
   register ssize_t
     i;
@@ -293,7 +294,7 @@ MagickExport void FinalizeSignature(SignatureInfo *signature_info)
 %    o signature_info: the signature info.
 %
 */
-MagickExport unsigned int GetSignatureBlocksize(
+MagickPrivate unsigned int GetSignatureBlocksize(
   const SignatureInfo *signature_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -324,7 +325,7 @@ MagickExport unsigned int GetSignatureBlocksize(
 %    o signature_info: the signature info.
 %
 */
-MagickExport const StringInfo *GetSignatureDigest(
+MagickPrivate const StringInfo *GetSignatureDigest(
   const SignatureInfo *signature_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -355,7 +356,7 @@ MagickExport const StringInfo *GetSignatureDigest(
 %    o signature_info: the signature info.
 %
 */
-MagickExport unsigned int GetSignatureDigestsize(
+MagickPrivate unsigned int GetSignatureDigestsize(
   const SignatureInfo *signature_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
@@ -386,7 +387,7 @@ MagickExport unsigned int GetSignatureDigestsize(
 %    o signature_info: the cipher signature_info.
 %
 */
-MagickExport void InitializeSignature(SignatureInfo *signature_info)
+MagickPrivate void InitializeSignature(SignatureInfo *signature_info)
 {
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(signature_info != (SignatureInfo *) NULL);
@@ -429,7 +430,7 @@ MagickExport void InitializeSignature(SignatureInfo *signature_info)
 %    o digest: the digest.
 %
 */
-MagickExport void SetSignatureDigest(SignatureInfo *signature_info,
+MagickPrivate void SetSignatureDigest(SignatureInfo *signature_info,
   const StringInfo *digest)
 {
   /*
@@ -458,14 +459,17 @@ MagickExport void SetSignatureDigest(SignatureInfo *signature_info,
 %
 %  The format of the SignatureImage method is:
 %
-%      MagickBooleanType SignatureImage(Image *image)
+%      MagickBooleanType SignatureImage(Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType SignatureImage(Image *image)
+MagickExport MagickBooleanType SignatureImage(Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
@@ -473,23 +477,14 @@ MagickExport MagickBooleanType SignatureImage(Image *image)
   char
     *hex_signature;
 
-  ExceptionInfo
-    *exception;
-
-  QuantumInfo
-    *quantum_info;
-
-  QuantumType
-    quantum_type;
+  double
+    pixel;
 
   register const Quantum
     *p;
 
   SignatureInfo
     *signature_info;
-
-  size_t
-    length;
 
   ssize_t
     y;
@@ -507,41 +502,62 @@ MagickExport MagickBooleanType SignatureImage(Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  quantum_info=AcquireQuantumInfo((const ImageInfo *) NULL,image);
-  if (quantum_info == (QuantumInfo *) NULL)
-    ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
-      image->filename);
-  quantum_type=RGBQuantum;
-  if (image->matte != MagickFalse)
-    quantum_type=RGBAQuantum;
-  if (image->colorspace == CMYKColorspace)
-    {
-      quantum_type=CMYKQuantum;
-      if (image->matte != MagickFalse)
-        quantum_type=CMYKAQuantum;
-    }
   signature_info=AcquireSignatureInfo();
-  signature=AcquireStringInfo(quantum_info->extent);
-  pixels=GetQuantumPixels(quantum_info);
-  exception=(&image->exception);
+  signature=AcquireStringInfo(image->columns*GetPixelChannels(image)*
+    sizeof(pixel));
+  pixels=GetStringInfoDatum(signature);
   image_view=AcquireCacheView(image);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    register ssize_t
+      x;
+
+    register unsigned char
+      *q;
+
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
-    length=ExportQuantumPixels(image,image_view,quantum_info,quantum_type,
-      pixels,&image->exception);
-    SetStringInfoLength(signature,length);
-    SetStringInfoDatum(signature,pixels);
+    q=pixels;
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      register ssize_t
+        i;
+
+      if (GetPixelMask(image,p) != 0)
+        {
+          p+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        register ssize_t
+          j;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if (traits == UndefinedPixelTrait)
+          continue;
+        pixel=QuantumScale*p[i];
+        for (j=0; j < (ssize_t) sizeof(pixel); j++)
+          *q++=(unsigned char) (&pixel)[j];
+      }
+      p+=GetPixelChannels(image);
+    }
+    SetStringInfoLength(signature,(size_t) (q-pixels));
     UpdateSignature(signature_info,signature);
   }
   image_view=DestroyCacheView(image_view);
-  quantum_info=DestroyQuantumInfo(quantum_info);
   FinalizeSignature(signature_info);
   hex_signature=StringInfoToHexString(GetSignatureDigest(signature_info));
   (void) DeleteImageProperty(image,"signature");
-  (void) SetImageProperty(image,"signature",hex_signature);
+  (void) SetImageProperty(image,"signature",hex_signature,exception);
   /*
     Free resources.
   */
@@ -761,7 +777,7 @@ static void TransformSignature(SignatureInfo *signature_info)
 %    o message: the message.
 %
 */
-MagickExport void UpdateSignature(SignatureInfo *signature_info,
+MagickPrivate void UpdateSignature(SignatureInfo *signature_info,
   const StringInfo *message)
 {
   register size_t

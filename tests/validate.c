@@ -18,7 +18,7 @@
 %                               March 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -123,7 +123,7 @@ static size_t ValidateCompareCommand(ImageInfo *image_info,
       }
     status=CompareImagesCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -215,7 +215,7 @@ static size_t ValidateCompositeCommand(ImageInfo *image_info,
       }
     status=CompositeImageCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -306,7 +306,7 @@ static size_t ValidateConvertCommand(ImageInfo *image_info,
       }
     status=ConvertImageCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -398,7 +398,7 @@ static size_t ValidateIdentifyCommand(ImageInfo *image_info,
       }
     status=IdentifyImageCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -465,8 +465,8 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
 
   Image
     *difference_image,
-    *reference_image,
-    *reconstruct_image;
+    *reconstruct_image,
+    *reference_image;
 
   MagickBooleanType
     status;
@@ -476,13 +476,11 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
     j;
 
   size_t
-    length;
+    length,
+    test;
 
   unsigned char
     *blob;
-
-  size_t
-    test;
 
   test=0;
   (void) FormatLocaleFile(stdout,"validate image formats in memory:\n");
@@ -523,8 +521,7 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
       image_info->depth=reference_types[j].depth;
       (void) FormatLocaleString(reference_image->filename,MaxTextExtent,"%s:%s",
         reference_formats[i].magick,output_filename);
-      status=SetImageType(reference_image,reference_types[j].type);
-      InheritException(exception,&reference_image->exception);
+      status=SetImageType(reference_image,reference_types[j].type,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -533,8 +530,7 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
           reference_image=DestroyImage(reference_image);
           continue;
         }
-      status=SetImageDepth(reference_image,reference_types[j].depth);
-      InheritException(exception,&reference_image->exception);
+      status=SetImageDepth(reference_image,reference_types[j].depth,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -544,8 +540,7 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
           continue;
         }
       reference_image->compression=reference_formats[i].compression;
-      status=WriteImage(image_info,reference_image);
-      InheritException(exception,&reference_image->exception);
+      status=WriteImage(image_info,reference_image,exception);
       reference_image=DestroyImage(reference_image);
       if (status == MagickFalse)
         {
@@ -742,8 +737,7 @@ static size_t ValidateImageFormatsOnDisk(ImageInfo *image_info,
       image_info->depth=reference_types[j].depth;
       (void) FormatLocaleString(reference_image->filename,MaxTextExtent,"%s:%s",
         reference_formats[i].magick,output_filename);
-      status=SetImageType(reference_image,reference_types[j].type);
-      InheritException(exception,&reference_image->exception);
+      status=SetImageType(reference_image,reference_types[j].type,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -752,8 +746,7 @@ static size_t ValidateImageFormatsOnDisk(ImageInfo *image_info,
           reference_image=DestroyImage(reference_image);
           continue;
         }
-      status=SetImageDepth(reference_image,reference_types[j].depth);
-      InheritException(exception,&reference_image->exception);
+      status=SetImageDepth(reference_image,reference_types[j].depth,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -763,8 +756,7 @@ static size_t ValidateImageFormatsOnDisk(ImageInfo *image_info,
           continue;
         }
       reference_image->compression=reference_formats[i].compression;
-      status=WriteImage(image_info,reference_image);
-      InheritException(exception,&reference_image->exception);
+      status=WriteImage(image_info,reference_image,exception);
       reference_image=DestroyImage(reference_image);
       if (status == MagickFalse)
         {
@@ -793,8 +785,7 @@ static size_t ValidateImageFormatsOnDisk(ImageInfo *image_info,
         reference_formats[i].magick,output_filename);
       reference_image->depth=reference_types[j].depth;
       reference_image->compression=reference_formats[i].compression;
-      status=WriteImage(image_info,reference_image);
-      InheritException(exception,&reference_image->exception);
+      status=WriteImage(image_info,reference_image,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -944,7 +935,7 @@ static size_t ValidateImportExportPixels(ImageInfo *image_info,
           continue;
         }
       if (LocaleNCompare(reference_map[i],"cmy",3) == 0)
-        (void) TransformImageColorspace(reference_image,CMYKColorspace);
+        reference_image->colorspace=CMYKColorspace;
       length=strlen(reference_map[i])*reference_image->columns*
         reference_image->rows*reference_storage[j].quantum;
       pixels=(unsigned char *) AcquireQuantumMemory(length,sizeof(*pixels));
@@ -969,11 +960,10 @@ static size_t ValidateImportExportPixels(ImageInfo *image_info,
           reference_image=DestroyImage(reference_image);
           continue;
         }
-      (void) SetImageBackgroundColor(reference_image);
+      (void) SetImageBackgroundColor(reference_image,exception);
       status=ImportImagePixels(reference_image,0,0,reference_image->columns,
         reference_image->rows,reference_map[i],reference_storage[j].type,
-        pixels);
-      InheritException(exception,&reference_image->exception);
+        pixels,exception);
       if (status == MagickFalse)
         {
           (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
@@ -986,15 +976,15 @@ static size_t ValidateImportExportPixels(ImageInfo *image_info,
       /*
         Read reconstruct image.
       */
-      reconstruct_image=AcquireImage(image_info);
+      reconstruct_image=AcquireImage(image_info,exception);
       (void) SetImageExtent(reconstruct_image,reference_image->columns,
-        reference_image->rows);
-      (void) SetImageColorspace(reconstruct_image,reference_image->colorspace);
-      (void) SetImageBackgroundColor(reconstruct_image);
+        reference_image->rows,exception);
+      (void) SetImageColorspace(reconstruct_image,reference_image->colorspace,
+        exception);
+      (void) SetImageBackgroundColor(reconstruct_image,exception);
       status=ImportImagePixels(reconstruct_image,0,0,reconstruct_image->columns,
         reconstruct_image->rows,reference_map[i],reference_storage[j].type,
-        pixels);
-      InheritException(exception,&reconstruct_image->exception);
+        pixels,exception);
       pixels=(unsigned char *) RelinquishMagickMemory(pixels);
       if (status == MagickFalse)
         {
@@ -1109,7 +1099,7 @@ static size_t ValidateMontageCommand(ImageInfo *image_info,
       }
     status=MontageImageCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -1200,7 +1190,7 @@ static size_t ValidateStreamCommand(ImageInfo *image_info,
       }
     status=StreamImageCommand(image_info,number_arguments,arguments,
       (char **) NULL,exception);
-    for (j=0; j < number_arguments; j++)
+    for (j=0; j < (ssize_t) number_arguments; j++)
       arguments[j]=DestroyString(arguments[j]);
     arguments=(char **) RelinquishMagickMemory(arguments);
     if (status != MagickFalse)
@@ -1441,8 +1431,7 @@ int main(int argc,char **argv)
       (void) AcquireUniqueFilename(output_filename);
       (void) CopyMagickString(reference_image->filename,reference_filename,
         MaxTextExtent);
-      status=WriteImage(image_info,reference_image);
-      InheritException(exception,&reference_image->exception);
+      status=WriteImage(image_info,reference_image,exception);
       reference_image=DestroyImage(reference_image);
       if (status == MagickFalse)
         fail++;

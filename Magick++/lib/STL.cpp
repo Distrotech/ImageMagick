@@ -335,13 +335,14 @@ void Magick::drawImage::operator()( Magick::Image &image_ ) const
 }
 
 // Edge image (hilight edges in image)
-Magick::edgeImage::edgeImage( const double radius_ )
-  : _radius( radius_ )
+Magick::edgeImage::edgeImage( const double radius_, const double sigma_ )
+  : _radius( radius_ ),
+    _sigma( sigma_ )
 {
 }
 void Magick::edgeImage::operator()( Magick::Image &image_ ) const
 {
-  image_.edge( _radius );
+  image_.edge( _radius, _sigma );
 }
 
 // Emboss image (hilight edges with 3D effect)
@@ -881,6 +882,21 @@ Magick::shadeImage::shadeImage( const double azimuth_,
 void Magick::shadeImage::operator()( Magick::Image &image_ ) const
 {
   image_.shade( _azimuth, _elevation, _colorShading );
+}
+
+// Simulate an image shadow
+Magick::shadowImage::shadowImage( const double percent_opacity_,
+                                const double sigma_,
+        const ssize_t x_, const ssize_t y_ )
+  : _percent_opacity( percent_opacity_ ),
+    _sigma( sigma_ ),
+    _x ( x_ ),
+    _y ( y_ )
+{
+} 
+void Magick::shadowImage::operator()( Magick::Image &image_ ) const
+{
+  image_.shadow( _percent_opacity, _sigma, _x, _y );
 }
 
 // Sharpen pixels in image

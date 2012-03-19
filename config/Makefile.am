@@ -1,4 +1,4 @@
-#  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -18,10 +18,15 @@
 # (share/ImageMagick-version)
 configsharedir = $(SHARE_PATH)
 configshare_DATA = \
-	config/configure.xml \
 	config/english.xml \
 	config/francais.xml \
 	config/locale.xml
+
+# Where architecture-dependent configuration files get installed
+# (share/arch/ImageMagick-version)
+configsharearchdir = $(SHAREARCH_PATH)
+configsharearch_DATA = \
+	config/configure.xml
 
 # Where architecture-dependent configuration files get installed
 # (share/ImageMagick-version)
@@ -34,7 +39,8 @@ configlib_DATA = \
 	config/magic.xml \
 	config/mime.xml \
 	config/policy.xml \
-	config/sRGB.icm \
+	config/quantization-table.xml \
+	config/sRGB.icc \
 	config/thresholds.xml \
 	config/type.xml \
 	config/type-dejavu.xml \
@@ -55,7 +61,8 @@ CONFIG_EXTRA_DIST = \
 	config/magic.xml \
 	config/mime.xml \
 	config/policy.xml \
-	config/sRGB.icm \
+	config/quantization-table.xml \
+	config/sRGB.icc \
 	config/thresholds.xml \
 	config/type-dejavu.xml.in \
 	config/type-ghostscript.xml.in \

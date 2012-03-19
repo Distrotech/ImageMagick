@@ -17,7 +17,7 @@
 %                                 May 2003                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -988,10 +988,10 @@ static Image *ReadPATTERNImage(const ImageInfo *image_info,
         Tile pattern across image canvas.
       */
       pattern_image=image;
-      image=AcquireImage(blob_info);
+      image=AcquireImage(blob_info,exception);
       image->background_color=pattern_image->background_color;
-      (void) SetImageBackgroundColor(image);
-      (void) TextureImage(image,pattern_image);
+      (void) SetImageBackgroundColor(image,exception);
+      (void) TextureImage(image,pattern_image,exception);
       pattern_image=DestroyImage(pattern_image);
     }
   blob_info=DestroyImageInfo(blob_info);

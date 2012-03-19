@@ -17,19 +17,19 @@
 %                               August 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
-%  You may not use this file except in compliance with the License.  You may  %
-%  obtain a copy of the License at                                            %
+%  You may not use this file except in compliance with the license.  You may  %
+%  obtain a copy of the license at                                            %
 %                                                                             %
 %    http://www.imagemagick.org/script/license.php                            %
 %                                                                             %
-%  Unless required by applicable law or agreed to in writing, software        %
-%  distributed under the License is distributed on an "AS IS" BASIS,          %
-%  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   %
-%  See the License for the specific language governing permissions and        %
-%  limitations under the License.                                             %
+%  unless required by applicable law or agreed to in writing, software        %
+%  distributed under the license is distributed on an "as is" basis,          %
+%  without warranties or conditions of any kind, either express or implied.   %
+%  See the license for the specific language governing permissions and        %
+%  limitations under the license.                                             %
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -37,7 +37,7 @@
 */
 
 /*
-  Include declarations.
+  include declarations.
 */
 #include "MagickCore/studio.h"
 #include "MagickCore/blob.h"
@@ -52,13 +52,14 @@
 #include "MagickCore/resource_.h"
 #include "MagickCore/signature-private.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/utility-private.h"
 
 /*
-  Static declarations.
+  static declarations.
 */
 #if !defined(MAGICKCORE_HAVE_STRCASECMP) || !defined(MAGICKCORE_HAVE_STRNCASECMP)
 static const unsigned char
-  AsciiMap[] =
+  asciimap[] =
   {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
     0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
@@ -182,6 +183,50 @@ MagickExport StringInfo *AcquireStringInfo(const size_t length)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   B l o b T o S t r i n g I n f o                                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  BlobToStringInfo() returns the contents of a blob as a string.
+%
+%  The format of the BlobToStringInfo method is:
+%
+%      StringInfo *BlobToStringInfo(const void *blob,const size_t length)
+%
+%  A description of each parameter follows:
+%
+%    o blob: the blob.
+%
+%    o length: the length of the blob.
+%
+*/
+MagickExport StringInfo *BlobToStringInfo(const void *blob,const size_t length)
+{
+  StringInfo
+    *string_info;
+
+  string_info=AcquireStringInfo(0);
+  string_info->length=length;
+  if (~string_info->length >= (MaxTextExtent-1))
+    string_info->datum=(unsigned char *) AcquireQuantumMemory(
+      string_info->length+MaxTextExtent,sizeof(*string_info->datum));
+  if (string_info->datum == (unsigned char *) NULL)
+    {
+      string_info=DestroyStringInfo(string_info);
+      return((StringInfo *) NULL);
+    }
+  if (blob != (const void *) NULL)
+    (void) memcpy(string_info->datum,blob,length);
+  return(string_info);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   C l o n e S t r i n g                                                     %
 %                                                                             %
 %                                                                             %
@@ -190,6 +235,12 @@ MagickExport StringInfo *AcquireStringInfo(const size_t length)
 %
 %  CloneString() allocates memory for the destination string and copies
 %  the source string to that memory location.
+%
+%  If source is a NULL pointer the destination will also be set to a NULL
+%  point (any existing string is freed).  Otherwise the memory is allocated
+%  (or resized) and the source string copied into it.
+%
+%  A pointer to the copy of the source string, or NULL is returned.
 %
 %  The format of the CloneString method is:
 %
@@ -540,7 +591,7 @@ MagickExport StringInfo *ConfigureFileToStringInfo(const char *filename)
     *map;
 
   assert(filename != (const char *) NULL);
-  file=open(filename,O_RDONLY | O_BINARY);
+  file=open_utf8(filename,O_RDONLY | O_BINARY,0);
   if (file == -1)
     return((StringInfo *) NULL);
   offset=(MagickOffsetType) lseek(file,0,SEEK_END);
@@ -689,6 +740,8 @@ MagickExport size_t CopyMagickString(char *destination,const char *source,
   register size_t
     n;
 
+  if (source == (const char *) NULL)
+    return(0);
   p=source;
   q=destination;
   for (n=length; n > 4; n-=4)
@@ -1264,6 +1317,96 @@ MagickExport const char *GetStringInfoPath(const StringInfo *string_info)
 %                                                                             %
 %                                                                             %
 %                                                                             %
++   I n t e r p r e t S i P r e f i x V a l u e                               %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  InterpretSiPrefixValue() converts the initial portion of the string to a
+%  double representation.  It also recognizes SI prefixes (e.g. B, KB, MiB,
+%  etc.).
+%
+%  The format of the InterpretSiPrefixValue method is:
+%
+%      double InterpretSiPrefixValue(const char *value,char **sentinal)
+%
+%  A description of each parameter follows:
+%
+%    o value: the string value.
+%
+%    o sentinal:  if sentinal is not NULL, return a pointer to the character
+%      after the last character used in the conversion.
+%
+*/
+MagickExport double InterpretSiPrefixValue(const char *restrict string,
+  char **restrict sentinal)
+{
+  char
+    *q;
+
+  double
+    value;
+
+  value=InterpretLocaleValue(string,&q);
+  if (q != string)
+    {
+      if ((*q >= 'E') && (*q <= 'z'))
+        {
+          double
+            e;
+
+          switch ((int) ((unsigned char) *q))
+          {
+            case 'y': e=(-24.0); break;
+            case 'z': e=(-21.0); break;
+            case 'a': e=(-18.0); break;
+            case 'f': e=(-15.0); break;
+            case 'p': e=(-12.0); break;
+            case 'n': e=(-9.0); break;
+            case 'u': e=(-6.0); break;
+            case 'm': e=(-3.0); break;
+            case 'c': e=(-2.0); break;
+            case 'd': e=(-1.0); break;
+            case 'h': e=2.0; break;
+            case 'k': e=3.0; break;
+            case 'K': e=3.0; break;
+            case 'M': e=6.0; break;
+            case 'G': e=9.0; break;
+            case 'T': e=12.0; break;
+            case 'P': e=15.0; break;
+            case 'E': e=18.0; break;
+            case 'Z': e=21.0; break;
+            case 'Y': e=24.0; break;
+            default: e=0.0; break;
+          }
+          if (e >= MagickEpsilon)
+            {
+              if (q[1] == 'i')
+                {
+                  value*=pow(2.0,e/0.3);
+                  q+=2;
+                }
+              else
+                {
+                  value*=pow(10.0,e);
+                  q++;
+                }
+            }
+        }
+      if (*q == 'B')
+        q++;
+    }
+  if (sentinal != (char **) NULL)
+    *sentinal=q;
+  return(value);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   L o c a l e C o m p a r e                                                 %
 %                                                                             %
 %                                                                             %
@@ -1389,6 +1532,8 @@ MagickExport void LocaleLower(char *string)
 */
 MagickExport int LocaleNCompare(const char *p,const char *q,const size_t length)
 {
+  if ((p == (char *) NULL) && (q == (char *) NULL))
+    return(0);
   if (p == (char *) NULL)
     return(-1);
   if (q == (char *) NULL)
@@ -1816,6 +1961,12 @@ MagickExport char *StringInfoToString(const StringInfo *string_info)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  StringToArgv() converts a text string into command line arguments.
+%  The 'argv' array of arguments, is returned while the number of arguments
+%  is returned via the provided integer variable pointer.
+%
+%  Simple 'word' tokenizer, which allows for each word to be optionally
+%  quoted.  However it will not allow use of partial quotes, or escape
+%  characters.
 %
 %  The format of the StringToArgv method is:
 %
@@ -2199,7 +2350,7 @@ MagickExport char **StringToList(const char *text)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  StringToStringInfo() returns the contents of a file as a string.
+%  StringToStringInfo() converts a string to a StringInfo type.
 %
 %  The format of the StringToStringInfo method is:
 %
@@ -2217,7 +2368,7 @@ MagickExport StringInfo *StringToStringInfo(const char *string)
 
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(string != (const char *) NULL);
-  string_info=AcquireStringInfo(strlen(string)+1);
+  string_info=AcquireStringInfo(strlen(string));
   SetStringInfoDatum(string_info,(const unsigned char *) string);
   return(string_info);
 }

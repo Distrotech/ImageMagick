@@ -17,7 +17,7 @@
 %                                 March 2011                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -72,7 +72,7 @@
 */
 #if defined(MAGICKCORE_WEBP_DELEGATE)
 static MagickBooleanType
-  WriteWEBPImage(const ImageInfo *,Image *);
+  WriteWEBPImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 #if defined(MAGICKCORE_WEBP_DELEGATE)
@@ -144,7 +144,7 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -167,7 +167,7 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
@@ -294,7 +294,7 @@ static int WebPWriter(const unsigned char *stream,size_t length,
 }
 
 static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   int
     webp_status;
@@ -335,7 +335,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (WebPPictureInit(&picture) == 0)
@@ -367,7 +367,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   q=pixels;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)

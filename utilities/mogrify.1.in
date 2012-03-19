@@ -227,6 +227,14 @@ Image Operators:
   \-white-threshold value
                        force all pixels above the threshold into white
 
+Image Channel Operators:
+  \-channel-extract channel-list
+                        extract the channels in order
+  \-channel-inject channel-list
+                        inject the channels in order
+  \-channel-swap channel,channel
+                        swap the channels
+
 Image Sequence Operators:
   \-affinity filename   transform image colors to match this set of colors
   \-append              append an image sequence top to botto (use +append for left to right)
@@ -268,4 +276,4 @@ ImageMagick(1)
 
 .SH COPYRIGHT
 
-\fBCopyright (C) 1999-2011 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2012 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP

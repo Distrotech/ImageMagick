@@ -17,7 +17,7 @@
 %                                March 2008                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -153,7 +153,7 @@ typedef struct _DDSColors
 } DDSColors;
 
 typedef MagickBooleanType
-  DDSDecoder(Image *,DDSInfo *);
+  DDSDecoder(Image *,DDSInfo *,ExceptionInfo *);
 
 /*
   Macros
@@ -179,19 +179,19 @@ static void
     DDSColors *c, MagickBooleanType ignoreAlpha);
 
 static MagickBooleanType
-  ReadDXT1(Image *image, DDSInfo *dds_info);
+  ReadDXT1(Image *, DDSInfo *,ExceptionInfo *);
 
 static MagickBooleanType
-  ReadDXT3(Image *image, DDSInfo *dds_info);
+  ReadDXT3(Image *image, DDSInfo *dds_info,ExceptionInfo *);
 
 static MagickBooleanType
-  ReadDXT5(Image *image, DDSInfo *dds_info);
+  ReadDXT5(Image *image, DDSInfo *dds_info,ExceptionInfo *);
 
 static MagickBooleanType
-  ReadUncompressedRGB(Image *image, DDSInfo *dds_info);
+  ReadUncompressedRGB(Image *image, DDSInfo *dds_info,ExceptionInfo *);
 
 static MagickBooleanType
-  ReadUncompressedRGBA(Image *image, DDSInfo *dds_info);
+  ReadUncompressedRGBA(Image *image, DDSInfo *dds_info,ExceptionInfo *);
 
 static void
   SkipDXTMipmaps(Image *image, DDSInfo *dds_info, int texel_size);
@@ -266,7 +266,7 @@ static Image *ReadDDSImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -370,7 +370,7 @@ static Image *ReadDDSImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (n != 0)
       {
         /* Start a new image */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image = DestroyImageList(image);
@@ -392,7 +392,7 @@ static Image *ReadDDSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         return(GetFirstImageInList(image));
       }
     
-    if ((decoder)(image, &dds_info) != MagickTrue)
+    if ((decoder)(image, &dds_info, exception) != MagickTrue)
       {
         (void) CloseBlob(image);
         return(GetFirstImageInList(image));
@@ -491,13 +491,11 @@ static void CalculateColors(unsigned short c0, unsigned short c1,
     }
 }
 
-static MagickBooleanType ReadDXT1(Image *image, DDSInfo *dds_info)
+static MagickBooleanType ReadDXT1(Image *image, DDSInfo *dds_info,
+  ExceptionInfo *exception)
 {
   DDSColors
     colors;
-
-  ExceptionInfo
-    *exception;
 
   register Quantum
     *q;
@@ -520,7 +518,6 @@ static MagickBooleanType ReadDXT1(Image *image, DDSInfo *dds_info)
     c0,
     c1;
   
-  exception=(&image->exception);
   for (y = 0; y < (ssize_t) dds_info->height; y += 4)
   {
     for (x = 0; x < (ssize_t) dds_info->width; x += 4)
@@ -529,7 +526,7 @@ static MagickBooleanType ReadDXT1(Image *image, DDSInfo *dds_info)
       q = QueueAuthenticPixels(image, x, y, Min(4, dds_info->width - x),
         Min(4, dds_info->height - y),exception);
       
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         return MagickFalse;
       
       /* Read 8 bytes of data from the image */
@@ -569,14 +566,12 @@ static MagickBooleanType ReadDXT1(Image *image, DDSInfo *dds_info)
   return MagickTrue;
 }
 
-static MagickBooleanType ReadDXT3(Image *image, DDSInfo *dds_info)
+static MagickBooleanType ReadDXT3(Image *image, DDSInfo *dds_info,
+  ExceptionInfo *exception)
 {
   DDSColors
     colors;
   
-  ExceptionInfo
-    *exception;
-
   register Quantum
     *q;
   
@@ -601,7 +596,6 @@ static MagickBooleanType ReadDXT3(Image *image, DDSInfo *dds_info)
     c0,
     c1;
   
-  exception=(&image->exception);
   for (y = 0; y < (ssize_t) dds_info->height; y += 4)
   {
     for (x = 0; x < (ssize_t) dds_info->width; x += 4)
@@ -658,14 +652,12 @@ static MagickBooleanType ReadDXT3(Image *image, DDSInfo *dds_info)
   return MagickTrue;
 }
 
-static MagickBooleanType ReadDXT5(Image *image, DDSInfo *dds_info)
+static MagickBooleanType ReadDXT5(Image *image, DDSInfo *dds_info,
+  ExceptionInfo *exception)
 {
   DDSColors
     colors;
   
-  ExceptionInfo
-    *exception;
-
   MagickSizeType
     alpha_bits;
   
@@ -694,7 +686,6 @@ static MagickBooleanType ReadDXT5(Image *image, DDSInfo *dds_info)
     c0,
     c1;
   
-  exception=(&image->exception);
   for (y = 0; y < (ssize_t) dds_info->height; y += 4)
   {
     for (x = 0; x < (ssize_t) dds_info->width; x += 4)
@@ -703,7 +694,7 @@ static MagickBooleanType ReadDXT5(Image *image, DDSInfo *dds_info)
       q = QueueAuthenticPixels(image, x, y, Min(4, dds_info->width - x),
                          Min(4, dds_info->height - y),exception);
       
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         return MagickFalse;
       
       /* Read alpha values (8 bytes) */
@@ -762,18 +753,15 @@ static MagickBooleanType ReadDXT5(Image *image, DDSInfo *dds_info)
   return MagickTrue;
 }
 
-static MagickBooleanType ReadUncompressedRGB(Image *image, DDSInfo *dds_info)
+static MagickBooleanType ReadUncompressedRGB(Image *image, DDSInfo *dds_info,
+  ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   ssize_t
     x, y;
   
   register Quantum
     *q;
   
-  exception=(&image->exception);
   for (y = 0; y < (ssize_t) dds_info->height; y++)
   {
     q = QueueAuthenticPixels(image, 0, y, dds_info->width, 1,exception);
@@ -803,18 +791,15 @@ static MagickBooleanType ReadUncompressedRGB(Image *image, DDSInfo *dds_info)
   return MagickTrue;
 }
 
-static MagickBooleanType ReadUncompressedRGBA(Image *image, DDSInfo *dds_info)
+static MagickBooleanType ReadUncompressedRGBA(Image *image, DDSInfo *dds_info,
+  ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   ssize_t
     x, y;
   
   register Quantum
     *q;
   
-  exception=(&image->exception);
   for (y = 0; y < (ssize_t) dds_info->height; y++)
   {
     q = QueueAuthenticPixels(image, 0, y, dds_info->width, 1,exception);

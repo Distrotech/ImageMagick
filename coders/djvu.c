@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -170,6 +170,7 @@ pump_data_until_message(LoadContext *lc,Image *image) /* ddjvu_context_t *contex
         ddjvu_message_t *message;
 
         /* i might check for a condition! */
+        size=0;
         while (!(message = ddjvu_message_peek(lc->context))
                && (size = (size_t) ReadBlob(image,(size_t) blocksize,data)) == blocksize) {
                 ddjvu_stream_write(lc->document, lc->streamid, (char *) data, size);
@@ -321,7 +322,7 @@ process_message(ddjvu_message_t *message)
  * we use the RGB format!
  */
 static void
-get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, const ImageInfo *image_info ) {
+get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, const ImageInfo *image_info, ExceptionInfo *exception ) {
   ddjvu_format_t
     *format;
 
@@ -394,7 +395,7 @@ get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, 
 
                 for (y=0; y < (ssize_t) image->rows; y++)
                         {
-                                Quantum * o = QueueAuthenticPixels(image,0,y,image->columns,1,&image->exception);
+                                Quantum * o = QueueAuthenticPixels(image,0,y,image->columns,1,exception);
                                 if (o == (Quantum *) NULL)
                                         break;
                                 bit=0;
@@ -412,11 +413,11 @@ get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, 
                                                 byte>>=1;
                                           o+=GetPixelChannels(image);
                                         }
-                                if (SyncAuthenticPixels(image,&image->exception) == MagickFalse)
+                                if (SyncAuthenticPixels(image,exception) == MagickFalse)
                                         break;
                         }
                 if (!image->ping)
-                  SyncImage(image);
+                  SyncImage(image,exception);
         } else {
 #if DEBUG
                 printf("%s: expanding PHOTO page/image\n", __FUNCTION__);
@@ -436,7 +437,7 @@ get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, 
 #if DEBUG
                                if (i % 1000 == 0) printf("%d\n",i);
 #endif
-                               r = QueueAuthenticPixels(image,0,i,image->columns,1,&image->exception);
+                               r = QueueAuthenticPixels(image,0,i,image->columns,1,exception);
                                if (r == (Quantum *) NULL)
                                  break;
                   for (x=0; x < (ssize_t) image->columns; x++)
@@ -447,7 +448,7 @@ get_page_image(LoadContext *lc, ddjvu_page_t *page, int x, int y, int w, int h, 
                     r+=GetPixelChannels(image);
                   }
 
-                              SyncAuthenticPixels(image,&image->exception);
+                              SyncAuthenticPixels(image,exception);
                         }
         }
         q=(unsigned char *) RelinquishMagickMemory(q);
@@ -613,8 +614,8 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
 
         ddjvu_document_get_pageinfo(lc->document, pagenum, &info);
 
-        image->x_resolution = (float) info.dpi;
-        image->y_resolution =(float) info.dpi;
+        image->resolution.x = (float) info.dpi;
+        image->resolution.y =(float) info.dpi;
         if (image_info->density != (char *) NULL)
           {
             int
@@ -627,13 +628,13 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
               Set rendering resolution.
             */
             flags=ParseGeometry(image_info->density,&geometry_info);
-            image->x_resolution=geometry_info.rho;
-            image->y_resolution=geometry_info.sigma;
+            image->resolution.x=geometry_info.rho;
+            image->resolution.y=geometry_info.sigma;
             if ((flags & SigmaValue) == 0)
-              image->y_resolution=image->x_resolution;
-            info.width*=image->x_resolution/info.dpi;
-            info.height*=image->y_resolution/info.dpi;
-            info.dpi=(ssize_t) MagickMax(image->x_resolution,image->y_resolution);
+              image->resolution.y=image->resolution.x;
+            info.width*=image->resolution.x/info.dpi;
+            info.height*=image->resolution.y/info.dpi;
+            info.dpi=(ssize_t) MagickMax(image->resolution.x,image->resolution.y);
           }
         type = ddjvu_page_get_type(lc->page);
 
@@ -652,7 +653,7 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
                 image->storage_class = PseudoClass;
                 image->depth =  8UL;    /* i only support that? */
                 image->colors= 2;
-                if (AcquireImageColormap(image,image->colors) == MagickFalse)
+                if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
                   ThrowReaderException(ResourceLimitError,
                    "MemoryAllocationFailed");
         } else {
@@ -673,7 +674,8 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
 #if 1                           /* per_line */
 
         /* q = QueueAuthenticPixels(image,0,0,image->columns,image->rows); */
-        get_page_image(lc, lc->page, 0, 0, info.width, info.height, image_info);
+        get_page_image(lc, lc->page, 0, 0, info.width, info.height, image_info,
+          exception);
 #else
         int i;
         for (i = 0;i< image->rows; i++)
@@ -693,7 +695,7 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
 #endif
 
         if (!image->ping)
-          SyncImage(image);
+          SyncImage(image,exception);
         /* mmc: ??? Convert PNM pixels to runlength-encoded MIFF packets. */
         /* image->colors =  */
 
@@ -713,7 +715,7 @@ static Image *ReadOneDJVUImage(LoadContext* lc,const int pagenum,
 
 #if 0
 /* palette */
-  if (AcquireImageColormap(image,2) == MagickFalse)
+  if (AcquireImageColormap(image,2,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   /*
     Monochrome colormap.   mmc: this the default!
@@ -780,7 +782,7 @@ static Image *ReadDJVUImage(const ImageInfo *image_info,
   logging = LogMagickEvent(CoderEvent,GetMagickModule(),"enter ReadDJVUImage()");
   (void) logging;
 
-  image = AcquireImage(image_info); /* mmc: ?? */
+  image = AcquireImage(image_info,exception); /* mmc: ?? */
 
 
   lc = (LoadContext *) NULL;
@@ -870,6 +872,7 @@ static Image *ReadDJVUImage(const ImageInfo *image_info,
       break;
     image->scene=i;
     AppendImageToList(&images,CloneImageList(image,exception));
+    images->extent=GetBlobSize(image);
     if (image_info->number_scenes != 0)
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;

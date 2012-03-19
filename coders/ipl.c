@@ -19,7 +19,7 @@
 %                                  2008.05.07                                 %
 %                                     v 0.9                                   %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -82,7 +82,7 @@ typedef struct _IPLInfo
 } IPLInfo;
 
 static MagickBooleanType
-  WriteIPLImage(const ImageInfo *,Image *);
+  WriteIPLImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 void increase (void *pixel, int byteType){
   switch(byteType){
@@ -165,8 +165,8 @@ void SetHeaderFromIPL(Image *image, IPLInfo *ipl){
   image->columns = ipl->width;
   image->rows = ipl->height;
   image->depth = ipl->depth;
-  image->x_resolution = 1;
-  image->y_resolution = 1;
+  image->resolution.x = 1;
+  image->resolution.y = 1;
 }
 
 
@@ -205,7 +205,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
   {
@@ -341,7 +341,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for(y = 0; y < (ssize_t) image->rows; y++){
         (void) ReadBlob(image, length*image->depth/8, pixels);
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
                 break;
         (void) ImportQuantumPixels(image,(CacheView *) NULL,quantum_info,
           GrayQuantum,pixels,exception);
@@ -353,7 +353,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for(y = 0; y < (ssize_t) image->rows; y++){
         (void) ReadBlob(image, length*image->depth/8, pixels);
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
                 break;
         (void) ImportQuantumPixels(image,(CacheView *) NULL,quantum_info,
           RedQuantum,pixels,exception);  
@@ -363,7 +363,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for(y = 0; y < (ssize_t) image->rows; y++){
         (void) ReadBlob(image, length*image->depth/8, pixels);
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         (void) ImportQuantumPixels(image,(CacheView *) NULL,quantum_info,
           GreenQuantum,pixels,exception);
@@ -373,7 +373,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for(y = 0; y < (ssize_t) image->rows; y++){
         (void) ReadBlob(image, length*image->depth/8, pixels);
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         (void) ImportQuantumPixels(image,(CacheView *) NULL,quantum_info,
           BlueQuantum,pixels,exception);
@@ -396,7 +396,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
        Proceed to next image.
        */
-      AcquireNextImage(image_info, image);
+      AcquireNextImage(image_info,image,exception);
       if (GetNextImageInList(image) == (Image *) NULL)
       {
         image=DestroyImageList(image);
@@ -471,35 +471,35 @@ ModuleExport void UnregisterIPLImage(void)
 }
 
 /*
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
- %                                                                             %
- %                                                                             %
- %                                                                             %
- %   W r i t e I P L I m a g e                                                 %
- %                                                                             %
- %                                                                             %
- %                                                                             %
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
- %
- %  WriteIPLImage() writes an image to a file in Scanalytics IPLabimage format.
- %
- %  The format of the WriteIPLImage method is:
- %
- %      MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
- %
- %  A description of each parameter follows.
- %
- %    o image_info: The image info.
- %
- %    o image:  The image.
- %
- */
-
-static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   W r i t e I P L I m a g e                                                 %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  WriteIPLImage() writes an image to a file in Scanalytics IPLabimage format.
+%
+%  The format of the WriteIPLImage method is:
+%
+%      MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
+%       Image *image,ExceptionInfo *exception)
+%
+%  A description of each parameter follows.
+%
+%    o image_info: The image info.
+%
+%    o image:  The image.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   IPLInfo
     ipl_info;
 
@@ -530,7 +530,9 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   scene=0;
@@ -538,7 +540,7 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
 
   quantum_info=AcquireQuantumInfo(image_info, image);
   if ((quantum_info->format == UndefinedQuantumFormat) &&
-      (IsHighDynamicRangeImage(image,&image->exception) != MagickFalse))
+      (IsHighDynamicRangeImage(image,exception) != MagickFalse))
     SetQuantumFormat(image,quantum_info,FloatingPointQuantumFormat);
   switch(quantum_info->depth){
   case 8: 
@@ -575,7 +577,7 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
   ipl_info.height = (unsigned int) image->rows;
   
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   
   if(IsRGBColorspace(image->colorspace) == MagickTrue) { ipl_info.colors = 3; }
   else{ ipl_info.colors = 1; }
@@ -612,7 +614,6 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
   (void) WriteBlobLong(image, ipl_info.time);
   (void) WriteBlobLong(image, ipl_info.byteType);
   
-  exception=(&image->exception);
   do
     {
       /*
@@ -626,7 +627,7 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
     if (p == (const Quantum *) NULL)
       break;
       (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-        GrayQuantum, pixels,&image->exception);
+        GrayQuantum, pixels,exception);
       (void) WriteBlob(image, image->columns*image->depth/8, pixels);
   }
 
@@ -638,26 +639,26 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image)
     if (p == (const Quantum *) NULL)
       break;
       (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-        RedQuantum, pixels,&image->exception);
+        RedQuantum, pixels,exception);
       (void) WriteBlob(image, image->columns*image->depth/8, pixels);
   }
 
     /* Green frame */
     for(y = 0; y < (ssize_t) ipl_info.height; y++){
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
         (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-          GreenQuantum, pixels,&image->exception);
+          GreenQuantum, pixels,exception);
         (void) WriteBlob(image, image->columns*image->depth/8, pixels);
     }
     /* Blue frame */
     for(y = 0; y < (ssize_t) ipl_info.height; y++){
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       (void) ExportQuantumPixels(image,(CacheView *) NULL, quantum_info,
-        BlueQuantum, pixels,&image->exception);
+        BlueQuantum, pixels,exception);
       (void) WriteBlob(image, image->columns*image->depth/8, pixels);
       if (image->previous == (Image *) NULL)
         {

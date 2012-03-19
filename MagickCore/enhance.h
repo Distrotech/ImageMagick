@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -23,26 +23,26 @@ extern "C" {
 #endif
 
 extern MagickExport MagickBooleanType
-  AutoGammaImage(Image *),
-  AutoLevelImage(Image *),
-  BrightnessContrastImage(Image *,const double,const double),
-  ClutImage(Image *,const Image *),
-  ColorDecisionListImage(Image *,const char *),
-  ContrastImage(Image *,const MagickBooleanType),
-  ContrastStretchImage(Image *,const double,const double),
-  EqualizeImage(Image *image),
+  AutoGammaImage(Image *,ExceptionInfo *),
+  AutoLevelImage(Image *,ExceptionInfo *),
+  BrightnessContrastImage(Image *,const double,const double,ExceptionInfo *),
+  ClutImage(Image *,const Image *,const PixelInterpolateMethod,ExceptionInfo *),
+  ColorDecisionListImage(Image *,const char *,ExceptionInfo *),
+  ContrastImage(Image *,const MagickBooleanType,ExceptionInfo *),
+  ContrastStretchImage(Image *,const double,const double,ExceptionInfo *),
+  EqualizeImage(Image *image,ExceptionInfo *),
   GammaImage(Image *,const double,ExceptionInfo *),
-  HaldClutImage(Image *,const Image *),
-  LevelImage(Image *,const double,const double,const double),
-  LevelizeImage(Image *,const double,const double,const double),
+  HaldClutImage(Image *,const Image *,ExceptionInfo *),
+  LevelImage(Image *,const double,const double,const double,ExceptionInfo *),
+  LevelizeImage(Image *,const double,const double,const double,ExceptionInfo *),
   LevelImageColors(Image *,const PixelInfo *,const PixelInfo *,
-    const MagickBooleanType),
-  LinearStretchImage(Image *,const double,const double),
-  ModulateImage(Image *,const char *),
+    const MagickBooleanType,ExceptionInfo *),
+  LinearStretchImage(Image *,const double,const double,ExceptionInfo *),
+  ModulateImage(Image *,const char *,ExceptionInfo *),
   NegateImage(Image *,const MagickBooleanType,ExceptionInfo *),
-  NormalizeImage(Image *),
+  NormalizeImage(Image *,ExceptionInfo *),
   SigmoidalContrastImage(Image *,const MagickBooleanType,const double,
-    const double);
+    const double,ExceptionInfo *);
 
 extern MagickExport Image
   *EnhanceImage(const Image *,ExceptionInfo *);

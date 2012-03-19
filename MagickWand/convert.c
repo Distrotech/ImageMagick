@@ -17,7 +17,7 @@
 %                                April 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -46,6 +46,7 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/utility-private.h"
 /*
   Define declarations.
 */
@@ -110,7 +111,7 @@ static MagickBooleanType ConcatenateImages(int argc,char **argv,
   /*
     Open output file.
   */
-  output=OpenMagickStream(argv[argc-1],"wb");
+  output=fopen_utf8(argv[argc-1],"wb");
   if (output == (FILE *) NULL)
     {
       ThrowFileException(exception,FileOpenError,"UnableToOpenFile",
@@ -119,13 +120,13 @@ static MagickBooleanType ConcatenateImages(int argc,char **argv,
     }
   for (i=2; i < (ssize_t) (argc-1); i++)
   {
-    input=OpenMagickStream(argv[i],"rb");
+    input=fopen_utf8(argv[i],"rb");
     if (input == (FILE *) NULL)
       ThrowFileException(exception,FileOpenError,"UnableToOpenFile",argv[i]);
     for (c=fgetc(input); c != EOF; c=fgetc(input))
       (void) fputc((char) c,output);
     (void) fclose(input);
-    (void) remove(argv[i]);
+    (void) remove_utf8(argv[i]);
   }
   (void) fclose(output);
   return(MagickTrue);
@@ -134,6 +135,12 @@ static MagickBooleanType ConcatenateImages(int argc,char **argv,
 static MagickBooleanType ConvertUsage(void)
 {
   static const char
+    *channel_operators[]=
+    {
+      "-channel-fx expression",
+      "                     exchange, extract, or transfer one or more image channels",
+      (char *) NULL
+    },
     *miscellaneous[]=
     {
       "-debug events        display copious debugging information",
@@ -212,6 +219,8 @@ static MagickBooleanType ConvertUsage(void)
       "-identify            identify the format and characteristics of the image",
       "-ift                 implements the inverse discrete Fourier transform (DFT)",
       "-implode amount      implode image pixels about the center",
+      "-interpolative-resize geometry",
+      "                     resize image using interpolation",
       "-lat geometry        local adaptive thresholding",
       "-layers method       optimize, merge,  or compare image layers",
       "-level value         adjust the level of image contrast",
@@ -438,6 +447,9 @@ static MagickBooleanType ConvertUsage(void)
   (void) printf("\nImage Operators:\n");
   for (p=operators; *p != (char *) NULL; p++)
     (void) printf("  %s\n",*p);
+  (void) printf("\nImage Channel Operators:\n");
+  for (p=channel_operators; *p != (char *) NULL; p++)
+    (void) printf("  %s\n",*p);
   (void) printf("\nImage Sequence Operators:\n");
   for (p=sequence_operators; *p != (char *) NULL; p++)
     (void) printf("  %s\n",*p);
@@ -589,11 +601,10 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
         filename=argv[i];
         if ((LocaleCompare(filename,"--") == 0) && (i < (ssize_t) (argc-1)))
           filename=argv[++i];
-        (void) CopyMagickString(image_info->filename,filename,MaxTextExtent);
         if (image_info->ping != MagickFalse)
-          images=PingImages(image_info,exception);
+          images=PingImages(image_info,filename,exception);
         else
-          images=ReadImages(image_info,exception);
+          images=ReadImages(image_info,filename,exception);
         status&=(images != (Image *) NULL) &&
           (exception->severity < ErrorException);
         if (images == (Image *) NULL)
@@ -874,6 +885,22 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
                 argv[i]);
             break;
           }
+        if (LocaleCompare("channel-fx",option+1) == 0)
+          {
+            ssize_t
+              channel;
+
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            channel=ParsePixelChannelOption(argv[i]);
+            if (channel < 0)
+              ThrowConvertException(OptionError,"UnrecognizedChannelType",
+                argv[i]);
+            break;
+          }
         if (LocaleCompare("charcoal",option+1) == 0)
           {
             if (*option == '+')
@@ -924,6 +951,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             clone_images=image;
             if (k != 0)
               clone_images=image_stack[k-1].image;
+            /* FUTURE: Change error report to something more meaningful */
             if (clone_images == (Image *) NULL)
               ThrowConvertException(ImageError,"ImageSequenceRequired",option);
             FireImageStack(MagickTrue,MagickTrue,MagickTrue);
@@ -1808,17 +1836,6 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertException(OptionError,"MissingArgument",option);
             break;
           }
-        if (LocaleCompare("linewidth",option+1) == 0)
-          {
-            if (*option == '+')
-              break;
-            i++;
-            if (i == (ssize_t) (argc-1))
-              ThrowConvertException(OptionError,"MissingArgument",option);
-            if (IsGeometry(argv[i]) == MagickFalse)
-              ThrowConvertInvalidArgumentException(option,argv[i]);
-            break;
-          }
         if (LocaleCompare("liquid-rescale",option+1) == 0)
           {
             i++;
@@ -1852,7 +1869,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowConvertException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowConvertInvalidArgumentException(option,argv[i]);
@@ -2268,17 +2285,6 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("random-threshold",option+1) == 0)
-          {
-            if (*option == '+')
-              break;
-            i++;
-            if (i == (ssize_t) (argc-1))
-              ThrowConvertException(OptionError,"MissingArgument",option);
-            if (IsGeometry(argv[i]) == MagickFalse)
-              ThrowConvertInvalidArgumentException(option,argv[i]);
-            break;
-          }
-        if (LocaleCompare("recolor",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -3025,7 +3031,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
       char
         *text;
 
-      text=InterpretImageProperties(image_info,image,format);
+      text=InterpretImageProperties(image_info,image,format,exception);
       if (text == (char *) NULL)
         ThrowConvertException(ResourceLimitError,"MemoryAllocationFailed",
           GetExceptionMessage(errno));

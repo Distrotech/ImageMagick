@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteUILImage(const ImageInfo *,Image *);
+  WriteUILImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -144,7 +144,8 @@ ModuleExport void UnregisterUILImage(void)
 %
 %  The format of the WriteUILImage method is:
 %
-%      MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteUILImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -152,8 +153,11 @@ ModuleExport void UnregisterUILImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
 #define MaxCixels  92
 
@@ -163,9 +167,6 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
     name[MaxTextExtent],
     *symbol;
 
-  ExceptionInfo
-    *exception;
-
   int
     j;
 
@@ -173,11 +174,11 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
     status,
     transparent;
 
-  PixelInfo
-    pixel;
-
   MagickSizeType
     number_pixels;
+
+  PixelInfo
+    pixel;
 
   register const Quantum
     *p;
@@ -207,12 +208,13 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
-  exception=(&image->exception);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   transparent=MagickFalse;
   i=0;
   p=(const Quantum *) NULL;
@@ -255,7 +257,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
             }
           }
         }
-      (void) SetImageType(image,PaletteType);
+      (void) SetImageType(image,PaletteType,exception);
       colors=image->colors;
       if (transparent != MagickFalse)
         {
@@ -266,7 +268,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -301,7 +303,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
     /*
       Define UIL color.
     */
-    SetPixelInfoPacket(image,image->colormap+i,&pixel);
+    pixel=image->colormap[i];
     pixel.colorspace=RGBColorspace;
     pixel.depth=8;
     pixel.alpha=(MagickRealType) OpaqueAlpha;
@@ -327,7 +329,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
     else
       (void) FormatLocaleString(buffer,MaxTextExtent,
         "    color('%s',%s) = '%s'",name,
-        GetPixelPacketIntensity(image->colormap+i) <
+        GetPixelInfoIntensity(image->colormap+i) <
         ((Quantum) QuantumRange/2) ? "background" : "foreground",symbol);
     (void) WriteBlobString(image,buffer);
     (void) FormatLocaleString(buffer,MaxTextExtent,"%s",
@@ -343,7 +345,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image)
   (void) WriteBlobString(image,buffer);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     (void) WriteBlobString(image,"    \"");

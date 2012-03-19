@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-extern MagickExport PixelPacket
+extern MagickExport PixelInfo
   *GetImageHistogram(const Image *,size_t *,ExceptionInfo *);
 
 extern MagickExport Image
@@ -31,7 +31,8 @@ extern MagickExport Image
 extern MagickExport MagickBooleanType
   IsHistogramImage(const Image *,ExceptionInfo *),
   IsPaletteImage(const Image *,ExceptionInfo *),
-  MinMaxStretchImage(Image *,const double,const double);
+  MinMaxStretchImage(Image *,const double,const double,const double,
+    ExceptionInfo *);
 
 extern MagickExport size_t
   GetNumberColors(const Image *,FILE *,ExceptionInfo *);

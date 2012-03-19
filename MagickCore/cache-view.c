@@ -23,7 +23,7 @@
 %                               February 2000                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -113,7 +113,7 @@ MagickExport CacheView *AcquireCacheView(const Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  cache_view=(CacheView *) AcquireAlignedMemory(1,sizeof(*cache_view));
+  cache_view=(CacheView *) AcquireQuantumMemory(1,sizeof(*cache_view));
   if (cache_view == (CacheView *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   (void) ResetMagickMemory(cache_view,0,sizeof(*cache_view));
@@ -160,7 +160,7 @@ MagickExport CacheView *CloneCacheView(const CacheView *cache_view)
   if (cache_view->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       cache_view->image->filename);
-  clone_view=(CacheView *) AcquireAlignedMemory(1,sizeof(*clone_view));
+  clone_view=(CacheView *) AcquireQuantumMemory(1,sizeof(*clone_view));
   if (clone_view == (CacheView *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   (void) ResetMagickMemory(clone_view,0,sizeof(*clone_view));
@@ -243,39 +243,6 @@ MagickExport ColorspaceType GetCacheViewColorspace(const CacheView *cache_view)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       cache_view->image->filename);
   return(GetPixelCacheColorspace(cache_view->image->cache));
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%   G e t C a c h e V i e w E x c e p t i o n                                 %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  GetCacheViewException() returns the image exception associated with the
-%  specified view.
-%
-%  The format of the GetCacheViewException method is:
-%
-%      ExceptionInfo GetCacheViewException(const CacheView *cache_view)
-%
-%  A description of each parameter follows:
-%
-%    o cache_view: the cache view.
-%
-*/
-MagickExport ExceptionInfo *GetCacheViewException(const CacheView *cache_view)
-{
-  assert(cache_view != (CacheView *) NULL);
-  assert(cache_view->signature == MagickSignature);
-  if (cache_view->debug != MagickFalse)
-    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
-      cache_view->image->filename);
-  return(&cache_view->image->exception);
 }
 
 /*
@@ -642,7 +609,7 @@ MagickExport const Quantum *GetCacheViewVirtualPixels(
 %
 %      MagickBooleaNType GetOneCacheViewAuthenticPixel(
 %        const CacheView *cache_view,const ssize_t x,const ssize_t y,
-%        PixelPacket *pixel,ExceptionInfo *exception)
+%        Quantum *pixel,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -656,8 +623,8 @@ MagickExport const Quantum *GetCacheViewVirtualPixels(
 %
 */
 MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
-  const CacheView *cache_view,const ssize_t x,const ssize_t y,
-  PixelPacket *pixel,ExceptionInfo *exception)
+  const CacheView *cache_view,const ssize_t x,const ssize_t y,Quantum *pixel,
+  ExceptionInfo *exception)
 {
   const int
     id = GetOpenMPThreadId();
@@ -665,17 +632,36 @@ MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
   Quantum
     *p;
 
+  register ssize_t
+    i;
+
   assert(cache_view != (CacheView *) NULL);
   assert(cache_view->signature == MagickSignature);
-  *pixel=cache_view->image->background_color;
   assert(id < (int) cache_view->number_threads);
+  (void) memset(pixel,0,MaxPixelChannels*sizeof(*pixel));
   p=GetAuthenticPixelCacheNexus(cache_view->image,x,y,1,1,
     cache_view->nexus_info[id],exception);
   if (p == (const Quantum *) NULL)
-    return(MagickFalse);
-  GetPixelPacket(cache_view->image,p,pixel);
-  if (GetPixelCacheColorspace(cache_view->image->cache) == CMYKColorspace)
-    pixel->black=GetPixelBlack(cache_view->image,p);
+    {
+      PixelInfo
+        background_color;
+
+      background_color=cache_view->image->background_color;
+      pixel[RedPixelChannel]=ClampToQuantum(background_color.red);
+      pixel[GreenPixelChannel]=ClampToQuantum(background_color.green);
+      pixel[BluePixelChannel]=ClampToQuantum(background_color.blue);
+      pixel[BlackPixelChannel]=ClampToQuantum(background_color.black);
+      pixel[AlphaPixelChannel]=ClampToQuantum(background_color.alpha);
+      return(MagickFalse);
+    }
+  for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
+  {
+    PixelChannel
+      channel;
+
+    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    pixel[channel]=p[i];
+  }
   return(MagickTrue);
 }
 
@@ -698,7 +684,7 @@ MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
 %
 %      MagickBooleanType GetOneCacheViewVirtualPixel(
 %        const CacheView *cache_view,const ssize_t x,const ssize_t y,
-%        PixelPacket *pixel,ExceptionInfo *exception)
+%        Quantum *pixel,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -712,27 +698,102 @@ MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
 %
 */
 MagickExport MagickBooleanType GetOneCacheViewVirtualPixel(
-  const CacheView *cache_view,const ssize_t x,const ssize_t y,
-  PixelPacket *pixel,ExceptionInfo *exception)
+  const CacheView *cache_view,const ssize_t x,const ssize_t y,Quantum *pixel,
+  ExceptionInfo *exception)
 {
   const int
     id = GetOpenMPThreadId();
 
-  const Quantum
+  register const Quantum
     *p;
+
+  register ssize_t
+    i;
 
   assert(cache_view != (CacheView *) NULL);
   assert(cache_view->signature == MagickSignature);
-  *pixel=cache_view->image->background_color;
   assert(id < (int) cache_view->number_threads);
+  (void) memset(pixel,0,MaxPixelChannels*sizeof(*pixel));
   p=GetVirtualPixelsFromNexus(cache_view->image,
     cache_view->virtual_pixel_method,x,y,1,1,cache_view->nexus_info[id],
     exception);
   if (p == (const Quantum *) NULL)
+    {
+      PixelInfo
+        background_color;
+
+      background_color=cache_view->image->background_color;
+      pixel[RedPixelChannel]=ClampToQuantum(background_color.red);
+      pixel[GreenPixelChannel]=ClampToQuantum(background_color.green);
+      pixel[BluePixelChannel]=ClampToQuantum(background_color.blue);
+      pixel[BlackPixelChannel]=ClampToQuantum(background_color.black);
+      pixel[AlphaPixelChannel]=ClampToQuantum(background_color.alpha);
+      return(MagickFalse);
+    }
+  for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
+  {
+    PixelChannel
+      channel;
+
+    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    pixel[channel]=p[i];
+  }
+  return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   G e t O n e C a c h e V i e w V i r t u a l P i x e l I n f o             %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  GetOneCacheViewVirtualPixelInfo() returns a single pixel at the specified
+%  (x,y) location.  The image background color is returned if an error occurs.
+%  If you plan to modify the pixel, use GetOneCacheViewAuthenticPixel() instead.
+%
+%  The format of the GetOneCacheViewVirtualPixelInfo method is:
+%
+%      MagickBooleanType GetOneCacheViewVirtualPixelInfo(
+%        const CacheView *cache_view,const ssize_t x,const ssize_t y,
+%        PixelInfo *pixel,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o cache_view: the cache view.
+%
+%    o x,y:  These values define the offset of the pixel.
+%
+%    o pixel: return a pixel at the specified (x,y) location.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType GetOneCacheViewVirtualPixelInfo(
+  const CacheView *cache_view,const ssize_t x,const ssize_t y,PixelInfo *pixel,
+  ExceptionInfo *exception)
+{
+  const int
+    id = GetOpenMPThreadId();
+
+  register const Quantum
+    *p;
+
+  assert(cache_view != (CacheView *) NULL);
+  assert(cache_view->signature == MagickSignature);
+  assert(id < (int) cache_view->number_threads);
+  (void) memset(pixel,0,MaxPixelChannels*sizeof(*pixel));
+  p=GetVirtualPixelsFromNexus(cache_view->image,
+    cache_view->virtual_pixel_method,x,y,1,1,cache_view->nexus_info[id],
+    exception);
+  GetPixelInfo(cache_view->image,pixel);
+  if (p == (const Quantum *) NULL)
     return(MagickFalse);
-  GetPixelPacket(cache_view->image,p,pixel);
-  if (GetPixelCacheColorspace(cache_view->image->cache) == CMYKColorspace)
-    pixel->black=GetPixelBlack(cache_view->image,p);
+  GetPixelInfoPixel(cache_view->image,p,pixel);
   return(MagickTrue);
 }
 
@@ -757,7 +818,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualPixel(
 %      MagickBooleanType GetOneCacheViewVirtualMethodPixel(
 %        const CacheView *cache_view,
 %        const VirtualPixelMethod virtual_pixel_method,const ssize_t x,
-%        const ssize_t y,PixelPacket *pixel,ExceptionInfo *exception)
+%        const ssize_t y,Quantum *pixel,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -774,7 +835,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualPixel(
 */
 MagickExport MagickBooleanType GetOneCacheViewVirtualMethodPixel(
   const CacheView *cache_view,const VirtualPixelMethod virtual_pixel_method,
-  const ssize_t x,const ssize_t y,PixelPacket *pixel,ExceptionInfo *exception)
+  const ssize_t x,const ssize_t y,Quantum *pixel,ExceptionInfo *exception)
 {
   const int
     id = GetOpenMPThreadId();
@@ -782,17 +843,36 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualMethodPixel(
   const Quantum
     *p;
 
+  register ssize_t
+    i;
+
   assert(cache_view != (CacheView *) NULL);
   assert(cache_view->signature == MagickSignature);
-  *pixel=cache_view->image->background_color;
   assert(id < (int) cache_view->number_threads);
+  (void) memset(pixel,0,MaxPixelChannels*sizeof(*pixel));
   p=GetVirtualPixelsFromNexus(cache_view->image,virtual_pixel_method,x,y,1,1,
     cache_view->nexus_info[id],exception);
   if (p == (const Quantum *) NULL)
-    return(MagickFalse);
-  GetPixelPacket(cache_view->image,p,pixel);
-  if (GetPixelCacheColorspace(cache_view->image->cache) == CMYKColorspace)
-    pixel->black=GetPixelBlack(cache_view->image,p);
+    {
+      PixelInfo
+        background_color;
+
+      background_color=cache_view->image->background_color;
+      pixel[RedPixelChannel]=ClampToQuantum(background_color.red);
+      pixel[GreenPixelChannel]=ClampToQuantum(background_color.green);
+      pixel[BluePixelChannel]=ClampToQuantum(background_color.blue);
+      pixel[BlackPixelChannel]=ClampToQuantum(background_color.black);
+      pixel[AlphaPixelChannel]=ClampToQuantum(background_color.alpha);
+      return(MagickFalse);
+    }
+  for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
+  {
+    PixelChannel
+      channel;
+
+    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    pixel[channel]=p[i];
+  }
   return(MagickTrue);
 }
 
@@ -841,8 +921,8 @@ MagickExport Quantum *QueueCacheViewAuthenticPixels(CacheView *cache_view,
   assert(cache_view != (CacheView *) NULL);
   assert(cache_view->signature == MagickSignature);
   assert(id < (int) cache_view->number_threads);
-  pixels=QueueAuthenticNexus(cache_view->image,x,y,columns,rows,
-    cache_view->nexus_info[id],exception);
+  pixels=QueueAuthenticPixelCacheNexus(cache_view->image,x,y,columns,rows,
+    MagickFalse,cache_view->nexus_info[id],exception);
   return(pixels);
 }
 
@@ -863,7 +943,7 @@ MagickExport Quantum *QueueCacheViewAuthenticPixels(CacheView *cache_view,
 %  The format of the SetCacheViewStorageClass method is:
 %
 %      MagickBooleanType SetCacheViewStorageClass(CacheView *cache_view,
-%        const ClassType storage_class)
+%        const ClassType storage_class,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -871,16 +951,18 @@ MagickExport Quantum *QueueCacheViewAuthenticPixels(CacheView *cache_view,
 %
 %    o storage_class: the image storage class: PseudoClass or DirectClass.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType SetCacheViewStorageClass(CacheView *cache_view,
-  const ClassType storage_class)
+  const ClassType storage_class,ExceptionInfo *exception)
 {
   assert(cache_view != (CacheView *) NULL);
   assert(cache_view->signature == MagickSignature);
   if (cache_view->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       cache_view->image->filename);
-  return(SetImageStorageClass(cache_view->image,storage_class));
+  return(SetImageStorageClass(cache_view->image,storage_class,exception));
 }
 
 /*

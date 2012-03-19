@@ -17,7 +17,7 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -43,6 +43,7 @@
 #include "MagickCore/blob.h"
 #include "MagickCore/client.h"
 #include "MagickCore/configure.h"
+#include "MagickCore/configure-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
@@ -50,8 +51,10 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 
 /*
@@ -112,7 +115,7 @@ static MagickBooleanType
 %      MagickBooleanType ConfigureComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType ConfigureComponentGenesis(void)
+MagickPrivate MagickBooleanType ConfigureComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&configure_semaphore);
   return(MagickTrue);
@@ -156,7 +159,7 @@ static void *DestroyConfigureElement(void *configure_info)
   return((void *) NULL);
 }
 
-MagickExport void ConfigureComponentTerminus(void)
+MagickPrivate void ConfigureComponentTerminus(void)
 {
   if (configure_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&configure_semaphore);
@@ -571,19 +574,21 @@ MagickExport LinkedListInfo *GetConfigureOptions(const char *filename,
       paths=DestroyLinkedList(paths,RelinquishMagickMemory);
     }
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
-  {
-    char
-      *blob;
+  if (GetNumberOfElementsInLinkedList(options) == 0)
+    {
+      char
+        *blob;
 
-    blob=(char *) NTResourceToBlob(filename);
-    if (blob != (char *) NULL)
-      {
-        xml=StringToStringInfo(blob);
-        SetStringInfoPath(xml,filename);
-        (void) AppendValueToLinkedList(options,xml);
-        blob=DestroyString(blob);
-      }
-  }
+      blob=(char *) NTResourceToBlob(filename);
+      if (blob != (char *) NULL)
+        {
+          xml=AcquireStringInfo(0);
+          SetStringInfoLength(xml,strlen(blob)+1);
+          SetStringInfoDatum(xml,(unsigned char *) blob);
+          SetStringInfoPath(xml,filename);
+          (void) AppendValueToLinkedList(options,xml);
+        }
+    }
 #endif
   if (GetNumberOfElementsInLinkedList(options) == 0)
     (void) ThrowMagickException(exception,GetMagickModule(),ConfigureWarning,
@@ -621,6 +626,10 @@ MagickExport LinkedListInfo *GetConfigureOptions(const char *filename,
 MagickExport LinkedListInfo *GetConfigurePaths(const char *filename,
   ExceptionInfo *exception)
 {
+#define RegistryKey  "ConfigurePath"
+#define MagickCoreDLL  "CORE_RL_MagickCore_.dll"
+#define MagickCoreDebugDLL  "CORE_DB_MagickCore_.dll"
+
   char
     path[MaxTextExtent];
 
@@ -664,8 +673,11 @@ MagickExport LinkedListInfo *GetConfigurePaths(const char *filename,
   }
 #if defined(MAGICKCORE_INSTALLED_SUPPORT)
 #if defined(MAGICKCORE_SHARE_PATH)
+  (void) AppendValueToLinkedList(paths,ConstantString(MAGICKCORE_SHARE_PATH));
+#endif
+#if defined(MAGICKCORE_SHAREARCH_PATH)
   (void) AppendValueToLinkedList(paths,ConstantString(
-    MAGICKCORE_SHARE_PATH));
+    MAGICKCORE_SHAREARCH_PATH));
 #endif
 #if defined(MAGICKCORE_CONFIGURE_PATH)
   (void) AppendValueToLinkedList(paths,ConstantString(
@@ -677,17 +689,13 @@ MagickExport LinkedListInfo *GetConfigurePaths(const char *filename,
 #endif
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && !(defined(MAGICKCORE_CONFIGURE_PATH) || defined(MAGICKCORE_SHARE_PATH))
   {
-    char
-      *registry_key;
-
     unsigned char
       *key_value;
 
     /*
       Locate file via registry key.
     */
-    registry_key="ConfigurePath";
-    key_value=NTRegistryKeyLookup(registry_key);
+    key_value=NTRegistryKeyLookup(RegistryKey);
     if (key_value != (unsigned char *) NULL)
       {
         (void) FormatLocaleString(path,MaxTextExtent,"%s%s",(char *) key_value,
@@ -774,21 +782,22 @@ MagickExport LinkedListInfo *GetConfigurePaths(const char *filename,
     char
       module_path[MaxTextExtent];
 
-    if ((NTGetModulePath("CORE_RL_magick_.dll",module_path) != MagickFalse) ||
-        (NTGetModulePath("CORE_DB_magick_.dll",module_path) != MagickFalse))
+    if ((NTGetModulePath(MagickCoreDLL,module_path) != MagickFalse) ||
+        (NTGetModulePath(MagickCoreDebugDLL,module_path) != MagickFalse))
       {
-        char
-          *element;
+        unsigned char
+          *key_value;
 
         /*
           Search module path.
         */
         (void) FormatLocaleString(path,MaxTextExtent,"%s%s",module_path,
           DirectorySeparator);
-        element=(char *) RemoveElementByValueFromLinkedList(paths,path);
-        if (element != (char *) NULL)
-          element=DestroyString(element);
-        (void) AppendValueToLinkedList(paths,ConstantString(path));
+        key_value=NTRegistryKeyLookup(RegistryKey);
+        if (key_value == (unsigned char *) NULL)
+          (void) AppendValueToLinkedList(paths,ConstantString(path));
+        else
+          key_value=(unsigned char *) RelinquishMagickMemory(key_value);
       }
     if (NTGetModulePath("Magick.dll",module_path) != MagickFalse)
       {

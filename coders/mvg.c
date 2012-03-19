@@ -17,7 +17,7 @@
 %                                 April 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -61,7 +61,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteMVGImage(const ImageInfo *,Image *);
+  WriteMVGImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -147,7 +147,7 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -183,15 +183,14 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   draw_info=CloneDrawInfo(image_info,(DrawInfo *) NULL);
-  draw_info->affine.sx=image->x_resolution == 0.0 ? 1.0 : image->x_resolution/
+  draw_info->affine.sx=image->resolution.x == 0.0 ? 1.0 : image->resolution.x/
     DefaultResolution;
-  draw_info->affine.sy=image->y_resolution == 0.0 ? 1.0 : image->y_resolution/
+  draw_info->affine.sy=image->resolution.y == 0.0 ? 1.0 : image->resolution.y/
     DefaultResolution;
   image->columns=(size_t) (draw_info->affine.sx*image->columns);
   image->rows=(size_t) (draw_info->affine.sy*image->rows);
-  if (SetImageBackgroundColor(image) == MagickFalse)
+  if (SetImageBackgroundColor(image,exception) == MagickFalse)
     {
-      InheritException(exception,&image->exception);
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
@@ -210,7 +209,7 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
           draw_info->primitive[GetBlobSize(image)]='\0';
         }
      }
-  (void) DrawImage(image,draw_info);
+  (void) DrawImage(image,draw_info,exception);
   draw_info=DestroyDrawInfo(draw_info);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -295,7 +294,8 @@ ModuleExport void UnregisterMVGImage(void)
 %
 %  The format of the WriteMVGImage method is:
 %
-%      MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteMVGImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -303,8 +303,11 @@ ModuleExport void UnregisterMVGImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   const char
     *value;
@@ -324,7 +327,7 @@ static MagickBooleanType WriteMVGImage(const ImageInfo *image_info,Image *image)
   value=GetImageArtifact(image,"MVG");
   if (value == (const char *) NULL)
     ThrowWriterException(OptionError,"NoImageVectorGraphics");
-  status=OpenBlob(image_info,image,WriteBlobMode,&image->exception);
+  status=OpenBlob(image_info,image,WriteBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   (void) WriteBlob(image,strlen(value),(const unsigned char *) value);

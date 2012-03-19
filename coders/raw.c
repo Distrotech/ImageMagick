@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -66,7 +66,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteRAWImage(const ImageInfo *,Image *);
+  WriteRAWImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,8 +94,7 @@ static MagickBooleanType
 %    o exception: return any errors or warnings in this structure.
 %
 */
-static Image *ReadRAWImage(const ImageInfo *image_info,
-  ExceptionInfo *exception)
+static Image *ReadRAWImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
   Image
     *canvas_image,
@@ -133,7 +132,7 @@ static Image *ReadRAWImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -150,7 +149,8 @@ static Image *ReadRAWImage(const ImageInfo *image_info,
   */
   canvas_image=CloneImage(image,image->extract_info.width,1,MagickFalse,
     exception);
-  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod);
+  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod,
+    exception);
   quantum_type=GrayQuantum;
   quantum_info=AcquireQuantumInfo(image_info,canvas_image);
   if (quantum_info == (QuantumInfo *) NULL)
@@ -200,12 +200,12 @@ static Image *ReadRAWImage(const ImageInfo *image_info,
 
       if (count != (ssize_t) length)
         {
-          ThrowFileException(exception,CorruptImageError,
-            "UnexpectedEndOfFile",image->filename);
+          ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
+            image->filename);
           break;
         }
       q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         break;
       length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,quantum_info,
         quantum_type,pixels,exception);
@@ -252,7 +252,7 @@ static Image *ReadRAWImage(const ImageInfo *image_info,
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -267,7 +267,6 @@ static Image *ReadRAWImage(const ImageInfo *image_info,
     scene++;
   } while (count == (ssize_t) length);
   quantum_info=DestroyQuantumInfo(quantum_info);
-  InheritException(&image->exception,&canvas_image->exception);
   canvas_image=DestroyImage(canvas_image);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -422,7 +421,8 @@ ModuleExport void UnregisterRAWImage(void)
 %
 %  The format of the WriteRAWImage method is:
 %
-%      MagickBooleanType WriteRAWImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteRAWImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -430,8 +430,11 @@ ModuleExport void UnregisterRAWImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteRAWImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteRAWImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   MagickOffsetType
     scene;
@@ -467,7 +470,9 @@ static MagickBooleanType WriteRAWImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   switch (*image->magick)
@@ -558,11 +563,11 @@ static MagickBooleanType WriteRAWImage(const ImageInfo *image_info,Image *image)
     pixels=GetQuantumPixels(quantum_info);
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-        quantum_type,pixels,&image->exception);
+        quantum_type,pixels,exception);
       count=WriteBlob(image,length,pixels);
       if (count != (ssize_t) length)
         break;

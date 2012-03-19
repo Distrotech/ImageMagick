@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -111,6 +111,9 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
   Image *composite_image,CompositeOptions *composite_options,
   ExceptionInfo *exception)
 {
+  ChannelType
+    channel_mask;
+
   MagickStatusType
     status;
 
@@ -122,25 +125,25 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",(*image)->filename);
   assert(exception != (ExceptionInfo *) NULL);
   status=MagickTrue;
-  PushPixelChannelMap(composite_image,composite_options->channel);
+  channel_mask=SetPixelChannelMask(composite_image,composite_options->channel);
   if (composite_image != (Image *) NULL)
     {
       assert(composite_image->signature == MagickSignature);
-      switch( composite_options->compose )
-        {
-          case BlendCompositeOp:
-          case BlurCompositeOp:
-          case DisplaceCompositeOp:
-          case DistortCompositeOp:
-          case DissolveCompositeOp:
-          case ModulateCompositeOp:
-          case ThresholdCompositeOp:
-            (void) SetImageArtifact(composite_image,"compose:args",
-              composite_options->compose_args);
-            break;
-          default:
-            break;
-        }
+      switch (composite_options->compose)
+      {
+        case BlendCompositeOp:
+        case BlurCompositeOp:
+        case DisplaceCompositeOp:
+        case DistortCompositeOp:
+        case DissolveCompositeOp:
+        case ModulateCompositeOp:
+        case ThresholdCompositeOp:
+          (void) SetImageArtifact(composite_image,"compose:args",
+            composite_options->compose_args);
+          break;
+        default:
+          break;
+      }
       /*
         Composite image.
       */
@@ -191,8 +194,7 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
               for (y=0; y < (ssize_t) (*image)->rows; y+=(ssize_t) composite_image->rows)
                 for (x=0; x < (ssize_t) (*image)->columns; x+=(ssize_t) columns)
                   status&=CompositeImage(*image,composite_options->compose,
-                    composite_image,x,y);
-              GetImageException(*image,exception);
+                    composite_image,x,y,exception);
             }
           else
             {
@@ -214,11 +216,10 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
                 Digitally composite image.
               */
               status&=CompositeImage(*image,composite_options->compose,
-                composite_image,geometry.x,geometry.y);
-              GetImageException(*image,exception);
+                composite_image,geometry.x,geometry.y,exception);
             }
     }
-  PopPixelChannelMap(composite_image);
+  (void) SetPixelChannelMapMask(composite_image,channel_mask);
   return(status != 0 ? MagickTrue : MagickFalse);
 }
 
@@ -518,8 +519,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
         filename=argv[i];
         if ((LocaleCompare(filename,"--") == 0) && (i < (ssize_t) (argc-1)))
           filename=argv[++i];
-        (void) CopyMagickString(image_info->filename,filename,MaxTextExtent);
-        images=ReadImages(image_info,exception);
+        images=ReadImages(image_info,filename,exception);
         status&=(images != (Image *) NULL) &&
           (exception->severity < ErrorException);
         if (images == (Image *) NULL)
@@ -1133,7 +1133,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowCompositeException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowCompositeInvalidArgumentException(option,argv[i]);
@@ -1627,7 +1627,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
   RemoveImageStack(composite_image);
   RemoveImageStack(images);
   (void) TransformImage(&composite_image,(char *) NULL,
-    composite_image->geometry);
+    composite_image->geometry,exception);
   RemoveImageStack(mask_image);
   if (mask_image != (Image *) NULL)
     {
@@ -1638,7 +1638,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
             Merge Y displacement into X displacement image.
           */
           (void) CompositeImage(composite_image,CopyGreenCompositeOp,mask_image,
-            0,0);
+            0,0,exception);
           mask_image=DestroyImage(mask_image);
         }
       else
@@ -1646,8 +1646,8 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
           /*
             Set a blending mask for the composition.
           */
-          images->mask=mask_image;
-          (void) NegateImage(images->mask,MagickFalse,exception);
+          (void) NegateImage(mask_image,MagickFalse,exception);
+          (void) SetImageMask(image,mask_image,exception);
         }
     }
   status&=CompositeImageList(image_info,&images,composite_image,
@@ -1662,7 +1662,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
       char
         *text;
 
-      text=InterpretImageProperties(image_info,images,format);
+      text=InterpretImageProperties(image_info,images,format,exception);
       if (text == (char *) NULL)
         ThrowCompositeException(ResourceLimitError,"MemoryAllocationFailed",
           GetExceptionMessage(errno));

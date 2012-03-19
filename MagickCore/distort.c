@@ -18,7 +18,7 @@
 %                                 June 2007                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -54,6 +54,7 @@
 #include "MagickCore/image.h"
 #include "MagickCore/list.h"
 #include "MagickCore/matrix.h"
+#include "MagickCore/matrix-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/option.h"
@@ -63,6 +64,7 @@
 #include "MagickCore/resample-private.h"
 #include "MagickCore/registry.h"
 #include "MagickCore/semaphore.h"
+#include "MagickCore/shear.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/thread-private.h"
@@ -264,6 +266,64 @@ static double poly_basis_dy(ssize_t n, double x, double y)
   /* NOTE: the only reason that last is not true for 'quadratic'
      is due to the re-arrangement of terms to allow for 'bilinear'
   */
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%     A f f i n e T r a n s f o r m I m a g e                                 %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  AffineTransformImage() transforms an image as dictated by the affine matrix.
+%  It allocates the memory necessary for the new Image structure and returns
+%  a pointer to the new image.
+%
+%  The format of the AffineTransformImage method is:
+%
+%      Image *AffineTransformImage(const Image *image,
+%        AffineMatrix *affine_matrix,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o affine_matrix: the affine matrix.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport Image *AffineTransformImage(const Image *image,
+  const AffineMatrix *affine_matrix,ExceptionInfo *exception)
+{
+  double
+    distort[6];
+
+  Image
+    *deskew_image;
+
+  /*
+    Affine transform image.
+  */
+  assert(image->signature == MagickSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  assert(affine_matrix != (AffineMatrix *) NULL);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  distort[0]=affine_matrix->sx;
+  distort[1]=affine_matrix->rx;
+  distort[2]=affine_matrix->ry;
+  distort[3]=affine_matrix->sy;
+  distort[4]=affine_matrix->tx;
+  distort[5]=affine_matrix->ty;
+  deskew_image=DistortImage(image,AffineProjectionDistortion,6,distort,
+    MagickTrue,exception);
+  return(deskew_image);
 }
 
 /*
@@ -1427,7 +1487,6 @@ MagickExport Image *DistortResizeImage(const Image *image,
     return((Image *) NULL);
   /* Do not short-circuit this resize if final image size is unchanged */
 
-  (void) SetImageVirtualPixelMethod(image,TransparentVirtualPixelMethod);
 
   (void) ResetMagickMemory(distort_args,0,12*sizeof(double));
   distort_args[4]=(double) image->columns;
@@ -1440,39 +1499,38 @@ MagickExport Image *DistortResizeImage(const Image *image,
   tmp_image=CloneImage(image,0,0,MagickTrue,exception);
   if ( tmp_image == (Image *) NULL )
     return((Image *) NULL);
-  (void) SetImageVirtualPixelMethod(tmp_image,TransparentVirtualPixelMethod);
+  (void) SetImageVirtualPixelMethod(tmp_image,TransparentVirtualPixelMethod,
+    exception);
 
   if (image->matte == MagickFalse)
     {
       /*
         Image has not transparency channel, so we free to use it
       */
-      (void) SetImageAlphaChannel(tmp_image,SetAlphaChannel);
+      (void) SetImageAlphaChannel(tmp_image,SetAlphaChannel,exception);
       resize_image=DistortImage(tmp_image,AffineDistortion,12,distort_args,
-            MagickTrue,exception),
+        MagickTrue,exception),
 
       tmp_image=DestroyImage(tmp_image);
       if ( resize_image == (Image *) NULL )
         return((Image *) NULL);
 
-      (void) SetImageAlphaChannel(resize_image,DeactivateAlphaChannel);
-      InheritException(exception,&image->exception);
+      (void) SetImageAlphaChannel(resize_image,DeactivateAlphaChannel,exception);
     }
   else
     {
+      Image
+        *resize_alpha;
+
       /*
         Image has transparency so handle colors and alpha separatly.
         Basically we need to separate Virtual-Pixel alpha in the resized
         image, so only the actual original images alpha channel is used.
-      */
-      Image
-        *resize_alpha;
 
-      /* distort alpha channel separately */
-      PushPixelChannelMap(tmp_image,AlphaChannel);
-      (void) SeparateImage(tmp_image);
-      PopPixelChannelMap(tmp_image);
-      (void) SetImageAlphaChannel(tmp_image,OpaqueAlphaChannel);
+        distort alpha channel separately
+      */
+      (void) SetImageAlphaChannel(tmp_image,ExtractAlphaChannel,exception);
+      (void) SetImageAlphaChannel(tmp_image,OpaqueAlphaChannel,exception);
       resize_alpha=DistortImage(tmp_image,AffineDistortion,12,distort_args,
         MagickTrue,exception),
       tmp_image=DestroyImage(tmp_image);
@@ -1484,7 +1542,7 @@ MagickExport Image *DistortResizeImage(const Image *image,
       if ( tmp_image == (Image *) NULL )
         return((Image *) NULL);
       (void) SetImageVirtualPixelMethod(tmp_image,
-        TransparentVirtualPixelMethod);
+        TransparentVirtualPixelMethod,exception);
       resize_image=DistortImage(tmp_image,AffineDistortion,12,distort_args,
         MagickTrue,exception),
       tmp_image=DestroyImage(tmp_image);
@@ -1494,14 +1552,15 @@ MagickExport Image *DistortResizeImage(const Image *image,
           return((Image *) NULL);
         }
       /* replace resize images alpha with the separally distorted alpha */
-      (void) SetImageAlphaChannel(resize_image,DeactivateAlphaChannel);
-      (void) SetImageAlphaChannel(resize_alpha,DeactivateAlphaChannel);
-      (void) CompositeImage(resize_image,CopyOpacityCompositeOp,resize_alpha,
-                    0,0);
-      InheritException(exception,&resize_image->exception);
+      (void) SetImageAlphaChannel(resize_image,DeactivateAlphaChannel,
+        exception);
+      (void) SetImageAlphaChannel(resize_alpha,DeactivateAlphaChannel,
+        exception);
+      (void) CompositeImage(resize_image,CopyAlphaCompositeOp,resize_alpha,
+        0,0,exception);
       resize_alpha=DestroyImage(resize_alpha);
     }
-  (void) SetImageVirtualPixelMethod(resize_image,vp_save);
+  (void) SetImageVirtualPixelMethod(resize_image,vp_save,exception);
 
   /*
     Clean up the results of the Distortion
@@ -1609,7 +1668,6 @@ MagickExport Image *DistortResizeImage(const Image *image,
 %                    instead
 %
 */
-
 MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
   const size_t number_arguments,const double *arguments,
   MagickBooleanType bestfit,ExceptionInfo *exception)
@@ -2184,11 +2242,11 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
     artifact=GetImageArtifact(image,"distort:scale");
     output_scaling = 1.0;
     if (artifact != (const char *) NULL) {
-      output_scaling = fabs(InterpretLocaleValue(artifact,(char **) NULL));
-      geometry.width  *= output_scaling;
-      geometry.height *= output_scaling;
-      geometry.x      *= output_scaling;
-      geometry.y      *= output_scaling;
+      output_scaling = fabs(StringToDouble(artifact,(char **) NULL));
+      geometry.width  *= (size_t) output_scaling;
+      geometry.height *= (size_t) output_scaling;
+      geometry.x      *= (ssize_t) output_scaling;
+      geometry.y      *= (ssize_t) output_scaling;
       if ( output_scaling < 0.1 ) {
         coeff = (double *) RelinquishMagickMemory(coeff);
         (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
@@ -2211,15 +2269,14 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
   if (distort_image == (Image *) NULL)
     return((Image *) NULL);
   /* if image is ColorMapped - change it to DirectClass */
-  if (SetImageStorageClass(distort_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(distort_image,DirectClass,exception) == MagickFalse)
     {
-      InheritException(exception,&distort_image->exception);
       distort_image=DestroyImage(distort_image);
       return((Image *) NULL);
     }
   distort_image->page.x=geometry.x;
   distort_image->page.y=geometry.y;
-  if (distort_image->background_color.alpha != OpaqueAlpha)
+  if (distort_image->background_color.matte != MagickFalse)
     distort_image->matte=MagickTrue;
 
   { /* ----- MAIN CODE -----
@@ -2250,7 +2307,7 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
       UndefinedVirtualPixelMethod,MagickFalse,exception);
     distort_view=AcquireCacheView(distort_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
     for (j=0; j < (ssize_t) distort_image->rows; j++)
     {
@@ -2279,7 +2336,7 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
 
       q=QueueCacheViewAuthenticPixels(distort_view,0,j,distort_image->columns,1,
         exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         {
           status=MagickFalse;
           continue;
@@ -2307,11 +2364,9 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
       */
       validity = 1.0;
 
-      GetPixelInfo(distort_image,&invalid);
-      SetPixelInfoPacket(distort_image,&distort_image->matte_color,&invalid);
+      invalid=distort_image->matte_color;
       if (distort_image->colorspace == CMYKColorspace)
         ConvertRGBToCMYK(&invalid);   /* what about other color spaces? */
-
       for (i=0; i < (ssize_t) distort_image->columns; i++)
       {
         /* map pixel coordinate to distortion space coordinate */
@@ -2646,7 +2701,7 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
 
         if ( validity <= 0.0 ) {
           /* result of distortion is an invalid pixel - don't resample */
-          SetPixelPixelInfo(distort_image,&invalid,q);
+          SetPixelInfoPixel(distort_image,&invalid,q);
         }
         else {
           /* resample the source image to find its correct color */
@@ -2658,7 +2713,7 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
             CompositePixelInfoBlend(&pixel,validity,&invalid,(1.0-validity),
               &pixel);
           }
-          SetPixelPixelInfo(distort_image,&pixel,q);
+          SetPixelInfoPixel(distort_image,&pixel,q);
         }
         q+=GetPixelChannels(distort_image);
       }
@@ -2695,6 +2750,86 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
   }
   coeff = (double *) RelinquishMagickMemory(coeff);
   return(distort_image);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   R o t a t e I m a g e                                                     %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  RotateImage() creates a new image that is a rotated copy of an existing
+%  one.  Positive angles rotate counter-clockwise (right-hand rule), while
+%  negative angles rotate clockwise.  Rotated images are usually larger than
+%  the originals and have 'empty' triangular corners.  X axis.  Empty
+%  triangles left over from shearing the image are filled with the background
+%  color defined by member 'background_color' of the image.  RotateImage
+%  allocates the memory necessary for the new Image structure and returns a
+%  pointer to the new image.
+%
+%  The format of the RotateImage method is:
+%
+%      Image *RotateImage(const Image *image,const double degrees,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows.
+%
+%    o image: the image.
+%
+%    o degrees: Specifies the number of degrees to rotate the image.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport Image *RotateImage(const Image *image,const double degrees,
+  ExceptionInfo *exception)
+{
+  Image
+    *distort_image,
+    *rotate_image;
+
+  MagickRealType
+    angle;
+
+  PointInfo
+    shear;
+
+  size_t
+    rotations;
+
+  /*
+    Adjust rotation angle.
+  */
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  angle=degrees;
+  while (angle < -45.0)
+    angle+=360.0;
+  for (rotations=0; angle > 45.0; rotations++)
+    angle-=90.0;
+  rotations%=4;
+  shear.x=(-tan((double) DegreesToRadians(angle)/2.0));
+  shear.y=sin((double) DegreesToRadians(angle));
+  if ((fabs(shear.x) < MagickEpsilon) && (fabs(shear.y) < MagickEpsilon))
+    return(IntegralRotateImage(image,rotations,exception));
+  distort_image=CloneImage(image,0,0,MagickTrue,exception);
+  if (distort_image == (Image *) NULL)
+    return((Image *) NULL);
+  (void) SetImageVirtualPixelMethod(distort_image,BackgroundVirtualPixelMethod,
+    exception);
+  rotate_image=DistortImage(distort_image,ScaleRotateTranslateDistortion,1,
+    &degrees,MagickTrue,exception);
+  distort_image=DestroyImage(distort_image);
+  return(rotate_image);
 }
 
 /*
@@ -2871,9 +3006,8 @@ MagickExport Image *SparseColorImage(const Image *image,
   sparse_image=CloneImage(image,0,0,MagickTrue,exception);
   if (sparse_image == (Image *) NULL)
     return((Image *) NULL);
-  if (SetImageStorageClass(sparse_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(sparse_image,DirectClass,exception) == MagickFalse)
     { /* if image is ColorMapped - change it to DirectClass */
-      InheritException(exception,&image->exception);
       sparse_image=DestroyImage(sparse_image);
       return((Image *) NULL);
     }
@@ -2894,7 +3028,7 @@ MagickExport Image *SparseColorImage(const Image *image,
     progress=0;
     sparse_view=AcquireCacheView(sparse_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
     for (j=0; j < (ssize_t) sparse_image->rows; j++)
     {
@@ -2912,7 +3046,7 @@ MagickExport Image *SparseColorImage(const Image *image,
 
       q=GetCacheViewAuthenticPixels(sparse_view,0,j,sparse_image->columns,
         1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         {
           status=MagickFalse;
           continue;
@@ -2920,7 +3054,7 @@ MagickExport Image *SparseColorImage(const Image *image,
       GetPixelInfo(sparse_image,&pixel);
       for (i=0; i < (ssize_t) image->columns; i++)
       {
-        SetPixelInfo(image,q,&pixel);
+        GetPixelInfoPixel(image,q,&pixel);
         switch (sparse_method)
         {
           case BarycentricColorInterpolate:
@@ -3069,7 +3203,7 @@ MagickExport Image *SparseColorImage(const Image *image,
         if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
             (image->matte != MagickFalse))
           pixel.alpha*=QuantumRange;
-        SetPixelPixelInfo(sparse_image,&pixel,q);
+        SetPixelInfoPixel(sparse_image,&pixel,q);
         q+=GetPixelChannels(sparse_image);
       }
       sync=SyncCacheViewAuthenticPixels(sparse_view,exception);

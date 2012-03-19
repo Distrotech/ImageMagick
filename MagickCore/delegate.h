@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -58,13 +58,9 @@ extern MagickExport ssize_t
   GetDelegateMode(const DelegateInfo *);
 
 extern MagickExport MagickBooleanType
-  DelegateComponentGenesis(void),
   GetDelegateThreadSupport(const DelegateInfo *),
   InvokeDelegate(ImageInfo *,Image *,const char *,const char *,ExceptionInfo *),
   ListDelegateInfo(FILE *,ExceptionInfo *);
-
-extern MagickExport void
-  DelegateComponentTerminus(void);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

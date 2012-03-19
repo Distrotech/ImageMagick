@@ -23,7 +23,7 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -82,7 +82,7 @@ struct _PixelIterator
     region;
 
   MagickBooleanType
-    active;
+    active;           /* user has been given pixel data */
 
   ssize_t
     y;
@@ -504,11 +504,7 @@ WandExport PixelWand **PixelGetCurrentIteratorRow(PixelIterator *iterator,
     iterator->region.y+iterator->y,iterator->region.width,1,
     iterator->exception);
   if (pixels == (const Quantum *) NULL)
-    {
-      InheritException(iterator->exception,GetCacheViewException(
-        iterator->view));
-      return((PixelWand **) NULL);
-    }
+    return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
     PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
@@ -688,11 +684,7 @@ WandExport PixelWand **PixelGetNextIteratorRow(PixelIterator *iterator,
     iterator->region.y+iterator->y,iterator->region.width,1,
     iterator->exception);
   if (pixels == (const Quantum *) NULL)
-    {
-      InheritException(iterator->exception,GetCacheViewException(
-        iterator->view));
-      return((PixelWand **) NULL);
-    }
+    return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
     PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
@@ -728,15 +720,6 @@ WandExport PixelWand **PixelGetNextIteratorRow(PixelIterator *iterator,
 %    o number_wands: the number of pixel wands.
 %
 */
-
-WandExport PixelWand **PixelGetPreviousRow(PixelIterator *iterator)
-{
-  size_t
-    number_wands;
-
-  return(PixelGetPreviousIteratorRow(iterator,&number_wands));
-}
-
 WandExport PixelWand **PixelGetPreviousIteratorRow(PixelIterator *iterator,
   size_t *number_wands)
 {
@@ -759,11 +742,7 @@ WandExport PixelWand **PixelGetPreviousIteratorRow(PixelIterator *iterator,
     iterator->region.y+iterator->y,iterator->region.width,1,
     iterator->exception);
   if (pixels == (const Quantum *) NULL)
-    {
-      InheritException(iterator->exception,GetCacheViewException(
-        iterator->view));
-      return((PixelWand **) NULL);
-    }
+    return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
     PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
@@ -932,8 +911,8 @@ WandExport void PixelSetLastIteratorRow(PixelIterator *iterator)
 */
 WandExport MagickBooleanType PixelSyncIterator(PixelIterator *iterator)
 {
-  ExceptionInfo
-    *exception;
+  MagickBooleanType
+    status;
 
   register ssize_t
     x;
@@ -945,27 +924,21 @@ WandExport MagickBooleanType PixelSyncIterator(PixelIterator *iterator)
   assert(iterator->signature == WandSignature);
   if (iterator->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",iterator->name);
-  if (SetCacheViewStorageClass(iterator->view,DirectClass) == MagickFalse)
+  status=SetCacheViewStorageClass(iterator->view,DirectClass,
+    iterator->exception);
+  if (status == MagickFalse)
     return(MagickFalse);
-  exception=iterator->exception;
   pixels=GetCacheViewAuthenticPixels(iterator->view,iterator->region.x,
-    iterator->region.y+iterator->y,iterator->region.width,1,exception);
+    iterator->region.y+iterator->y,iterator->region.width,1,
+    iterator->exception);
   if (pixels == (Quantum *) NULL)
-    {
-      InheritException(iterator->exception,GetCacheViewException(
-        iterator->view));
-      return(MagickFalse);
-    }
+    return(MagickFalse);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
     PixelGetQuantumPixel(iterator->image,iterator->pixel_wands[x],pixels);
     pixels+=GetPixelChannels(iterator->image);
   }
-  if (SyncCacheViewAuthenticPixels(iterator->view,exception) == MagickFalse)
-    {
-      InheritException(iterator->exception,GetCacheViewException(
-        iterator->view));
-      return(MagickFalse);
-    }
+  if (SyncCacheViewAuthenticPixels(iterator->view,iterator->exception) == MagickFalse)
+    return(MagickFalse);
   return(MagickTrue);
 }

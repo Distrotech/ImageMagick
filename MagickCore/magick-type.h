@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -38,11 +38,14 @@ extern "C" {
 
 #if (MAGICKCORE_QUANTUM_DEPTH == 8)
 #define MagickEpsilon  1.0e-6
-#define MagickHuge     1.0e6
 #define MaxColormapSize  256UL
 #define MaxMap  255UL
 
+#if defined __arm__ || defined __thumb__
+typedef float MagickRealType;
+#else
 typedef double MagickRealType;
+#endif
 #if defined(MAGICKCORE_HDRI_SUPPORT)
 typedef float Quantum;
 #define QuantumRange  255.0
@@ -54,11 +57,14 @@ typedef unsigned char Quantum;
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 16)
 #define MagickEpsilon  1.0e-10
-#define MagickHuge     1.0e12
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
+#if defined __arm__ || defined __thumb__
+typedef float MagickRealType;
+#else
 typedef double MagickRealType;
+#endif
 #if defined(MAGICKCORE_HDRI_SUPPORT)
 typedef float Quantum;
 #define QuantumRange  65535.0
@@ -70,7 +76,6 @@ typedef unsigned short Quantum;
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 32)
 #define MagickEpsilon  1.0e-10
-#define MagickHuge     1.0e12
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
@@ -86,7 +91,6 @@ typedef unsigned int Quantum;
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 64) && defined(MAGICKCORE_HAVE_LONG_DOUBLE_WIDER)
 #define MagickEpsilon  1.0e-10
-#define MagickHuge     1.0e12
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
@@ -99,7 +103,8 @@ typedef double Quantum;
 # error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
 #endif
-#define MagickPI     3.14159265358979323846264338327950288419716939937510L
+#define MagickHuge  3.402823466E+38F
+#define MagickPI  3.14159265358979323846264338327950288419716939937510L
 #define QuantumScale  ((double) 1.0/(double) QuantumRange)
 
 /*
@@ -125,6 +130,12 @@ typedef unsigned __int64 MagickSizeType;
 #define MagickSizeFormat  "I64u"
 #endif
 
+#if QuantumDepth > 16
+  typedef double SignedQuantum;
+#else
+  typedef ssize_t SignedQuantum;
+#endif
+
 #if defined(_MSC_VER) && (_MSC_VER == 1200)
 typedef MagickOffsetType QuantumAny;
 #else
@@ -134,31 +145,6 @@ typedef MagickSizeType QuantumAny;
 #if defined(macintosh)
 #define ExceptionInfo  MagickExceptionInfo
 #endif
-
-typedef enum
-{
-  UndefinedChannel,
-  RedChannel = 0x0001,
-  GrayChannel = 0x0001,
-  CyanChannel = 0x0001,
-  GreenChannel = 0x0002,
-  MagentaChannel = 0x0002,
-  BlueChannel = 0x0004,
-  YellowChannel = 0x0004,
-  AlphaChannel = 0x0008,
-  OpacityChannel = 0x0008,
-  BlackChannel = 0x0020,
-  CompositeChannels = 0x002F,
-  AllChannels = ~0L,
-  /*
-    Special purpose channel types.
-  */
-  TrueAlphaChannel = 0x0040, /* extract actual alpha channel from opacity */
-  RGBChannels = 0x0080,      /* set alpha from  grayscale mask in RGB */
-  GrayChannels = 0x0080,
-  SyncChannels = 0x0100,     /* channels should be modified equally */
-  DefaultChannels = ((AllChannels | SyncChannels) &~ AlphaChannel)
-} ChannelType;
 
 typedef enum
 {

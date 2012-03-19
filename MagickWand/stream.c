@@ -17,7 +17,7 @@
 %                              July 1992                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -48,6 +48,7 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
 #include "MagickCore/stream-private.h"
+#include "MagickCore/string-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -250,7 +251,7 @@ WandExport MagickBooleanType StreamImageCommand(ImageInfo *image_info,
   option=(char *) NULL;
   pend=MagickFalse;
   respect_parenthesis=MagickFalse;
-  stream_info=AcquireStreamInfo(image_info);
+  stream_info=AcquireStreamInfo(image_info,exception);
   status=MagickTrue;
   /*
     Stream an image.
@@ -547,7 +548,7 @@ WandExport MagickBooleanType StreamImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowStreamException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowStreamInvalidArgumentException(option,argv[i]);

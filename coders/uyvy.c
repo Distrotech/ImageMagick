@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -64,7 +64,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteUYVYImage(const ImageInfo *,Image *);
+  WriteUYVYImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -127,7 +127,7 @@ static Image *ReadUYVYImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   if ((image->columns % 2) != 0)
@@ -151,7 +151,7 @@ static Image *ReadUYVYImage(const ImageInfo *image_info,
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) (image->columns >> 1); x++)
     {
@@ -275,18 +275,19 @@ ModuleExport void UnregisterUYVYImage(void)
 %  The format of the WriteUYVYImage method is:
 %
 %      MagickBooleanType WriteUYVYImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
 %    o image_info: the image info.
 %
-%    o image:  The image.
-%      Implicit assumption: number of columns is even.
+%    o image:  The image.  Implicit assumption: number of columns is even.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 static MagickBooleanType WriteUYVYImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   PixelInfo
     pixel;
@@ -318,21 +319,23 @@ static MagickBooleanType WriteUYVYImage(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if ((image->columns % 2) != 0)
     image->columns++;
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   /*
     Accumulate two pixels, then output.
   */
-  uyvy_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+  uyvy_image=CloneImage(image,0,0,MagickTrue,exception);
   if (uyvy_image == (Image *) NULL)
-    ThrowWriterException(ResourceLimitError,image->exception.reason);
-  (void) TransformImageColorspace(uyvy_image,YCbCrColorspace);
+    return(MagickFalse);
+  (void) TransformImageColorspace(uyvy_image,YCbCrColorspace,exception);
   full=MagickFalse;
   (void) ResetMagickMemory(&pixel,0,sizeof(PixelInfo));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(uyvy_image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(uyvy_image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)

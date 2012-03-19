@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -118,7 +118,7 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
   MagickBooleanType
     status;
 
-  PixelPacket
+  PixelInfo
     pixel;
 
   register Quantum
@@ -148,7 +148,7 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
   one=1;
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   read_info=CloneImageInfo(image_info);
@@ -159,7 +159,7 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
   if (watermark == (Image *) NULL)
     return((Image *) NULL);
   watermark->depth=MAGICKCORE_QUANTUM_DEPTH;
-  if (AcquireImageColormap(image,MaxColormapSize) == MagickFalse)
+  if (AcquireImageColormap(image,MaxColormapSize,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   if (image_info->ping != MagickFalse)
     {
@@ -183,10 +183,11 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
       {
         if ((k/(ssize_t) watermark->columns) >= (ssize_t) watermark->rows)
           break;
-        (void) GetOneVirtualPixel(watermark,k % (ssize_t) watermark->columns,
-          k/(ssize_t) watermark->columns,&pixel,exception);
+        (void) GetOneVirtualPixelInfo(watermark,UndefinedVirtualPixelMethod,
+          k % (ssize_t) watermark->columns,k/(ssize_t) watermark->columns,
+          &pixel,exception);
         q=GetAuthenticPixels(image,x,y,1,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         switch (c)
         {
@@ -223,7 +224,7 @@ static Image *ReadSTEGANOImage(const ImageInfo *image_info,
       break;
   }
   watermark=DestroyImage(watermark);
-  (void) SyncImage(image);
+  (void) SyncImage(image,exception);
   return(GetFirstImageInList(image));
 }
 

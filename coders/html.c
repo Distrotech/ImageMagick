@@ -18,7 +18,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteHTMLImage(const ImageInfo *,Image *);
+  WriteHTMLImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -197,7 +197,8 @@ ModuleExport void UnregisterHTMLImage(void)
 %
 %  The format of the WriteHTMLImage method is:
 %
-%      MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -205,10 +206,11 @@ ModuleExport void UnregisterHTMLImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
 %
 */
 static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   char
     basename[MaxTextExtent],
@@ -242,12 +244,14 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   (void) CloseBlob(image);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   *url='\0';
   if ((LocaleCompare(image_info->magick,"FTP") == 0) ||
       (LocaleCompare(image_info->magick,"HTTP") == 0))
@@ -256,7 +260,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
         Extract URL base from filename.
       */
       p=strrchr(image->filename,'/');
-      if (p)
+      if (p != (char *) NULL)
         {
           p++;
           (void) CopyMagickString(url,image_info->magick,MaxTextExtent);
@@ -287,7 +291,8 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
       /*
         Open output image file.
       */
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
       /*
@@ -300,7 +305,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
         "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n");
       (void) WriteBlobString(image,"<html>\n");
       (void) WriteBlobString(image,"<head>\n");
-      value=GetImageProperty(image,"label");
+      value=GetImageProperty(image,"label",exception);
       if (value != (const char *) NULL)
         (void) FormatLocaleString(buffer,MaxTextExtent,"<title>%s</title>\n",
           value);
@@ -384,7 +389,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
       next=GetNextImageInList(image);
       image->next=NewImageList();
       (void) CopyMagickString(image->magick,"PNG",MaxTextExtent);
-      (void) WriteImage(write_info,image);
+      (void) WriteImage(write_info,image,exception);
       image->next=next;
       /*
         Determine image map filename.
@@ -396,7 +401,7 @@ static MagickBooleanType WriteHTMLImage(const ImageInfo *image_info,
   /*
     Open image map.
   */
-  status=OpenBlob(write_info,image,WriteBinaryBlobMode,&image->exception);
+  status=OpenBlob(write_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   write_info=DestroyImageInfo(write_info);

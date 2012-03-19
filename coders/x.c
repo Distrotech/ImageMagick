@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
 */
 #if defined(MAGICKCORE_X11_DELEGATE)
 static MagickBooleanType
-  WriteXImage(const ImageInfo *,Image *);
+  WriteXImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 #if defined(MAGICKCORE_X11_DELEGATE)
@@ -109,7 +109,7 @@ static Image *ReadXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   option=GetImageOption(image_info,"x:silent");
   if (option != (const char *) NULL)
     ximage_info.silent=IsMagickTrue(option);
-  return(XImportImage(image_info,&ximage_info));
+  return(XImportImage(image_info,&ximage_info,exception));
 }
 #endif
 
@@ -192,7 +192,8 @@ ModuleExport void UnregisterXImage(void)
 %
 %  The format of the WriteXImage method is:
 %
-%      MagickBooleanType WriteXImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteXImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -200,8 +201,11 @@ ModuleExport void UnregisterXImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteXImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteXImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
-  return(DisplayImages(image_info,image));
+  return(DisplayImages(image_info,image,exception));
 }

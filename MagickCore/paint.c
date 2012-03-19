@@ -17,7 +17,7 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,10 +50,12 @@
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/gem.h"
+#include "MagickCore/gem-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/paint.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/statistic.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/thread-private.h"
 
@@ -73,19 +75,19 @@
 %  specified, the color value is changed for any neighbor pixel that does not
 %  match the bordercolor member of image.
 %
-%  By default target must match a particular pixel color exactly.
-%  However, in many cases two colors may differ by a small amount.  The
-%  fuzz member of image defines how much tolerance is acceptable to
-%  consider two colors as the same.  For example, set fuzz to 10 and the
-%  color red at intensities of 100 and 102 respectively are now
-%  interpreted as the same color for the purposes of the floodfill.
+%  By default target must match a particular pixel color exactly.  However,
+%  in many cases two colors may differ by a small amount.  The fuzz member of
+%  image defines how much tolerance is acceptable to consider two colors as
+%  the same.  For example, set fuzz to 10 and the color red at intensities of
+%  100 and 102 respectively are now interpreted as the same color for the
+%  purposes of the floodfill.
 %
 %  The format of the FloodfillPaintImage method is:
 %
 %      MagickBooleanType FloodfillPaintImage(Image *image,
 %        const DrawInfo *draw_info,const PixelInfo target,
 %        const ssize_t x_offset,const ssize_t y_offset,
-%        const MagickBooleanType invert)
+%        const MagickBooleanType invert,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -99,10 +101,13 @@
 %
 %    o invert: paint any pixel that does not match the target color.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
   const DrawInfo *draw_info,const PixelInfo *target,const ssize_t x_offset,
-  const ssize_t y_offset,const MagickBooleanType invert)
+  const ssize_t y_offset,const MagickBooleanType invert,
+  ExceptionInfo *exception)
 {
 #define MaxStacksize  (1UL << 15)
 #define PushSegmentStack(up,left,right,delta) \
@@ -126,21 +131,16 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     *floodplane_view,
     *image_view;
 
-  ExceptionInfo
-    *exception;
-
   Image
     *floodplane_image;
 
   MagickBooleanType
-    skip;
+    skip,
+    status;
 
   PixelInfo
-    fill,
+    fill_color,
     pixel;
-
-  PixelPacket
-    fill_color;
 
   register SegmentInfo
     *s;
@@ -169,17 +169,19 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     return(MagickFalse);
   if ((y_offset < 0) || (y_offset >= (ssize_t) image->rows))
     return(MagickFalse);
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if (image->matte == MagickFalse)
-    (void) SetImageAlphaChannel(image,OpaqueAlphaChannel);
+  if ((target->matte != MagickFalse) && (image->matte == MagickFalse))
+    (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
     Set floodfill state.
   */
-  floodplane_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+  floodplane_image=CloneImage(image,image->columns,image->rows,MagickTrue,
+    exception);
   if (floodplane_image == (Image *) NULL)
     return(MagickFalse);
-  (void) SetImageAlphaChannel(floodplane_image,OpaqueAlphaChannel);
+  floodplane_image->colorspace=GRAYColorspace;
+  (void) EvaluateImage(floodplane_image,SetEvaluateOperator,0.0,exception);
   segment_stack=(SegmentInfo *) AcquireQuantumMemory(MaxStacksize,
     sizeof(*segment_stack));
   if (segment_stack == (SegmentInfo *) NULL)
@@ -191,14 +193,13 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
   /*
     Push initial segment on stack.
   */
-  exception=(&image->exception);
+  status=MagickTrue;
   x=x_offset;
   y=y_offset;
   start=0;
   s=segment_stack;
   PushSegmentStack(y,x,x,1);
   PushSegmentStack(y+1,x,x,-1);
-  GetPixelInfo(image,&fill);
   GetPixelInfo(image,&pixel);
   image_view=AcquireCacheView(image);
   floodplane_view=AcquireCacheView(floodplane_image);
@@ -207,11 +208,11 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     register const Quantum
       *restrict p;
 
-    register ssize_t
-      x;
-
     register Quantum
       *restrict q;
+
+    register ssize_t
+      x;
 
     /*
       Pop segment off stack.
@@ -233,12 +234,12 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     q+=x1*GetPixelChannels(floodplane_image);
     for (x=x1; x >= 0; x--)
     {
-      if (GetPixelAlpha(image,q) == TransparentAlpha)
+      if (GetPixelGray(floodplane_image,q) != 0)
         break;
-      SetPixelInfo(image,p,&pixel);
+      GetPixelInfoPixel(image,p,&pixel);
       if (IsFuzzyEquivalencePixelInfo(&pixel,target) == invert)
         break;
-      SetPixelAlpha(floodplane_image,TransparentAlpha,q);
+      SetPixelGray(floodplane_image,QuantumRange,q);
       p-=GetPixelChannels(image);
       q-=GetPixelChannels(floodplane_image);
     }
@@ -260,24 +261,23 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
             {
               p=GetCacheViewVirtualPixels(image_view,x,y,image->columns-x,1,
                 exception);
-              q=GetCacheViewAuthenticPixels(floodplane_view,x,y,
-                image->columns-x,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              q=GetCacheViewAuthenticPixels(floodplane_view,x,y,image->columns-
+                x,1,exception);
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for ( ; x < (ssize_t) image->columns; x++)
               {
-                if (GetPixelAlpha(image,q) == TransparentAlpha)
+                if (GetPixelGray(floodplane_image,q) != 0)
                   break;
-                SetPixelInfo(image,p,&pixel);
+                GetPixelInfoPixel(image,p,&pixel);
                 if (IsFuzzyEquivalencePixelInfo(&pixel,target) == invert)
                   break;
-                SetPixelAlpha(floodplane_image,
-                  TransparentAlpha,q);
+                SetPixelGray(floodplane_image,QuantumRange,q);
                 p+=GetPixelChannels(image);
                 q+=GetPixelChannels(floodplane_image);
               }
-              if (SyncCacheViewAuthenticPixels(floodplane_view,exception) == MagickFalse)
+              status=SyncCacheViewAuthenticPixels(floodplane_view,exception);
+              if (status == MagickFalse)
                 break;
             }
           PushSegmentStack(y,start,x-1,offset);
@@ -292,14 +292,13 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
             exception);
           q=GetCacheViewAuthenticPixels(floodplane_view,x,y,(size_t) (x2-x+1),1,
             exception);
-          if ((p == (const Quantum *) NULL) ||
-              (q == (Quantum *) NULL))
+          if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
             break;
           for ( ; x <= x2; x++)
           {
-            if (GetPixelAlpha(image,q) == TransparentAlpha)
+            if (GetPixelGray(floodplane_image,q) != 0)
               break;
-            SetPixelInfo(image,p,&pixel);
+            GetPixelInfoPixel(image,p,&pixel);
             if (IsFuzzyEquivalencePixelInfo(&pixel,target) != invert)
               break;
             p+=GetPixelChannels(image);
@@ -314,39 +313,25 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     register const Quantum
       *restrict p;
 
-    register ssize_t
-      x;
-
     register Quantum
       *restrict q;
+
+    register ssize_t
+      x;
 
     /*
       Tile fill color onto floodplane.
     */
-    p=GetCacheViewVirtualPixels(floodplane_view,0,y,image->columns,1,
-      exception);
+    p=GetCacheViewVirtualPixels(floodplane_view,0,y,image->columns,1,exception);
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      if (GetPixelAlpha(floodplane_image,p) != OpaqueAlpha)
+      if (GetPixelGray(floodplane_image,p) != 0)
         {
-          (void) GetFillColor(draw_info,x,y,&fill_color);
-          SetPixelInfoPacket(image,&fill_color,&fill);
-          if (image->colorspace == CMYKColorspace)
-            ConvertRGBToCMYK(&fill);
-          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelRed(image,ClampToQuantum(fill.red),q);
-          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelGreen(image,ClampToQuantum(fill.green),q);
-          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelBlue(image,ClampToQuantum(fill.blue),q);
-          if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->colorspace == CMYKColorspace))
-            SetPixelBlack(image,ClampToQuantum(fill.black),q);
-          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelAlpha(image,ClampToQuantum(fill.alpha),q);
+          (void) GetFillColor(draw_info,x,y,&fill_color,exception);
+          SetPixelInfoPixel(image,&fill_color,q);
         }
       p+=GetPixelChannels(floodplane_image);
       q+=GetPixelChannels(image);
@@ -381,8 +366,8 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
 %  The format of the GradientImage method is:
 %
 %      MagickBooleanType GradientImage(Image *image,const GradientType type,
-%        const SpreadMethod method,const PixelPacket *start_color,
-%        const PixelPacket *stop_color)
+%        const SpreadMethod method,const PixelInfo *start_color,
+%        const PixelInfo *stop_color,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -396,6 +381,8 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
 %
 %    o stop_color: the stop color.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 
 static inline double MagickMax(const double x,const double y)
@@ -405,7 +392,8 @@ static inline double MagickMax(const double x,const double y)
 
 MagickExport MagickBooleanType GradientImage(Image *image,
   const GradientType type,const SpreadMethod method,
-  const PixelPacket *start_color,const PixelPacket *stop_color)
+  const PixelInfo *start_color,const PixelInfo *stop_color,
+  ExceptionInfo *exception)
 {
   DrawInfo
     *draw_info;
@@ -426,8 +414,8 @@ MagickExport MagickBooleanType GradientImage(Image *image,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  assert(start_color != (const PixelPacket *) NULL);
-  assert(stop_color != (const PixelPacket *) NULL);
+  assert(start_color != (const PixelInfo *) NULL);
+  assert(stop_color != (const PixelInfo *) NULL);
   draw_info=AcquireDrawInfo();
   gradient=(&draw_info->gradient);
   gradient->type=type;
@@ -454,19 +442,19 @@ MagickExport MagickBooleanType GradientImage(Image *image,
     sizeof(*gradient->stops));
   for (i=0; i < (ssize_t) gradient->number_stops; i++)
     GetPixelInfo(image,&gradient->stops[i].color);
-  SetPixelInfoPacket(image,start_color,&gradient->stops[0].color);
+  gradient->stops[0].color=(*start_color);
   gradient->stops[0].offset=0.0;
-  SetPixelInfoPacket(image,stop_color,&gradient->stops[1].color);
+  gradient->stops[1].color=(*stop_color);
   gradient->stops[1].offset=1.0;
   /*
     Draw a gradient on the image.
   */
-  status=DrawGradientImage(image,draw_info);
+  status=DrawGradientImage(image,draw_info,exception);
   draw_info=DestroyDrawInfo(draw_info);
-  if ((start_color->alpha == OpaqueAlpha) && (stop_color->alpha == OpaqueAlpha))
+  if ((start_color->matte == MagickFalse) && (stop_color->matte == MagickFalse))
     image->matte=MagickFalse;
-  if ((IsPixelPacketGray(start_color) != MagickFalse) &&
-      (IsPixelPacketGray(stop_color) != MagickFalse))
+  if ((IsPixelInfoGray(start_color) != MagickFalse) &&
+      (IsPixelInfoGray(stop_color) != MagickFalse))
     image->type=GrayscaleType;
   return(status);
 }
@@ -489,13 +477,15 @@ MagickExport MagickBooleanType GradientImage(Image *image,
 %  The format of the OilPaintImage method is:
 %
 %      Image *OilPaintImage(const Image *image,const double radius,
-%        ExceptionInfo *exception)
+%        const double sigma,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
 %    o radius: the radius of the circular neighborhood.
+%
+%    o sigma: the standard deviation of the Gaussian, in pixels.
 %
 %    o exception: return any errors or warnings in this structure.
 %
@@ -524,15 +514,13 @@ static size_t **AcquireHistogramThreadSet(const size_t count)
     number_threads;
 
   number_threads=GetOpenMPMaximumThreads();
-  histogram=(size_t **) AcquireQuantumMemory(number_threads,
-    sizeof(*histogram));
+  histogram=(size_t **) AcquireQuantumMemory(number_threads,sizeof(*histogram));
   if (histogram == (size_t **) NULL)
     return((size_t **) NULL);
   (void) ResetMagickMemory(histogram,0,number_threads*sizeof(*histogram));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
-    histogram[i]=(size_t *) AcquireQuantumMemory(count,
-      sizeof(**histogram));
+    histogram[i]=(size_t *) AcquireQuantumMemory(count,sizeof(**histogram));
     if (histogram[i] == (size_t *) NULL)
       return(DestroyHistogramThreadSet(histogram));
   }
@@ -540,7 +528,7 @@ static size_t **AcquireHistogramThreadSet(const size_t count)
 }
 
 MagickExport Image *OilPaintImage(const Image *image,const double radius,
-  ExceptionInfo *exception)
+  const double sigma,ExceptionInfo *exception)
 {
 #define NumberPaintBins  256
 #define OilPaintImageTag  "OilPaint/Image"
@@ -559,10 +547,11 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
     progress;
 
   size_t
-    **restrict histograms,
+    **histograms,
     width;
 
   ssize_t
+    center,
     y;
 
   /*
@@ -574,13 +563,12 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  width=GetOptimalKernelWidth2D(radius,0.5);
+  width=GetOptimalKernelWidth2D(radius,sigma);
   paint_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
   if (paint_image == (Image *) NULL)
     return((Image *) NULL);
-  if (SetImageStorageClass(paint_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(paint_image,DirectClass,exception) == MagickFalse)
     {
-      InheritException(exception,&paint_image->exception);
       paint_image=DestroyImage(paint_image);
       return((Image *) NULL);
     }
@@ -595,24 +583,26 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
   */
   status=MagickTrue;
   progress=0;
+  center=(ssize_t) GetPixelChannels(image)*(image->columns+width)*(width/2L)+
+    GetPixelChannels(image)*(width/2L);
   image_view=AcquireCacheView(image);
   paint_view=AcquireCacheView(paint_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     register const Quantum
       *restrict p;
 
-    register ssize_t
-      x;
-
     register Quantum
       *restrict q;
 
     register size_t
       *histogram;
+
+    register ssize_t
+      x;
 
     if (status == MagickFalse)
       continue;
@@ -638,41 +628,54 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
       ssize_t
         j,
         k,
+        n,
         v;
 
       /*
         Assign most frequent color.
       */
-      i=0;
+      k=0;
       j=0;
       count=0;
-      (void) ResetMagickMemory(histogram,0,NumberPaintBins*sizeof(*histogram));
+      (void) ResetMagickMemory(histogram,0,NumberPaintBins* sizeof(*histogram));
       for (v=0; v < (ssize_t) width; v++)
       {
         for (u=0; u < (ssize_t) width; u++)
         {
-          k=(ssize_t) ScaleQuantumToChar(GetPixelIntensity(image,p+u+i));
-          histogram[k]++;
-          if (histogram[k] > count)
+          n=(ssize_t) ScaleQuantumToChar(GetPixelIntensity(image,p+
+            GetPixelChannels(image)*(u+k)));
+          histogram[n]++;
+          if (histogram[n] > count)
             {
-              j=i+u;
-              count=histogram[k];
+              j=k+u;
+              count=histogram[n];
             }
         }
-        i+=(ssize_t) (image->columns+width);
+        k+=(ssize_t) (image->columns+width);
       }
-      SetPixelRed(paint_image,GetPixelRed(image,p+j*
-        GetPixelChannels(image)),q);
-      SetPixelGreen(paint_image,GetPixelGreen(image,p+j*
-        GetPixelChannels(image)),q);
-      SetPixelBlue(paint_image,GetPixelBlue(image,p+j*
-        GetPixelChannels(image)),q);
-      if (image->colorspace == CMYKColorspace)
-        SetPixelBlack(paint_image,GetPixelBlack(image,p+j*
-          GetPixelChannels(image)),q);
-      if (image->matte != MagickFalse)
-        SetPixelAlpha(paint_image,GetPixelAlpha(image,p+j*
-          GetPixelChannels(image)),q);
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          paint_traits,
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        paint_traits=GetPixelChannelMapTraits(paint_image,channel);
+        if ((traits == UndefinedPixelTrait) ||
+            (paint_traits == UndefinedPixelTrait))
+          continue;
+        if (((paint_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,p) != 0))
+          {
+            SetPixelChannel(paint_image,channel,p[center+i],q);
+            continue;
+          }
+        SetPixelChannel(paint_image,channel,p[j*GetPixelChannels(image)+i],q);
+      }
       p+=GetPixelChannels(image);
       q+=GetPixelChannels(paint_image);
     }
@@ -684,7 +687,7 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_OilPaintImage)
+        #pragma omp critical (MagickCore_OilPaintImage)
 #endif
         proceed=SetImageProgress(image,OilPaintImageTag,progress++,image->rows);
         if (proceed == MagickFalse)
@@ -713,17 +716,17 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
 %  OpaquePaintImage() changes any pixel that matches color with the color
 %  defined by fill.
 %
-%  By default color must match a particular pixel color exactly.  However,
-%  in many cases two colors may differ by a small amount.  Fuzz defines
-%  how much tolerance is acceptable to consider two colors as the same.
-%  For example, set fuzz to 10 and the color red at intensities of 100 and
-%  102 respectively are now interpreted as the same color.
+%  By default color must match a particular pixel color exactly.  However, in
+%  many cases two colors may differ by a small amount.  Fuzz defines how much
+%  tolerance is acceptable to consider two colors as the same.  For example,
+%  set fuzz to 10 and the color red at intensities of 100 and 102 respectively
+%  are now interpreted as the same color.
 %
 %  The format of the OpaquePaintImage method is:
 %
 %      MagickBooleanType OpaquePaintImage(Image *image,
-%        const PixelPacket *target,const PixelPacket *fill,
-%        const MagickBooleanType invert)
+%        const PixelInfo *target,const PixelInfo *fill,
+%        const MagickBooleanType invert,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -735,17 +738,17 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
 %
 %    o invert: paint any pixel that does not match the target color.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType OpaquePaintImage(Image *image,
-  const PixelInfo *target,const PixelInfo *fill,const MagickBooleanType invert)
+  const PixelInfo *target,const PixelInfo *fill,const MagickBooleanType invert,
+  ExceptionInfo *exception)
 {
 #define OpaquePaintImageTag  "Opaque/Image"
 
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -765,34 +768,35 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
   assert(fill != (PixelInfo *) NULL);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
+  if ((fill->matte != MagickFalse) && (image->matte == MagickFalse))
+    (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
     Make image color opaque.
   */
   status=MagickTrue;
   progress=0;
-  exception=(&image->exception);
   GetPixelInfo(image,&zero);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     PixelInfo
       pixel;
 
-    register ssize_t
-      x;
-
     register Quantum
       *restrict q;
+
+    register ssize_t
+      x;
 
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -800,21 +804,9 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
     pixel=zero;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelInfo(image,q,&pixel);
+      GetPixelInfoPixel(image,q,&pixel);
       if (IsFuzzyEquivalencePixelInfo(&pixel,target) != invert)
-        {
-          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelRed(image,ClampToQuantum(fill->red),q);
-          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelGreen(image,ClampToQuantum(fill->green),q);
-          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelBlue(image,ClampToQuantum(fill->blue),q);
-          if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->colorspace == CMYKColorspace))
-            SetPixelBlack(image,ClampToQuantum(fill->black),q);
-          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelAlpha(image,ClampToQuantum(fill->alpha),q);
-        }
+        SetPixelInfoPixel(image,fill,q);
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -825,7 +817,7 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_OpaquePaintImage)
+        #pragma omp critical (MagickCore_OpaquePaintImage)
 #endif
         proceed=SetImageProgress(image,OpaquePaintImageTag,progress++,
           image->rows);
@@ -851,17 +843,17 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
 %  TransparentPaintImage() changes the opacity value associated with any pixel
 %  that matches color to the value defined by opacity.
 %
-%  By default color must match a particular pixel color exactly.  However,
-%  in many cases two colors may differ by a small amount.  Fuzz defines
-%  how much tolerance is acceptable to consider two colors as the same.
-%  For example, set fuzz to 10 and the color red at intensities of 100 and
-%  102 respectively are now interpreted as the same color.
+%  By default color must match a particular pixel color exactly.  However, in
+%  many cases two colors may differ by a small amount.  Fuzz defines how much
+%  tolerance is acceptable to consider two colors as the same.  For example,
+%  set fuzz to 10 and the color red at intensities of 100 and 102 respectively
+%  are now interpreted as the same color.
 %
 %  The format of the TransparentPaintImage method is:
 %
 %      MagickBooleanType TransparentPaintImage(Image *image,
 %        const PixelInfo *target,const Quantum opacity,
-%        const MagickBooleanType invert)
+%        const MagickBooleanType invert,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -873,18 +865,17 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
 %
 %    o invert: paint any pixel that does not match the target color.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType TransparentPaintImage(Image *image,
-  const PixelInfo *target,const Quantum opacity,
-  const MagickBooleanType invert)
+  const PixelInfo *target,const Quantum opacity,const MagickBooleanType invert,
+  ExceptionInfo *exception)
 {
 #define TransparentPaintImageTag  "Transparent/Image"
 
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -903,20 +894,19 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
   assert(target != (PixelInfo *) NULL);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (image->matte == MagickFalse)
-    (void) SetImageAlphaChannel(image,OpaqueAlphaChannel);
+    (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   /*
     Make image color transparent.
   */
   status=MagickTrue;
   progress=0;
-  exception=(&image->exception);
   GetPixelInfo(image,&zero);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -932,7 +922,7 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -940,7 +930,7 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
     pixel=zero;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelInfo(image,q,&pixel);
+      GetPixelInfoPixel(image,q,&pixel);
       if (IsFuzzyEquivalencePixelInfo(&pixel,target) != invert)
         SetPixelAlpha(image,opacity,q);
       q+=GetPixelChannels(image);
@@ -953,7 +943,7 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_TransparentPaintImage)
+        #pragma omp critical (MagickCore_TransparentPaintImage)
 #endif
         proceed=SetImageProgress(image,TransparentPaintImageTag,progress++,
           image->rows);
@@ -979,18 +969,18 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
 %  TransparentPaintImageChroma() changes the opacity value associated with any
 %  pixel that matches color to the value defined by opacity.
 %
-%  As there is one fuzz value for the all the channels, the
-%  TransparentPaintImage() API is not suitable for the operations like chroma,
-%  where the tolerance for similarity of two color component (RGB) can be
-%  different, Thus we define this method take two target pixels (one
-%  low and one hight) and all the pixels of an image which are lying between
-%  these two pixels are made transparent.
+%  As there is one fuzz value for the all the channels, TransparentPaintImage()
+%  is not suitable for the operations like chroma, where the tolerance for
+%  similarity of two color component (RGB) can be different. Thus we define
+%  this method to take two target pixels (one low and one high) and all the
+%  pixels of an image which are lying between these two pixels are made
+%  transparent.
 %
-%  The format of the TransparentPaintImage method is:
+%  The format of the TransparentPaintImageChroma method is:
 %
-%      MagickBooleanType TransparentPaintImage(Image *image,
-%        const PixelInfo *low,const PixelInfo *hight,
-%        const Quantum opacity,const MagickBooleanType invert)
+%      MagickBooleanType TransparentPaintImageChroma(Image *image,
+%        const PixelInfo *low,const PixelInfo *high,const Quantum opacity,
+%        const MagickBooleanType invert,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1004,18 +994,17 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
 %
 %    o invert: paint any pixel that does not match the target color.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
-  const PixelInfo *low,const PixelInfo *high,
-  const Quantum opacity,const MagickBooleanType invert)
+  const PixelInfo *low,const PixelInfo *high,const Quantum opacity,
+  const MagickBooleanType invert,ExceptionInfo *exception)
 {
 #define TransparentPaintImageTag  "Transparent/Image"
 
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -1032,19 +1021,18 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
   assert(low != (PixelInfo *) NULL);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (image->matte == MagickFalse)
-    (void) SetImageAlphaChannel(image,OpaqueAlphaChannel);
+    (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   /*
     Make image color transparent.
   */
   status=MagickTrue;
   progress=0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1054,16 +1042,16 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
     PixelInfo
       pixel;
 
-    register ssize_t
-      x;
-
     register Quantum
       *restrict q;
+
+    register ssize_t
+      x;
 
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -1071,11 +1059,11 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
     GetPixelInfo(image,&pixel);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelInfo(image,q,&pixel);
+      GetPixelInfoPixel(image,q,&pixel);
       match=((pixel.red >= low->red) && (pixel.red <= high->red) &&
         (pixel.green >= low->green) && (pixel.green <= high->green) &&
-        (pixel.blue  >= low->blue) && (pixel.blue <= high->blue)) ?
-        MagickTrue : MagickFalse;
+        (pixel.blue  >= low->blue) && (pixel.blue <= high->blue)) ? MagickTrue :
+        MagickFalse;
       if (match != invert)
         SetPixelAlpha(image,opacity,q);
       q+=GetPixelChannels(image);
@@ -1088,7 +1076,7 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_TransparentPaintImageChroma)
+        #pragma omp critical (MagickCore_TransparentPaintImageChroma)
 #endif
         proceed=SetImageProgress(image,TransparentPaintImageTag,progress++,
           image->rows);

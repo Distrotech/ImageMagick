@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -24,14 +24,15 @@ extern "C" {
 
 #include <MagickCore/thread_.h>
 
-#define omp_throttle(factor)  num_threads(omp_get_max_threads() >> (factor))
-
 #if (__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR > 10))
 #define MagickCachePrefetch(address,mode,locality) \
   __builtin_prefetch(address,mode,locality)
 #else
 #define MagickCachePrefetch(address,mode,locality)
 #endif
+
+#define omp_throttle(factor)  num_threads(omp_get_max_threads() >> \
+   (factor) == 0 ? 1 : omp_get_max_threads() >> (factor))
 
 #if defined(MAGICKCORE_THREAD_SUPPORT)
   typedef pthread_mutex_t MagickMutexType;
@@ -99,7 +100,7 @@ static inline size_t GetOpenMPMaximumThreads(void)
   static size_t
     maximum_threads = 1;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   {
     ssize_t
       threads;
@@ -114,7 +115,7 @@ static inline size_t GetOpenMPMaximumThreads(void)
 
 static inline int GetOpenMPThreadId(void)
 {
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   return(omp_get_thread_num());
 #else
   return(0);
@@ -123,7 +124,7 @@ static inline int GetOpenMPThreadId(void)
 
 static inline void SetOpenMPMaximumThreads(const int threads)
 {
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   omp_set_num_threads(threads);
 #else
   (void) threads;
@@ -132,7 +133,7 @@ static inline void SetOpenMPMaximumThreads(const int threads)
 
 static inline void SetOpenMPNested(const int value)
 {
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   omp_set_nested(value);
 #else
   (void) value;

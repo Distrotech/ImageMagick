@@ -15,6 +15,7 @@
   <configure name="CONFIGURE" value="@CONFIGURE_ARGS@"/>
   <configure name="PREFIX" value="@PREFIX_DIR@"/>
   <configure name="EXEC-PREFIX" value="@EXEC_PREFIX_DIR@"/>
+  <configure name="INCLUDE_PATH" value="@INCLUDE_PATH@"/>
   <configure name="CONFIGURE_PATH" value="@CONFIGURE_PATH@"/>
   <configure name="SHARE_PATH" value="@SHARE_PATH@"/>
   <configure name="DOCUMENTATION_PATH" value="@DOCUMENTATION_PATH@"/>
@@ -38,7 +39,7 @@
   <configure name="HOST" value="@host@"/>
   <configure name="FEATURES" value="@MAGICK_FEATURES@"/>
   <configure name="DELEGATES" value="@DELEGATES@"/>
-  <configure name="COPYRIGHT" value="Copyright (C) 1999-2011 ImageMagick Studio LLC"/>
+  <configure name="COPYRIGHT" value="Copyright (C) 1999-2012 ImageMagick Studio LLC"/>
   <configure name="WEBSITE" value="http://www.imagemagick.org"/>
   <configure name="QuantumDepth" value="@QUANTUM_DEPTH@"/>
 </configuremap>

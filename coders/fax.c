@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -64,7 +64,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteFAXImage(const ImageInfo *,Image *);
+  WriteFAXImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -145,7 +145,7 @@ static Image *ReadFAXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -161,7 +161,7 @@ static Image *ReadFAXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (image->rows == 0)
     image->rows=3508;
   image->depth=8;
-  if (AcquireImageColormap(image,2) == MagickFalse)
+  if (AcquireImageColormap(image,2,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   /*
     Monochrome colormap.
@@ -177,7 +177,7 @@ static Image *ReadFAXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       (void) CloseBlob(image);
       return(GetFirstImageInList(image));
     }
-  status=HuffmanDecodeImage(image);
+  status=HuffmanDecodeImage(image,exception);
   if (status == MagickFalse)
     ThrowReaderException(CorruptImageError,"UnableToReadImageData");
   if (EOFBlob(image) != MagickFalse)
@@ -284,7 +284,8 @@ ModuleExport void UnregisterFAXImage(void)
 %
 %  The format of the WriteFAXImage method is:
 %
-%      MagickBooleanType WriteFAXImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteFAXImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -292,8 +293,11 @@ ModuleExport void UnregisterFAXImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteFAXImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteFAXImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   ImageInfo
     *write_info;
@@ -313,7 +317,9 @@ static MagickBooleanType WriteFAXImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   write_info=CloneImageInfo(image_info);
@@ -325,8 +331,8 @@ static MagickBooleanType WriteFAXImage(const ImageInfo *image_info,Image *image)
       Convert MIFF to monochrome.
     */
     if (IsRGBColorspace(image->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image,RGBColorspace);
-    status=HuffmanEncodeImage(write_info,image,image);
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
+    status=HuffmanEncodeImage(write_info,image,image,exception);
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);

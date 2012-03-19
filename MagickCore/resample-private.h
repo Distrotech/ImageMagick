@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ static inline ResampleFilter **DestroyResampleFilterThreadSet(
   for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
     if (filter[i] != (ResampleFilter *) NULL)
       filter[i]=DestroyResampleFilter(filter[i]);
-  filter=(ResampleFilter **) RelinquishAlignedMemory(filter);
+  filter=(ResampleFilter **) RelinquishMagickMemory(filter);
   return(filter);
 }
 
@@ -52,7 +52,7 @@ static inline ResampleFilter **AcquireResampleFilterThreadSet(
     number_threads;
 
   number_threads=GetOpenMPMaximumThreads();
-  filter=(ResampleFilter **) AcquireAlignedMemory(number_threads,
+  filter=(ResampleFilter **) AcquireQuantumMemory(number_threads,
     sizeof(*filter));
   if (filter == (ResampleFilter **) NULL)
     return((ResampleFilter **) NULL);

@@ -17,7 +17,7 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -43,16 +43,19 @@
 #include "MagickCore/blob.h"
 #include "MagickCore/client.h"
 #include "MagickCore/configure.h"
+#include "MagickCore/configure-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
 #include "MagickCore/magic.h"
+#include "MagickCore/magic-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 
 /*
@@ -1015,7 +1018,7 @@ static MagickBooleanType LoadMagicLists(const char *filename,
 %      MagickBooleanType MagicComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType MagicComponentGenesis(void)
+MagickPrivate MagickBooleanType MagicComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&magic_semaphore);
   return(MagickTrue);
@@ -1061,7 +1064,7 @@ static void *DestroyMagicElement(void *magic_info)
   return((void *) NULL);
 }
 
-MagickExport void MagicComponentTerminus(void)
+MagickPrivate void MagicComponentTerminus(void)
 {
   if (magic_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&magic_semaphore);

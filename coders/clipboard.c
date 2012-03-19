@@ -17,7 +17,7 @@
 %                                 May 2002                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -58,7 +58,9 @@
 #include "MagickCore/list.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/nt-feature.h"
+#include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
@@ -69,7 +71,7 @@
 */
 #if defined(MAGICKCORE_WINGDI32_DELEGATE)
 static MagickBooleanType
-  WriteCLIPBOARDImage(const ImageInfo *,Image *);
+  WriteCLIPBOARDImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 /*
@@ -122,7 +124,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   {
     HBITMAP
       bitmapH;
@@ -209,7 +211,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
       for (y=0; y < (ssize_t) image->rows; y++)
       {
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
@@ -313,7 +315,7 @@ ModuleExport void UnregisterCLIPBOARDImage(void)
 %  The format of the WriteCLIPBOARDImage method is:
 %
 %      MagickBooleanType WriteCLIPBOARDImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -321,10 +323,12 @@ ModuleExport void UnregisterCLIPBOARDImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 #if defined(MAGICKCORE_WINGDI32_DELEGATE)
 static MagickBooleanType WriteCLIPBOARDImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   /*
     Allocate memory for pixels.
@@ -341,11 +345,10 @@ static MagickBooleanType WriteCLIPBOARDImage(const ImageInfo *image_info,
 
     OpenClipboard(NULL);
     EmptyClipboard();
-    bitmapH=(HBITMAP) ImageToHBITMAP(image);
+    bitmapH=(HBITMAP) ImageToHBITMAP(image,exception);
     SetClipboardData(CF_BITMAP,bitmapH);
     CloseClipboard();
   }
   return(MagickTrue);
 }
 #endif /* MAGICKCORE_WINGDI32_DELEGATE */
-

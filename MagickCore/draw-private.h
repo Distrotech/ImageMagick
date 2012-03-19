@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -27,55 +27,47 @@ extern "C" {
 #include "MagickCore/memory_.h"
 
 static inline MagickBooleanType GetFillColor(const DrawInfo *draw_info,
-  const ssize_t x,const ssize_t y,PixelPacket *pixel)
+  const ssize_t x,const ssize_t y,PixelInfo *fill,ExceptionInfo *exception)
 {
-  Image
-    *pattern;
-
-  MagickBooleanType
-    status;
-
-  pattern=draw_info->fill_pattern;
-  if (pattern == (Image *) NULL)
+  if (draw_info->fill_pattern == (Image *) NULL)
     {
-      *pixel=draw_info->fill;
+      *fill=draw_info->fill;
       return(MagickTrue);
     }
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
-  #pragma omp critical
-#endif
-  status=GetOneVirtualMethodPixel(pattern,TileVirtualPixelMethod,
-    x+pattern->tile_offset.x,y+pattern->tile_offset.y,pixel,
-    &pattern->exception);
-  if (pattern->matte == MagickFalse)
-    pixel->alpha=OpaqueAlpha;
-  return(status);
+  {
+    Image
+      *pattern;
+
+    MagickBooleanType
+      status;
+
+    pattern=draw_info->fill_pattern;
+    status=GetOneVirtualPixelInfo(pattern,TileVirtualPixelMethod,x+
+      pattern->tile_offset.x,y+pattern->tile_offset.y,fill,exception);
+    return(status);
+  }
 }
 
 static inline MagickBooleanType GetStrokeColor(const DrawInfo *draw_info,
-  const ssize_t x,const ssize_t y,PixelPacket *pixel)
+  const ssize_t x,const ssize_t y,PixelInfo *stroke,ExceptionInfo *exception)
 {
-  Image
-    *pattern;
-
-  MagickBooleanType
-    status;
-
-  pattern=draw_info->stroke_pattern;
-  if (pattern == (Image *) NULL)
+  if (draw_info->stroke_pattern == (Image *) NULL)
     {
-      *pixel=draw_info->stroke;
+      *stroke=draw_info->stroke;
       return(MagickTrue);
     }
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (_OPENMP >= 200203)
-  #pragma omp critical
-#endif
-  status=GetOneVirtualMethodPixel(pattern,TileVirtualPixelMethod,
-    x+pattern->tile_offset.x,y+pattern->tile_offset.y,pixel,
-    &pattern->exception);
-  if (pattern->matte == MagickFalse)
-    pixel->alpha=OpaqueAlpha;
-  return(status);
+  {
+    Image
+      *pattern;
+
+    MagickBooleanType
+      status;
+
+    pattern=draw_info->stroke_pattern;
+    status=GetOneVirtualPixelInfo(pattern,TileVirtualPixelMethod,x+
+      pattern->tile_offset.x,y+pattern->tile_offset.y,stroke,exception);
+    return(status);
+  }
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)

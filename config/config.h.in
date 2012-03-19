@@ -43,9 +43,6 @@
 /* Define if you have Display Postscript */
 #undef DPS_DELEGATE
 
-/* Build self-contained, embeddable, zero-configuration ImageMagick */
-#undef EMBEDDABLE_SUPPORT
-
 /* exclude deprecated methods in MagickCore API */
 #undef EXCLUDE_DEPRECATED
 
@@ -76,6 +73,9 @@
 /* Define if you have GVC library */
 #undef GVC_DELEGATE
 
+/* Define to 1 if you have the `acosh' function. */
+#undef HAVE_ACOSH
+
 /* Define to 1 if you have the `argz_add' function. */
 #undef HAVE_ARGZ_ADD
 
@@ -102,6 +102,12 @@
 
 /* Define to 1 if you have the <arm/limits.h> header file. */
 #undef HAVE_ARM_LIMITS_H
+
+/* Define to 1 if you have the `asinh' function. */
+#undef HAVE_ASINH
+
+/* Define to 1 if you have the `atanh' function. */
+#undef HAVE_ATANH
 
 /* Define to 1 if you have the `atexit' function. */
 #undef HAVE_ATEXIT
@@ -156,6 +162,10 @@
 /* Define to 1 if you have the declaration of `pwrite', and to 0 if you don't.
    */
 #undef HAVE_DECL_PWRITE
+
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRERROR_R
 
 /* Define to 1 if you have the declaration of `strlcpy', and to 0 if you
    don't. */
@@ -268,6 +278,9 @@
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `isnan' function. */
+#undef HAVE_ISNAN
 
 /* Define to 1 if you have the `j0' function. */
 #undef HAVE_J0
@@ -419,6 +432,9 @@
 
 /* Define if you have POSIX threads libraries and header files. */
 #undef HAVE_PTHREAD
+
+/* Have PTHREAD_PRIO_INHERIT. */
+#undef HAVE_PTHREAD_PRIO_INHERIT
 
 /* Define to 1 if you have the `pwrite' function. */
 #undef HAVE_PWRITE
@@ -620,6 +636,9 @@
 /* Define to 1 if you have the <tiffconf.h> header file. */
 #undef HAVE_TIFFCONF_H
 
+/* Define to 1 if you have the `TIFFIsBigEndian' function. */
+#undef HAVE_TIFFISBIGENDIAN
+
 /* Define to 1 if you have the `TIFFIsCODECConfigured' function. */
 #undef HAVE_TIFFISCODECCONFIGURED
 
@@ -751,6 +770,9 @@
 /* Define if you have umem memory allocation library */
 #undef HasUMEM
 
+/* Directory where ImageMagick headers live. */
+#undef INCLUDE_PATH
+
 /* ImageMagick is formally installed under prefix */
 #undef INSTALLED_SUPPORT
 
@@ -802,7 +824,10 @@
    */
 #undef LT_OBJDIR
 
-/* Define if you have lzma compression library */
+/* Define to the shared library suffix, say, ".dylib". */
+#undef LT_SHARED_EXT
+
+/* Define if you have LZMA library */
 #undef LZMA_DELEGATE
 
 /* Define to prepend to default font search path. */
@@ -823,6 +848,9 @@
 /* Define if you have OPENEXR library */
 #undef OPENEXR_DELEGATE
 
+/* Name of package */
+#undef PACKAGE
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -840,6 +868,12 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* Define if you have PANGOFT2 library */
+#undef PANGOFT2_DELEGATE
+
+/* Define if you have PANGO library */
+#undef PANGO_DELEGATE
 
 /* Define if you have PNG library */
 #undef PNG_DELEGATE
@@ -868,6 +902,13 @@
 
 /* Define to the type of arg 5 for `select'. */
 #undef SELECT_TYPE_ARG5
+
+/* Directory where architecture-independent configuration files live. */
+#undef SHAREARCH_PATH
+
+/* Subdirectory of lib where architecture-independent configuration files
+   live. */
+#undef SHAREARCH_RELATIVE_PATH
 
 /* Directory where architecture-independent configuration files live. */
 #undef SHARE_PATH
@@ -918,6 +959,9 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Define to 1 if strerror_r returns char *. */
+#undef STRERROR_R_CHAR_P
+
 /* Define if you have POSIX threads libraries and header files. */
 #undef THREAD_SUPPORT
 
@@ -952,6 +996,9 @@
 #endif
 
 
+/* Version number of package */
+#undef VERSION
+
 /* Define if you have WEBP library */
 #undef WEBP_DELEGATE
 
@@ -961,7 +1008,10 @@
 /* Define if using the dmalloc debugging malloc package */
 #undef WITH_DMALLOC
 
-/* Define if you have WMF library */
+/* Define if you have wmflite library */
+#undef WMFLITE_DELEGATE
+
+/* Define if you have wmf library */
 #undef WMF_DELEGATE
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
@@ -987,6 +1037,9 @@
 
 /* Define to 1 if the X Window System is missing or not being used. */
 #undef X_DISPLAY_MISSING
+
+/* Build self-contained, embeddable, zero-configuration ImageMagick */
+#undef ZERO_CONFIGURATION_SUPPORT
 
 /* Define if you have zlib compression library */
 #undef ZLIB_DELEGATE

@@ -7,7 +7,7 @@ convert \- convert between image formats as well as resize an image, blur, crop,
 .SH OVERVIEW
 The \fBconvert\fP program is a member of the ImageMagick(1) suite of tools.  Use it to convert between image formats as well as resize an image, blur, crop, despeckle, dither, draw on, flip, join, re-sample, and much more.  
 
-For more information about the convert command, point your browser to file:///usr/local/share/doc/ImageMagick-7.0.0//www/convert.html or http://www.imagemagick.org/script/convert.php.
+For more information about the convert command, point your browser to file:///usr/local/share/doc/ImageMagick//www/convert.html or http://www.imagemagick.org/script/convert.php.
 .SH DESCRIPTION
 Image Settings:
   \-adjoin              join images into a single multi-image file
@@ -225,6 +225,15 @@ Image Operators:
   \-white-threshold value
                        force all pixels above the threshold into white
 
+
+Image Channel Operators:
+  \-channel-extract channel-list
+                        extract the channels in order
+  \-channel-inject channel-list
+                        inject the channels in order
+  \-channel-swap channel,channel
+                        swap the channels
+
 Image Sequence Operators:
   \-affinity filename   transform image colors to match this set of colors
   \-append              append an image sequence top to bottom (use +append for left to right)
@@ -261,9 +270,11 @@ Miscellaneous Options:
   \-list type           print a list of supported option arguments
   \-version             print version information
 
+Use any setting or operator as an \fIoutput-option\fP.  Only a limited number of setting are  \fIinput-option\fP. They include: \-antialias, \-caption, \-density, \-define, \-encoding, \-font, \-pointsize, \-size, and \-texture as well as any of the miscellaneous options.
+
 By default, the image format of `file' is determined by its magic number.  To specify a particular image format, precede the filename with an image format name and a colon (i.e. ps:image) or specify the image type as the filename suffix (i.e. image.ps).  Specify 'file' as '-' for standard input or output.
 .SH SEE ALSO
 ImageMagick(1)
 
 .SH COPYRIGHT
-\fBCopyright (C) 1999-2011 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file:///usr/local/share/doc/ImageMagick-7.0.0//www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2012 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file:///usr/local/share/doc/ImageMagick//www/license.html or http://www.imagemagick.org/script/license.php\fP

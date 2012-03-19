@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -66,7 +66,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteHDRImage(const ImageInfo *,Image *);
+  WriteHDRImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -156,12 +156,12 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   register Quantum
     *q;
 
-  register unsigned char
-    *p;
-
   register ssize_t
     i,
     x;
+
+  register unsigned char
+    *p;
 
   ssize_t
     count,
@@ -182,7 +182,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -239,7 +239,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
         if (comment == (char *) NULL)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         *p='\0';
-        (void) SetImageProperty(image,"comment",comment);
+        (void) SetImageProperty(image,"comment",comment,exception);
         comment=DestroyString(comment);
         c=ReadBlobByte(image);
       }
@@ -295,7 +295,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   break;
                 }
               (void) FormatLocaleString(tag,MaxTextExtent,"hdr:%s",keyword);
-              (void) SetImageProperty(image,tag,value);
+              (void) SetImageProperty(image,tag,value,exception);
               break;
             }
             case 'G':
@@ -303,11 +303,11 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
             {
               if (LocaleCompare(keyword,"gamma") == 0)
                 {
-                  image->gamma=InterpretLocaleValue(value,(char **) NULL);
+                  image->gamma=StringToDouble(value,(char **) NULL);
                   break;
                 }
               (void) FormatLocaleString(tag,MaxTextExtent,"hdr:%s",keyword);
-              (void) SetImageProperty(image,tag,value);
+              (void) SetImageProperty(image,tag,value,exception);
               break;
             }
             case 'P':
@@ -334,7 +334,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   break;
                 }
               (void) FormatLocaleString(tag,MaxTextExtent,"hdr:%s",keyword);
-              (void) SetImageProperty(image,tag,value);
+              (void) SetImageProperty(image,tag,value,exception);
               break;
             }
             case 'Y':
@@ -352,13 +352,13 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   break;
                 }
               (void) FormatLocaleString(tag,MaxTextExtent,"hdr:%s",keyword);
-              (void) SetImageProperty(image,tag,value);
+              (void) SetImageProperty(image,tag,value,exception);
               break;
             }
             default:
             {
               (void) FormatLocaleString(tag,MaxTextExtent,"hdr:%s",keyword);
-              (void) SetImageProperty(image,tag,value);
+              (void) SetImageProperty(image,tag,value,exception);
               break;
             }
           }
@@ -372,7 +372,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(CorruptImageError,"NegativeOrZeroImageSize");
-  if (LocaleCompare(format,"32-bit_rle_rgbe") == 0)
+  if (LocaleCompare(format,"32-bit_rle_xyze") == 0)
     image->colorspace=XYZColorspace;
   image->compression=(image->columns < 8) || (image->columns > 0x7ffff) ?
     NoCompression : RLECompression;
@@ -445,7 +445,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
       }
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     i=0;
     for (x=0; x < (ssize_t) image->columns; x++)
@@ -568,7 +568,7 @@ ModuleExport void UnregisterHDRImage(void)
 %  The format of the WriteHDRImage method is:
 %
 %      MagickBooleanType WriteHDRImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -642,7 +642,8 @@ static size_t HDRWriteRunlengthPixels(Image *image,unsigned char *pixels)
   return(p);
 }
 
-static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   char
     header[MaxTextExtent];
@@ -680,25 +681,27 @@ static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Write header.
   */
   (void) ResetMagickMemory(header,' ',MaxTextExtent);
   length=CopyMagickString(header,"#?RGBE\n",MaxTextExtent);
   (void) WriteBlob(image,length,(unsigned char *) header);
-  property=GetImageProperty(image,"comment");
+  property=GetImageProperty(image,"comment",exception);
   if ((property != (const char *) NULL) &&
       (strchr(property,'\n') == (char *) NULL))
     {
       count=FormatLocaleString(header,MaxTextExtent,"#%s\n",property);
       (void) WriteBlob(image,(size_t) count,(unsigned char *) header);
     }
-  property=GetImageProperty(image,"hdr:exposure");
+  property=GetImageProperty(image,"hdr:exposure",exception);
   if (property != (const char *) NULL)
     {
       count=FormatLocaleString(header,MaxTextExtent,"EXPOSURE=%g\n",
@@ -731,7 +734,7 @@ static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     if ((image->columns >= 8) && (image->columns <= 0x7ffff))

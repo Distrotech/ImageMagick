@@ -23,7 +23,7 @@
 %                                 August 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -243,7 +243,7 @@ WandExport PixelWand *MagickGetBackgroundColor(MagickWand *wand)
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
   background_color=NewPixelWand();
-  PixelSetQuantumPacket(background_color,&wand->image_info->background_color);
+  PixelSetPixelColor(background_color,&wand->image_info->background_color);
   return(background_color);
 }
 
@@ -625,7 +625,7 @@ WandExport char **MagickGetImageArtifacts(MagickWand *wand,
         "ContainsNoImages","`%s'",wand->name);
       return((char **) NULL);
     }
-  (void) GetImageProperty(wand->images,"exif:*");
+  (void) GetImageProperty(wand->images,"exif:*",wand->exception);
   length=1024;
   artifacts=(char **) AcquireQuantumMemory(length,sizeof(*artifacts));
   if (artifacts == (char **) NULL)
@@ -853,7 +853,7 @@ WandExport char *MagickGetImageProperty(MagickWand *wand,const char *property)
         "ContainsNoImages","`%s'",wand->name);
       return((char *) NULL);
     }
-  value=GetImageProperty(wand->images,property);
+  value=GetImageProperty(wand->images,property,wand->exception);
   if (value == (const char *) NULL)
     return((char *) NULL);
   return(ConstantString(value));
@@ -914,7 +914,7 @@ WandExport char **MagickGetImageProperties(MagickWand *wand,
         "ContainsNoImages","`%s'",wand->name);
       return((char **) NULL);
     }
-  (void) GetImageProperty(wand->images,"exif:*");
+  (void) GetImageProperty(wand->images,"exif:*",wand->exception);
   length=1024;
   properties=(char **) AcquireQuantumMemory(length,sizeof(*properties));
   if (properties == (char **) NULL)
@@ -995,19 +995,19 @@ WandExport InterlaceType MagickGetInterlaceScheme(MagickWand *wand)
 %
 %  The format of the MagickGetInterpolateMethod method is:
 %
-%      InterpolatePixelMethod MagickGetInterpolateMethod(MagickWand *wand)
+%      PixelInterpolateMethod MagickGetInterpolateMethod(MagickWand *wand)
 %
 %  A description of each parameter follows:
 %
 %    o wand: the magick wand.
 %
 */
-WandExport InterpolatePixelMethod MagickGetInterpolateMethod(MagickWand *wand)
+WandExport PixelInterpolateMethod MagickGetInterpolateMethod(MagickWand *wand)
 {
   const char
     *option;
 
-  InterpolatePixelMethod
+  PixelInterpolateMethod
     method;
 
   assert(wand != (MagickWand *) NULL);
@@ -1017,7 +1017,7 @@ WandExport InterpolatePixelMethod MagickGetInterpolateMethod(MagickWand *wand)
   option=GetImageOption(wand->image_info,"interpolate");
   if (option == (const char *) NULL)
     return(UndefinedInterpolatePixel);
-  method=(InterpolatePixelMethod) ParseCommandOption(MagickInterpolateOptions,
+  method=(PixelInterpolateMethod) ParseCommandOption(MagickInterpolateOptions,
     MagickFalse,option);
   return(method);
 }
@@ -1538,7 +1538,7 @@ WandExport double *MagickGetSamplingFactors(MagickWand *wand,
     while (((int) *p != 0) && ((isspace((int) ((unsigned char) *p)) != 0) ||
            (*p == ',')))
       p++;
-    sampling_factors[i]=InterpretLocaleValue(p,(char **) NULL);
+    sampling_factors[i]=StringToDouble(p,(char **) NULL);
     i++;
   }
   *number_factors=(size_t) i;
@@ -1725,19 +1725,13 @@ WandExport const char *MagickGetVersion(size_t *version)
 WandExport MagickBooleanType MagickProfileImage(MagickWand *wand,
   const char *name,const void *profile,const size_t length)
 {
-  MagickBooleanType
-    status;
-
   assert(wand != (MagickWand *) NULL);
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
   if (wand->images == (Image *) NULL)
     ThrowWandException(WandError,"ContainsNoImages",wand->name);
-  status=ProfileImage(wand->images,name,profile,length,MagickTrue);
-  if (status == MagickFalse)
-    InheritException(wand->exception,&wand->images->exception);
-  return(status);
+  return(ProfileImage(wand->images,name,profile,length,wand->exception));
 }
 
 /*
@@ -2246,19 +2240,13 @@ WandExport MagickBooleanType MagickSetGravity(MagickWand *wand,
 WandExport MagickBooleanType MagickSetImageArtifact(MagickWand *wand,
   const char *artifact,const char *value)
 {
-  MagickBooleanType
-    status;
-
   assert(wand != (MagickWand *) NULL);
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
   if (wand->images == (Image *) NULL)
     ThrowWandException(WandError,"ContainsNoImages",wand->name);
-  status=SetImageArtifact(wand->images,artifact,value);
-  if (status == MagickFalse)
-    InheritException(wand->exception,&wand->images->exception);
-  return(status);
+  return(SetImageArtifact(wand->images,artifact,value));
 }
 
 /*
@@ -2310,10 +2298,8 @@ WandExport MagickBooleanType MagickSetImageProfile(MagickWand *wand,
     ThrowWandException(WandError,"ContainsNoImages",wand->name);
   profile_info=AcquireStringInfo((size_t) length);
   SetStringInfoDatum(profile_info,(unsigned char *) profile);
-  status=SetImageProfile(wand->images,name,profile_info);
+  status=SetImageProfile(wand->images,name,profile_info,wand->exception);
   profile_info=DestroyStringInfo(profile_info);
-  if (status == MagickFalse)
-    InheritException(wand->exception,&wand->images->exception);
   return(status);
 }
 
@@ -2356,9 +2342,7 @@ WandExport MagickBooleanType MagickSetImageProperty(MagickWand *wand,
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
   if (wand->images == (Image *) NULL)
     ThrowWandException(WandError,"ContainsNoImages",wand->name);
-  status=SetImageProperty(wand->images,property,value);
-  if (status == MagickFalse)
-    InheritException(wand->exception,&wand->images->exception);
+  status=SetImageProperty(wand->images,property,value,wand->exception);
   return(status);
 }
 
@@ -2425,7 +2409,7 @@ WandExport MagickBooleanType MagickSetInterlaceScheme(MagickWand *wand,
 %
 */
 WandExport MagickBooleanType MagickSetInterpolateMethod(MagickWand *wand,
-  const InterpolatePixelMethod method)
+  const PixelInterpolateMethod method)
 {
   MagickBooleanType
     status;
@@ -2594,7 +2578,7 @@ WandExport MagickBooleanType MagickSetPassphrase(MagickWand *wand,
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  (void) CloneString(&wand->image_info->authenticate,passphrase);
+  (void) SetImageOption(wand->image_info,"authenticate",passphrase);
   return(MagickTrue);
 }
 

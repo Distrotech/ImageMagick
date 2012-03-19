@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -57,6 +57,7 @@
 #include "MagickCore/module.h"
 #include "MagickCore/transform.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -241,7 +242,7 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -301,7 +302,7 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
   file=(FILE *) NULL;
   unique_file=AcquireUniqueFileResource(read_info->filename);
   if (unique_file != -1)
-    file=OpenMagickStream(read_info->filename,"wb");
+    file=fopen_utf8(read_info->filename,"wb");
   if ((unique_file == -1) || (file == (FILE *) NULL))
     {
       buffer=(unsigned char *) RelinquishMagickMemory(buffer);
@@ -325,11 +326,11 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
       char
         *message;
 
-      (void) remove(read_info->filename);
+      (void) remove_utf8(read_info->filename);
       read_info=DestroyImageInfo(read_info);
       message=GetExceptionMessage(errno);
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
-        FileOpenError,"UnableToWriteFile","`%s': %s",image->filename,message);
+      (void) ThrowMagickException(exception,GetMagickModule(),FileOpenError,
+        "UnableToWriteFile","`%s': %s",image->filename,message);
       message=DestroyString(message);
       image=DestroyImageList(image);
       return((Image *) NULL);

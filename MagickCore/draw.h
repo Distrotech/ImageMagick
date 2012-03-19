@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -134,13 +134,6 @@ typedef enum
   RepeatSpread
 } SpreadMethod;
 
-typedef struct _PointInfo
-{ 
-  double
-    x,
-    y;
-} PointInfo;
-
 typedef struct _StopInfo
 {
   PixelInfo
@@ -214,22 +207,21 @@ typedef struct _DrawInfo
   AffineMatrix
     affine;
 
-  GravityType
-    gravity;
-
-  PixelPacket
+  PixelInfo
     fill,
-    stroke;
+    stroke,
+    undercolor,
+    border_color;
+
+  Image
+    *fill_pattern,
+    *stroke_pattern;
 
   double
     stroke_width;
 
   GradientInfo
     gradient;
-
-  Image
-    *fill_pattern,
-    *stroke_pattern;
 
   MagickBooleanType
     stroke_antialias,
@@ -257,15 +249,13 @@ typedef struct _DrawInfo
     compose;
 
   char
-    *text;
-
-  size_t
-    face;
-
-  char
+    *text,
     *font,
     *metrics,
     *family;
+
+  size_t
+    face;
 
   StyleType
     style;
@@ -288,9 +278,8 @@ typedef struct _DrawInfo
   AlignType
     align;
 
-  PixelPacket
-    undercolor,
-    border_color;
+  GravityType
+    gravity;
 
   char
     *server_name;
@@ -316,12 +305,6 @@ typedef struct _DrawInfo
   ElementReference
     element_reference;
 
-  MagickBooleanType
-    debug;
-
-  size_t
-    signature;
-
   double
     kerning,
     interword_spacing,
@@ -329,7 +312,14 @@ typedef struct _DrawInfo
 
   DirectionType
     direction;
+
+  MagickBooleanType
+    debug;
+
+  size_t
+    signature;
 } DrawInfo;
+
 
 typedef struct _PrimitiveInfo
 {
@@ -376,12 +366,13 @@ extern MagickExport DrawInfo
   *DestroyDrawInfo(DrawInfo *);
 
 extern MagickExport MagickBooleanType
-  DrawAffineImage(Image *,const Image *,const AffineMatrix *),
-  DrawClipPath(Image *,const DrawInfo *,const char *),
-  DrawGradientImage(Image *,const DrawInfo *),
-  DrawImage(Image *,const DrawInfo *),
-  DrawPatternPath(Image *,const DrawInfo *,const char *,Image **),
-  DrawPrimitive(Image *,const DrawInfo *,const PrimitiveInfo *);
+  DrawAffineImage(Image *,const Image *,const AffineMatrix *,ExceptionInfo *),
+  DrawClipPath(Image *,const DrawInfo *,const char *,ExceptionInfo *),
+  DrawGradientImage(Image *,const DrawInfo *,ExceptionInfo *),
+  DrawImage(Image *,const DrawInfo *,ExceptionInfo *),
+  DrawPatternPath(Image *,const DrawInfo *,const char *,Image **,
+    ExceptionInfo *),
+  DrawPrimitive(Image *,const DrawInfo *,const PrimitiveInfo *,ExceptionInfo *);
 
 extern MagickExport void
   GetAffineMatrix(AffineMatrix *),

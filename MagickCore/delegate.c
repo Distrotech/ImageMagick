@@ -16,7 +16,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -52,6 +52,7 @@
 #include "MagickCore/configure.h"
 #include "MagickCore/constitute.h"
 #include "MagickCore/delegate.h"
+#include "MagickCore/delegate-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
@@ -63,6 +64,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 
 /*
@@ -83,8 +85,8 @@ static const char
     "  <delegate decode=\"cgm\" thread-support=\"False\" command=\"&quot;ralcgm&quot; -d ps -oC &lt; &quot;%i&quot; &gt; &quot;%o&quot; 2&gt; &quot;%u&quot;\"/>"
     "  <delegate decode=\"dng:decode\" command=\"&quot;/usr/bin/ufraw-batch&quot; --silent --wb=camera --black-point=auto --exposure=auto --create-id=also --out-type=ppm16 &quot;--output=%u.pnm&quot; &quot;%i&quot;\"/>"
     "  <delegate decode=\"edit\" stealth=\"True\" command=\"&quot;xterm&quot; -title &quot;Edit Image Comment&quot; -e vi &quot;%o&quot;\"/>"
-    "  <delegate decode=\"eps\" encode=\"pdf\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pdfwrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
-    "  <delegate decode=\"eps\" encode=\"ps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"eps\" encode=\"pdf\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pdfwrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"eps\" encode=\"ps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
     "  <delegate decode=\"fig\" command=\"&quot;fig2dev&quot; -L ps &quot;%i&quot; &quot;%o&quot;\"/>"
     "  <delegate decode=\"gplt\" command=\"&quot;echo&quot; &quot;set size 1.25,0.62     set terminal postscript portrait color solid; set output &quot;%o&quot;; load &quot;%i&quot;&quot; &gt; &quot;%u&quot;;&quot;gnuplot&quot; &quot;%u&quot;\"/>"
     "  <delegate decode=\"hpg\" command=\"&quot;hp2xx&quot; -q -m eps -f `basename &quot;%o&quot;` &quot;%i&quot;     mv -f `basename &quot;%o&quot;` &quot;%o&quot;\"/>"
@@ -94,24 +96,24 @@ static const char
     "  <delegate decode=\"https\" command=\"&quot;wget&quot; -q -O &quot;%o&quot; &quot;https:%M&quot;\"/>"
     "  <delegate decode=\"ilbm\" command=\"&quot;ilbmtoppm&quot; &quot;%i&quot; &gt; &quot;%o&quot;\"/>"
     "  <delegate decode=\"man\" command=\"&quot;groff&quot; -man -Tps &quot;%i&quot; &gt; &quot;%o&quot;\"/>"
-    "  <delegate decode=\"mpeg:decode\" stealth=\"True\" command=\"&quot;ffmpeg&quot; --i &quot;%i&quot; -vcodec pam -an -f rawvideo -y &quot;%u0.pam&quot; 2;&gt; &quot;%Z&quot;\"/>"
+    "  <delegate decode=\"mpeg:decode\" stealth=\"True\" command=\"&quot;ffmpeg&quot; -i &quot;%i&quot; -vcodec pam -an -f rawvideo -y &quot;%u0.pam&quot; 2;&gt; &quot;%Z&quot;\"/>"
     "  <delegate decode=\"null\" encode=\"mpeg:encode\" stealth=\"True\" command=\"&quot;ffmpeg&quot; &quot;%M%%d.jpg&quot; &quot;%u.%m&quot; 2;&gt; &quot;%Z&quot;\"/>"
-    "  <delegate decode=\"pcl:color\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=ppmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
-    "  <delegate decode=\"pcl:cmyk\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bmpsep8&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
-    "  <delegate decode=\"pcl:mono\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pbmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
-    "  <delegate decode=\"pdf\" encode=\"eps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=epswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
-    "  <delegate decode=\"pdf\" encode=\"ps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"pcl:color\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=ppmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
+    "  <delegate decode=\"pcl:cmyk\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bmpsep8&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
+    "  <delegate decode=\"pcl:mono\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pbmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
+    "  <delegate decode=\"pdf\" encode=\"eps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=epswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"pdf\" encode=\"ps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
     "  <delegate decode=\"pnm\" encode=\"ilbm\" mode=\"encode\" command=\"&quot;ppmtoilbm&quot; -24if &quot;%i&quot; &gt; &quot;%o&quot;\"/>"
     "  <delegate decode=\"pnm\" encode=\"launch\" mode=\"encode\" command=\"&quot;gimp&quot; &quot;%i&quot;\"/>"
     "  <delegate decode=\"pov\" command=\"&quot;povray&quot; &quot;+i&quot;%i&quot;&quot; -D0 +o&quot;%o&quot; +fn%q +w%w +h%h +a -q9 -kfi&quot;%s&quot; -kff&quot;%n&quot;     &quot;convert&quot; -concatenate &quot;%o*.png&quot; &quot;%o&quot;\"/>"
-    "  <delegate decode=\"ps\" encode=\"eps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=epswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
-    "  <delegate decode=\"ps\" encode=\"pdf\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pdfwrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"ps\" encode=\"eps\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=epswrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
+    "  <delegate decode=\"ps\" encode=\"pdf\" mode=\"bi\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pdfwrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
     "  <delegate decode=\"ps\" encode=\"print\" mode=\"encode\" command=\"lpr &quot;%i&quot;\"/>"
-    "  <delegate decode=\"ps:alpha\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pngalpha&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
-    "  <delegate decode=\"ps:bbox\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bbox&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
-    "  <delegate decode=\"ps:cmyk\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bmpsep8&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
-    "  <delegate decode=\"ps:color\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pnmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
-    "  <delegate decode=\"ps:mono\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dPARANOIDSAFE -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pnmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:alpha\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pngalpha&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:bbox\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bbox&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:cmyk\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=bmpsep8&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:color\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pnmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:mono\" stealth=\"True\" command=\"&quot;gs&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=0 &quot;-sDEVICE=pnmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
     "  <delegate decode=\"rgba\" encode=\"rle\" mode=\"encode\" command=\"&quot;rawtorle&quot; -o &quot;%o&quot; -v &quot;%i&quot;\"/>"
     "  <delegate decode=\"scan\" command=\"&quot;scanimage&quot; -d &quot;%i&quot; &gt; &quot;%o&quot;\"/>"
     "  <delegate encode=\"show\" spawn=\"True\" command=\"&quot;/usr/local/bin/display&quot; -immutable -delay 0 -window-group %g -title &quot;%l of %f&quot; &quot;temporary:%i&quot;\"/>"
@@ -159,7 +161,7 @@ static MagickBooleanType
 %      MagickBooleanType DelegateComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType DelegateComponentGenesis(void)
+MagickPrivate MagickBooleanType DelegateComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&delegate_semaphore);
   return(MagickTrue);
@@ -202,8 +204,7 @@ static void *DestroyDelegate(void *delegate_info)
   return((void *) NULL);
 }
 
-
-MagickExport void DelegateComponentTerminus(void)
+MagickPrivate void DelegateComponentTerminus(void)
 {
   if (delegate_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&delegate_semaphore);
@@ -286,7 +287,7 @@ MagickExport char *GetDelegateCommand(const ImageInfo *image_info,Image *image,
         decode ? decode : encode);
       return((char *) NULL);
     }
-  command=InterpretImageProperties(image_info,image,commands[0]);
+  command=InterpretImageProperties(image_info,image,commands[0],exception);
   if (command == (char *) NULL)
     (void) ThrowMagickException(exception,GetMagickModule(),ResourceLimitError,
       "MemoryAllocationFailed","`%s'",commands[0]);
@@ -782,20 +783,17 @@ static MagickBooleanType CopyDelegateFile(const char *source,
     *buffer;
 
   /*
-    Return if destination file already exists and is not empty.
+    Copy source file to destination.
   */
   assert(source != (const char *) NULL);
   assert(destination != (char *) NULL);
   status=GetPathAttributes(destination,&attributes);
   if ((status != MagickFalse) && (attributes.st_size != 0))
     return(MagickTrue);
-  /*
-    Copy source file to destination.
-  */
-  destination_file=open(destination,O_WRONLY | O_BINARY | O_CREAT,S_MODE);
+  destination_file=open_utf8(destination,O_WRONLY | O_BINARY | O_CREAT,S_MODE);
   if (destination_file == -1)
     return(MagickFalse);
-  source_file=open(source,O_RDONLY | O_BINARY);
+  source_file=open_utf8(source,O_RDONLY | O_BINARY,0);
   if (source_file == -1)
     {
       (void) close(destination_file);
@@ -903,8 +901,7 @@ MagickExport MagickBooleanType InvokeDelegate(ImageInfo *image_info,
         }
       image_info->temporary=MagickTrue;
     }
-  if ((delegate_info->mode != 0) &&
-      (((decode != (const char *) NULL) &&
+  if ((delegate_info->mode != 0) && (((decode != (const char *) NULL) &&
         (delegate_info->encode != (char *) NULL)) ||
        ((encode != (const char *) NULL) &&
         (delegate_info->decode != (char *) NULL))))
@@ -935,7 +932,7 @@ MagickExport MagickBooleanType InvokeDelegate(ImageInfo *image_info,
           return(MagickFalse);
         }
       magick=InterpretImageProperties(image_info,image,decode != (char *) NULL ?
-        delegate_info->encode : delegate_info->decode);
+        delegate_info->encode : delegate_info->decode,exception);
       if (magick == (char *) NULL)
         {
           (void) RelinquishUniqueFileResource(image_info->unique);
@@ -965,7 +962,7 @@ MagickExport MagickBooleanType InvokeDelegate(ImageInfo *image_info,
       {
         (void) FormatLocaleString(p->filename,MaxTextExtent,"%s:%s",
           delegate_info->decode,clone_info->filename);
-        status=WriteImage(clone_info,p);
+        status=WriteImage(clone_info,p,exception);
         if (status == MagickFalse)
           {
             (void) RelinquishUniqueFileResource(image_info->unique);
@@ -1028,7 +1025,7 @@ MagickExport MagickBooleanType InvokeDelegate(ImageInfo *image_info,
           }
       }
     status=MagickFalse;
-    command=InterpretImageProperties(image_info,image,commands[i]);
+    command=InterpretImageProperties(image_info,image,commands[i],exception);
     if (command != (char *) NULL)
       {
         /*
@@ -1465,7 +1462,7 @@ static MagickBooleanType LoadDelegateList(const char *xml,const char *filename,
 static MagickBooleanType LoadDelegateLists(const char *filename,
   ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_EMBEDDABLE_SUPPORT)
+#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   return(LoadDelegateList(DelegateMap,"built-in",0,exception));
 #else
   const StringInfo

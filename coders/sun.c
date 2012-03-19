@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -68,7 +68,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteSUNImage(const ImageInfo *,Image *);
+  WriteSUNImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -279,7 +279,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -333,7 +333,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
             /*
               Create linear color ramp.
             */
-            if (AcquireImageColormap(image,image->colors) == MagickFalse)
+            if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
               ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
           }
         break;
@@ -346,7 +346,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Read SUN raster colormap.
         */
-        if (AcquireImageColormap(image,image->colors) == MagickFalse)
+        if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         sun_colormap=(unsigned char *) AcquireQuantumMemory(image->colors,
           sizeof(*sun_colormap));
@@ -441,7 +441,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for (y=0; y < (ssize_t) image->rows; y++)
       {
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < ((ssize_t) image->columns-7); x+=8)
         {
@@ -484,7 +484,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -521,7 +521,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -564,7 +564,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         }
     if (image->storage_class == PseudoClass)
-      (void) SyncImage(image);
+      (void) SyncImage(image,exception);
     sun_pixels=(unsigned char *) RelinquishMagickMemory(sun_pixels);
     if (EOFBlob(image) != MagickFalse)
       {
@@ -584,7 +584,7 @@ static Image *ReadSUNImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -685,7 +685,8 @@ ModuleExport void UnregisterSUNImage(void)
 %
 %  The format of the WriteSUNImage method is:
 %
-%      MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteSUNImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -693,8 +694,11 @@ ModuleExport void UnregisterSUNImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
 #define RMT_EQUAL_RGB  1
 #define RMT_NONE  0
@@ -746,7 +750,9 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   scene=0;
@@ -756,7 +762,7 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
       Initialize SUN raster file header.
     */
     if (IsRGBColorspace(image->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image,RGBColorspace);
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
     sun_info.magic=0x59a66a95;
     if ((image->columns != (unsigned int) image->columns) ||
         (image->rows != (unsigned int) image->rows))
@@ -781,7 +787,7 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
           0;
       }
     else
-      if (IsImageMonochrome(image,&image->exception))
+      if (IsImageMonochrome(image,exception) != MagickFalse)
         {
           /*
             Monochrome SUN raster.
@@ -847,7 +853,7 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
         */
         for (y=0; y < (ssize_t) image->rows; y++)
         {
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           q=pixels;
@@ -874,7 +880,7 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
         pixels=(unsigned char *) RelinquishMagickMemory(pixels);
       }
     else
-      if (IsImageMonochrome(image,&image->exception))
+      if (IsImageMonochrome(image,exception) != MagickFalse)
         {
           register unsigned char
             bit,
@@ -883,10 +889,10 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
           /*
             Convert PseudoClass image to a SUN monochrome image.
           */
-          (void) SetImageType(image,BilevelType);
+          (void) SetImageType(image,BilevelType,exception);
           for (y=0; y < (ssize_t) image->rows; y++)
           {
-            p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+            p=GetVirtualPixels(image,0,y,image->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             bit=0;
@@ -938,7 +944,7 @@ static MagickBooleanType WriteSUNImage(const ImageInfo *image_info,Image *image)
           */
           for (y=0; y < (ssize_t) image->rows; y++)
           {
-            p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+            p=GetVirtualPixels(image,0,y,image->columns,1,exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)

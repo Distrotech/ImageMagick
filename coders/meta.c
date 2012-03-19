@@ -17,7 +17,7 @@
 %                                 July 2001                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -63,7 +63,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteMETAImage(const ImageInfo *,Image *);
+  WriteMETAImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1093,7 +1093,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -1102,9 +1102,8 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
     }
   image->columns=1;
   image->rows=1;
-  if (SetImageBackgroundColor(image) == MagickFalse)
+  if (SetImageBackgroundColor(image,exception) == MagickFalse)
     {
-      InheritException(exception,&image->exception);
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
@@ -1114,7 +1113,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
       /*
         Read 8BIM binary metadata.
       */
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       blob=(unsigned char *) AcquireQuantumMemory(length,sizeof(unsigned char));
@@ -1146,9 +1145,11 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
             (void) WriteBlobByte(buff,(unsigned char) c);
           }
         }
-      profile=AcquireStringInfo((size_t) GetBlobSize(buff));
-      SetStringInfoDatum(profile,GetBlobStreamData(buff));
-      status=SetImageProfile(image,"8bim",profile);
+      profile=BlobToStringInfo(GetBlobStreamData(buff),(size_t)
+        GetBlobSize(buff));
+      if (profile == (StringInfo *) NULL)
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      status=SetImageProfile(image,"8bim",profile,exception);
       profile=DestroyStringInfo(profile);
       if (status == MagickFalse)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -1162,7 +1163,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
         name[MaxTextExtent];
 
       (void) FormatLocaleString(name,MaxTextExtent,"APP%d",1);
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       blob=(unsigned char *) AcquireQuantumMemory(length,sizeof(unsigned char));
@@ -1188,7 +1189,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
               ThrowReaderException(CoderError,"NoIPTCProfileAvailable");
             }
           profile=CloneStringInfo((StringInfo *) image_info->profile);
-          iptc=AcquireImage((ImageInfo *) NULL);
+          iptc=AcquireImage((ImageInfo *) NULL,exception);
           if (iptc == (Image *) NULL)
             {
               blob=DetachBlob(buff->blob);
@@ -1253,9 +1254,11 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
             }
 #endif
         }
-      profile=AcquireStringInfo((size_t) GetBlobSize(buff));
-      SetStringInfoDatum(profile,GetBlobStreamData(buff));
-      status=SetImageProfile(image,name,profile);
+      profile=BlobToStringInfo(GetBlobStreamData(buff),(size_t)
+        GetBlobSize(buff));
+      if (profile == (StringInfo *) NULL)
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      status=SetImageProfile(image,name,profile,exception);
       profile=DestroyStringInfo(profile);
       if (status == MagickFalse)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -1266,7 +1269,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
   if ((LocaleCompare(image_info->magick,"ICC") == 0) ||
       (LocaleCompare(image_info->magick,"ICM") == 0))
     {
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       blob=(unsigned char *) AcquireQuantumMemory(length,sizeof(unsigned char));
@@ -1283,9 +1286,11 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
           break;
         (void) WriteBlobByte(buff,(unsigned char) c);
       }
-      profile=AcquireStringInfo((size_t) GetBlobSize(buff));
-      SetStringInfoDatum(profile,GetBlobStreamData(buff));
-      (void) SetImageProfile(image,"icc",profile);
+      profile=BlobToStringInfo(GetBlobStreamData(buff),(size_t)
+        GetBlobSize(buff));
+      if (profile == (StringInfo *) NULL)
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      (void) SetImageProfile(image,"icc",profile,exception);
       profile=DestroyStringInfo(profile);
       blob=DetachBlob(buff->blob);
       blob=(unsigned char *) RelinquishMagickMemory(blob);
@@ -1296,7 +1301,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
       register unsigned char
         *p;
 
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       blob=(unsigned char *) AcquireQuantumMemory(length,sizeof(unsigned char));
@@ -1328,7 +1333,10 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
             (void) WriteBlobByte(buff,(unsigned char) c);
           }
         }
-      profile=AcquireStringInfo((size_t) GetBlobSize(buff));
+      profile=BlobToStringInfo(GetBlobStreamData(buff),(size_t)
+        GetBlobSize(buff));
+      if (profile == (StringInfo *) NULL)
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       /*
         subtract off the length of the 8BIM stuff.
       */
@@ -1337,7 +1345,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
       p[10]=(unsigned char) (length >> 8);
       p[11]=(unsigned char) (length & 0xff);
       SetStringInfoDatum(profile,GetBlobStreamData(buff));
-      (void) SetImageProfile(image,"8bim",profile);
+      (void) SetImageProfile(image,"8bim",profile,exception);
       profile=DestroyStringInfo(profile);
       blob=DetachBlob(buff->blob);
       blob=(unsigned char *) RelinquishMagickMemory(blob);
@@ -1345,7 +1353,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
     }
   if (LocaleCompare(image_info->magick,"XMP") == 0)
     {
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       blob=(unsigned char *) AcquireQuantumMemory(length,sizeof(unsigned char));
@@ -1362,9 +1370,11 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
           break;
         (void) WriteBlobByte(buff,(unsigned char) c);
       }
-      profile=AcquireStringInfo((size_t) GetBlobSize(buff));
-      SetStringInfoDatum(profile,GetBlobStreamData(buff));
-      (void) SetImageProfile(image,"xmp",profile);
+      profile=BlobToStringInfo(GetBlobStreamData(buff),(size_t)
+        GetBlobSize(buff));
+      if (profile == (StringInfo *) NULL)
+        ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+      (void) SetImageProfile(image,"xmp",profile,exception);
       profile=DestroyStringInfo(profile);
       blob=DetachBlob(buff->blob);
       blob=(unsigned char *) RelinquishMagickMemory(blob);
@@ -1565,7 +1575,7 @@ ModuleExport void UnregisterMETAImage(void)
 %  The format of the WriteMETAImage method is:
 %
 %      MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  Compression code contributed by Kyle Shorter.
 %
@@ -1574,6 +1584,8 @@ ModuleExport void UnregisterMETAImage(void)
 %    o image_info: Specifies a pointer to an ImageInfo structure.
 %
 %    o image: A pointer to a Image structure.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -1591,9 +1603,6 @@ static size_t GetIPTCStream(unsigned char **info,size_t length)
   size_t
     extent,
     info_length;
-
-  unsigned char
-    buffer[4] = { '\0', '\0', '\0', '\0' };
 
   unsigned int
     marker;
@@ -1707,27 +1716,32 @@ iptc_find:
     info_length++;
     if ((c & 0x80) != 0)
       {
+        /*
+          Long format.
+        */
+        tag_length=0;
         for (i=0; i < 4; i++)
         {
-          buffer[i]=(*p++);
+          tag_length<<=8;
+          tag_length|=(*p++);
           length--;
           if (length == 0)
             break;
           info_length++;
         }
-        tag_length=(((size_t) buffer[0]) << 24) |
-          (((size_t) buffer[1]) << 16) |
-          (((size_t) buffer[2]) << 8) | (((size_t) buffer[3])); 
       }
     else
       {
-        tag_length=(size_t) (c << 8);
+        /*
+          Short format.
+        */
+        tag_length=((long) c) << 8;
         c=(*p++);
         length--;
         if (length == 0)
           break;
         info_length++;
-        tag_length|=c;
+        tag_length|=(long) c;
       }
     if (tag_length > (length+1))
       break;
@@ -2225,7 +2239,7 @@ static int format8BIM(Image *ifile, Image *ofile)
 }
 
 static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   const StringInfo
     *profile;
@@ -2254,7 +2268,9 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
       profile=GetImageProfile(image,"8bim");
       if (profile == (StringInfo *) NULL)
         ThrowWriterException(CoderError,"No8BIMDataIsAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
       (void) WriteBlob(image,GetStringInfoLength(profile),
@@ -2275,7 +2291,9 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
         profile=GetImageProfile(image,"8bim");
       if (profile == (StringInfo *) NULL)
         ThrowWriterException(CoderError,"No8BIMDataIsAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       info=GetStringInfoDatum(profile);
       length=GetStringInfoLength(profile);
       length=GetIPTCStream(&info,length);
@@ -2293,10 +2311,12 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
       profile=GetImageProfile(image,"8bim");
       if (profile == (StringInfo *) NULL)
         ThrowWriterException(CoderError,"No8BIMDataIsAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
       AttachBlob(buff->blob,GetStringInfoDatum(profile),
@@ -2325,10 +2345,12 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
       length=GetIPTCStream(&info,length);
       if (length == 0)
         ThrowWriterException(CoderError,"NoIPTCProfileAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
-      buff=AcquireImage((ImageInfo *) NULL);
+      buff=AcquireImage((ImageInfo *) NULL,exception);
       if (buff == (Image *) NULL)
         ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
       AttachBlob(buff->blob,info,length);
@@ -2350,7 +2372,9 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
       profile=GetImageProfile(image,image_info->magick);
       if (profile == (StringInfo *) NULL)
         ThrowWriterException(CoderError,"NoAPP1DataIsAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
       (void) WriteBlob(image,GetStringInfoLength(profile),
@@ -2367,7 +2391,9 @@ static MagickBooleanType WriteMETAImage(const ImageInfo *image_info,
       profile=GetImageProfile(image,"icc");
       if (profile == (StringInfo *) NULL)
         ThrowWriterException(CoderError,"NoColorProfileIsAvailable");
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
       (void) WriteBlob(image,GetStringInfoLength(profile),

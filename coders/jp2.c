@@ -17,7 +17,7 @@
 %                                 June 2001                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -105,7 +105,7 @@
 */
 #if defined(MAGICKCORE_JP2_DELEGATE)
 static MagickBooleanType
-  WriteJP2Image(const ImageInfo *,Image *);
+  WriteJP2Image(const ImageInfo *,Image *,ExceptionInfo *);
 
 static volatile MagickBooleanType
   instantiate_jp2 = MagickFalse;
@@ -383,7 +383,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -467,6 +467,8 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
   image->columns=jas_image_width(jp2_image);
   image->rows=jas_image_height(jp2_image);
   image->compression=JPEG2000Compression;
+  if (number_components == 1)
+    image->colorspace=GRAYColorspace;
   for (i=0; i < (ssize_t) number_components; i++)
   {
     size_t
@@ -522,7 +524,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (i=0; i < (ssize_t) number_components; i++)
       (void) jas_image_readcmpt(jp2_image,(short) components[i],0,
@@ -538,9 +540,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
         for (x=0; x < (ssize_t) image->columns; x++)
         {
           pixel=(QuantumAny) jas_matrix_getv(pixels[0],x/x_step[0]);
-          SetPixelRed(image,ScaleAnyToQuantum((QuantumAny) pixel,range[0]),q);
-          SetPixelGreen(image,GetPixelRed(image,q),q);
-          SetPixelBlue(image,GetPixelRed(image,q),q);
+          SetPixelGray(image,ScaleAnyToQuantum((QuantumAny) pixel,range[0]),q);
           q+=GetPixelChannels(image);
         }
         break;
@@ -617,11 +617,12 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
           if (image->debug != MagickFalse)
             (void) LogMagickEvent(CoderEvent,GetMagickModule(),
               "Profile: ICC, %.20g bytes",(double) blob->len_);
-          profile=AcquireStringInfo(blob->len_);
-          SetStringInfoDatum(profile,blob->buf_);
+          profile=BlobToStringInfo(blob->buf_,blob->len_);
+          if (profile == (StringInfo *) NULL)
+            ThrowReaderException(CorruptImageError,"MemoryAllocationFailed");
           icc_profile=(StringInfo *) GetImageProfile(image,"icc");
           if (icc_profile == (StringInfo *) NULL)
-            (void) SetImageProfile(image,"icc",profile);
+            (void) SetImageProfile(image,"icc",profile,exception);
           else
             (void) ConcatenateStringInfo(icc_profile,profile);
           profile=DestroyStringInfo(profile);
@@ -784,7 +785,8 @@ ModuleExport void UnregisterJP2Image(void)
 %
 %  The format of the WriteJP2Image method is:
 %
-%      MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteJP2Image(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -792,8 +794,11 @@ ModuleExport void UnregisterJP2Image(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   char
     *key,
@@ -844,20 +849,22 @@ static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   /*
     Initialize JPEG 2000 API.
   */
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   jp2_stream=JP2StreamManager(image);
   if (jp2_stream == (jas_stream_t *) NULL)
     ThrowWriterException(DelegateError,"UnableToManageJP2Stream");
   number_components=image->matte ? 4UL : 3UL;
   if ((image_info->type != TrueColorType) &&
-      (IsImageGray(image,&image->exception) != MagickFalse))
+      (IsImageGray(image,exception) != MagickFalse))
     number_components=1;
   if ((image->columns != (unsigned int) image->columns) ||
       (image->rows != (unsigned int) image->rows))
@@ -919,7 +926,7 @@ static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image)
   range=GetQuantumRange((size_t) component_info[0].prec);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
@@ -1003,6 +1010,8 @@ static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image)
     }
   status=jas_image_encode(jp2_image,jp2_stream,format,options) != 0 ?
     MagickTrue : MagickFalse;
+  if (options != (char *) NULL)
+    options=DestroyString(options);
   (void) jas_stream_close(jp2_stream);
   for (i=0; i < (ssize_t) number_components; i++)
     jas_matrix_destroy(pixels[i]);

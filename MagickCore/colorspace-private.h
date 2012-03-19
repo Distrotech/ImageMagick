@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -34,7 +34,9 @@ static inline void ConvertRGBToCMYK(PixelInfo *pixel)
     magenta,
     yellow;
                                                                                 
-  if ((pixel->red == 0) && (pixel->green == 0) && (pixel->blue == 0))
+  if ((fabs(pixel->red) < MagickEpsilon) &&
+      (fabs(pixel->green) < MagickEpsilon) &&
+      (fabs(pixel->blue) < MagickEpsilon))
     {
       pixel->black=(MagickRealType) QuantumRange;
       return;
@@ -69,7 +71,8 @@ static inline MagickBooleanType IsGrayColorspace(
 static inline MagickBooleanType IsRGBColorspace(const ColorspaceType colorspace)
 {
   if ((IsGrayColorspace(colorspace) != MagickFalse) ||
-      (colorspace == RGBColorspace) || (colorspace == TransparentColorspace))
+      (colorspace == RGBColorspace) || (colorspace == sRGBColorspace) ||
+      (colorspace == TransparentColorspace))
     return(MagickTrue);
   return(MagickFalse);
 }

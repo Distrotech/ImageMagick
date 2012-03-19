@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -55,71 +55,7 @@ extern "C" {
 #  define MAGICKCORE_POSIX_SUPPORT
 #endif 
 
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__CYGWIN__) && !defined(__MINGW32__)
-# if defined(_MT) && defined(_DLL) && !defined(_MAGICKDLL_) && !defined(_LIB) && !defined(MAGICK_STATIC_LINK)
-#  define _MAGICKDLL_
-# endif
-# if defined(_MAGICKDLL_)
-#  if defined(_VISUALC_)
-#   pragma warning( disable: 4273 )  /* Disable the dll linkage warnings */
-#  endif
-#  if !defined(_MAGICKLIB_)
-#   define MagickExport  __declspec(dllimport)
-#   if defined(_VISUALC_)
-#    pragma message( "Magick lib DLL import interface" )
-#   endif
-#  else
-#   define MagickExport  __declspec(dllexport)
-#   if defined(_VISUALC_)
-#    pragma message( "Magick lib DLL export interface" )
-#   endif
-#  endif
-# else
-#  define MagickExport
-#  if defined(_VISUALC_)
-#   pragma message( "Magick lib static interface" )
-#  endif
-# endif
-
-# if defined(_DLL) && !defined(_LIB)
-#  define ModuleExport  __declspec(dllexport)
-#  if defined(_VISUALC_)
-#   pragma message( "Magick module DLL export interface" )
-#  endif
-# else
-#  define ModuleExport
-#  if defined(_VISUALC_)
-#   pragma message( "Magick module static interface" )
-#  endif
-
-# endif
-# define MagickGlobal __declspec(thread)
-# if defined(_VISUALC_)
-#  pragma warning(disable : 4018)
-#  pragma warning(disable : 4244)
-#  pragma warning(disable : 4142)
-#  pragma warning(disable : 4800)
-#  pragma warning(disable : 4786)
-#  pragma warning(disable : 4996)
-# endif
-#else
-# define MagickExport
-# define ModuleExport
-# define MagickGlobal
-#endif
-
-#if !defined(MaxTextExtent)
-#  define MaxTextExtent  4096
-#endif
-#define MagickSignature  0xabacadabUL
-
-#if !defined(magick_attribute)
-#  if !defined(__GNUC__)
-#    define magick_attribute(x)  /* nothing */
-#  else
-#    define magick_attribute  __attribute__
-#  endif
-#endif
+#include "MagickCore/method-attribute.h"
 
 #if defined(MAGICKCORE_NAMESPACE_PREFIX)
 # include "MagickCore/methods.h"
@@ -133,6 +69,7 @@ extern "C" {
 #include "MagickCore/blob.h"
 #include "MagickCore/cache.h"
 #include "MagickCore/cache-view.h"
+#include "MagickCore/channel.h"
 #include "MagickCore/cipher.h"
 #include "MagickCore/client.h"
 #include "MagickCore/coder.h"
@@ -146,6 +83,7 @@ extern "C" {
 #include "MagickCore/constitute.h"
 #include "MagickCore/decorate.h"
 #include "MagickCore/delegate.h"
+#include "MagickCore/deprecate.h"
 #include "MagickCore/display.h"
 #include "MagickCore/distort.h"
 #include "MagickCore/draw.h"

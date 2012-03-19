@@ -17,7 +17,7 @@
 %                              January 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -93,6 +93,9 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
   double
     value;
 
+  int
+    c;
+
   MagickStatusType
     flags;
 
@@ -112,7 +115,8 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
         (void) CopyMagickString(p,p+1,MaxTextExtent);
         continue;
       }
-    switch ((int) *p)
+    c=(int) ((unsigned int) *p);
+    switch (c)
     {
       case '%':
       {
@@ -170,9 +174,9 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
       case '7':
       case '8':
       case '9':
-      case -41:
       case 'x':
       case 'X':
+      case 215:
       {
         p++;
         break;
@@ -188,11 +192,12 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
   if (*p == '\0')
     return(flags);
   q=p;
-  value=InterpretLocaleValue(p,&q);
+  value=StringToDouble(p,&q);
   (void) value;
   if (LocaleNCompare(p,"0x",2) == 0)
     value=(double) strtol(p,&q,10);
-  if ((((int) *q) == -41) || (*q == 'x') || (*q == 'X') || (*q == '\0'))
+  c=(int) ((unsigned char) *q);
+  if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == '\0'))
     {
       /*
         Parse width.
@@ -201,11 +206,13 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
       if (LocaleNCompare(p,"0x",2) == 0)
         *width=(size_t) strtol(p,&p,10);
       else
-        *width=(size_t) floor(InterpretLocaleValue(p,&p)+0.5);
+        *width=(size_t) floor(StringToDouble(p,&p)+0.5);
       if (p != q)
         flags|=WidthValue;
     }
-  if ((((int) *p) == -41) || (*p == 'x') || (*p == 'X'))
+  c=(*p);
+  c=(int) ((unsigned char) *p);
+  if ((c == 215) || (*p == 'x') || (*p == 'X'))
     {
       p++;
       if ((*p != '+') && (*p != '-'))
@@ -214,7 +221,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
             Parse height.
           */
           q=p;
-          *height=(size_t) floor(InterpretLocaleValue(p,&p)+0.5);
+          *height=(size_t) floor(StringToDouble(p,&p)+0.5);
           if (p != q)
             flags|=HeightValue;
         }
@@ -227,7 +234,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
       if (*p == '-')
         flags|=XNegative;
       q=p;
-      *x=(ssize_t) ceil(InterpretLocaleValue(p,&p)-0.5);
+      *x=(ssize_t) ceil(StringToDouble(p,&p)-0.5);
       if (p != q)
         flags|=XValue;
       if ((*p == '+') || (*p == '-'))
@@ -238,7 +245,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
           if (*p == '-')
             flags|=YNegative;
           q=p;
-          *y=(ssize_t) ceil(InterpretLocaleValue(p,&p)-0.5);
+          *y=(ssize_t) ceil(StringToDouble(p,&p)-0.5);
           if (p != q)
             flags|=YValue;
         }
@@ -553,7 +560,7 @@ MagickExport MagickBooleanType IsSceneGeometry(const char *geometry,
   if (geometry == (const char *) NULL)
     return(MagickFalse);
   p=(char *) geometry;
-  value=InterpretLocaleValue(geometry,&p);
+  value=StringToDouble(geometry,&p);
   (void) value;
   if (p == geometry)
     return(MagickFalse);
@@ -664,43 +671,43 @@ MagickExport MagickStatusType ParseAffineGeometry(const char *geometry,
     {
       case 0:
       {
-        affine_matrix->sx=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->sx=StringToDouble(token,(char **) NULL);
         break;
       }
       case 1:
       {
-        affine_matrix->rx=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->rx=StringToDouble(token,(char **) NULL);
         break;
       }
       case 2:
       {
-        affine_matrix->ry=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->ry=StringToDouble(token,(char **) NULL);
         break;
       }
       case 3:
       {
-        affine_matrix->sy=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->sy=StringToDouble(token,(char **) NULL);
         break;
       }
       case 4:
       {
-        affine_matrix->tx=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->tx=StringToDouble(token,(char **) NULL);
         flags|=XValue;
         break;
       }
       case 5:
       {
-        affine_matrix->ty=InterpretLocaleValue(token,(char **) NULL);
+        affine_matrix->ty=StringToDouble(token,(char **) NULL);
         flags|=YValue;
         break;
       }
     }
   }
-  determinant=(affine_matrix->sx*affine_matrix->sy-affine_matrix->rx*
-    affine_matrix->ry);
+  determinant=(affine_matrix->sx*affine_matrix->sy
+                 - affine_matrix->rx*affine_matrix->ry);
   if (fabs(determinant) < MagickEpsilon)
     (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-      "InvalidGeometry","`%s'",geometry);
+      "InvalidArgument","'%s' : 'Indeterminate Matrix'",geometry);
   return(flags);
 }
 
@@ -747,6 +754,9 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
   double
     value;
 
+  int
+    c;
+
   MagickStatusType
     flags;
 
@@ -767,7 +777,8 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
         (void) CopyMagickString(p,p+1,MaxTextExtent);
         continue;
       }
-    switch ((int) *p)
+    c=(int) ((unsigned char) *p);
+    switch (c)
     {
       case '%':
       {
@@ -824,11 +835,11 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       case '7':
       case '8':
       case '9':
-      case -41:
       case 'x':
       case 'X':
       case '/':
       case ':':
+      case 215:
       {
         p++;
         break;
@@ -850,10 +861,11 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
   if (*p == '\0')
     return(flags);
   q=p;
-  value=InterpretLocaleValue(p,&q);
+  value=StringToDouble(p,&q);
   if (LocaleNCompare(p,"0x",2) == 0)
     value=(double) strtol(p,&q,10);
-  if ((((int) *q) == -41) || (*q == 'x') || (*q == 'X') || (*q == ',') ||
+  c=(int) ((unsigned char) *q);
+  if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == ',') ||
       (*q == '/') || (*q == ':') || (*q =='\0'))
     {
       /*
@@ -863,7 +875,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       if (LocaleNCompare(p,"0x",2) == 0)
         value=(double) strtol(p,&p,10);
       else
-        value=InterpretLocaleValue(p,&p);
+        value=StringToDouble(p,&p);
       if (p != q)
         {
           flags|=RhoValue;
@@ -871,8 +883,9 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
         }
     }
   q=p;
-  if ((((int) *p) == -41) || (*p == 'x') || (*p == 'X') || (*p == ',') ||
-      (*p == '/') || (*p == ':'))
+  c=(int) ((unsigned char) *p);
+  if ((c == 215) || (*p == 'x') || (*p == 'X') || (*p == ',') || (*p == '/') ||
+      (*p == ':'))
     {
       /*
         Parse sigma.
@@ -880,11 +893,12 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       p++;
       while (isspace((int) ((unsigned char) *p)) != 0)
         p++;
-      if (((((int) *q) != -41) && (*q != 'x') && (*q != 'X')) ||
-          ((*p != '+') && (*p != '-')))
+      c=(int) ((unsigned char) *q);
+      if (((c != 215) && (*q != 'x') && (*q != 'X')) || ((*p != '+') &&
+          (*p != '-')))
         {
           q=p;
-          value=InterpretLocaleValue(p,&p);
+          value=StringToDouble(p,&p);
           if (p != q)
             {
               flags|=SigmaValue;
@@ -902,7 +916,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       if ((*p == ',') || (*p == '/') || (*p == ':'))
         p++;
       q=p;
-      value=InterpretLocaleValue(p,&p);
+      value=StringToDouble(p,&p);
       if (p != q)
         {
           flags|=XiValue;
@@ -921,7 +935,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
           if ((*p == ',') || (*p == '/') || (*p == ':'))
             p++;
           q=p;
-          value=InterpretLocaleValue(p,&p);
+          value=StringToDouble(p,&p);
           if (p != q)
             {
               flags|=PsiValue;
@@ -941,7 +955,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
           if ((*p == ',') || (*p == '/') || (*p == ':'))
             p++;
           q=p;
-          value=InterpretLocaleValue(p,&p);
+          value=StringToDouble(p,&p);
           if (p != q)
             {
               flags|=ChiValue;
@@ -1183,10 +1197,17 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
       former_width=(*width);
       former_height=(*height);
     }
-  if (((flags & AspectValue) == 0) && ((*width != former_width) ||
-      (*height != former_height)))
+  if (((flags & AspectValue) != 0) || ((*width == former_width) &&
+      (*height == former_height)))
     {
-      MagickRealType
+      if ((flags & RhoValue) == 0)
+        *width=former_width;
+      if ((flags & SigmaValue) == 0)
+        *height=former_height;
+    }
+  else
+    {
+      double
         scale_factor;
 
       /*
@@ -1197,40 +1218,30 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
       else
         if (((flags & RhoValue) != 0) && (flags & SigmaValue) != 0)
           {
-            scale_factor=(MagickRealType) *width/(MagickRealType) former_width;
+            scale_factor=(double) *width/(double) former_width;
             if ((flags & MinimumValue) == 0)
               {
-                if (scale_factor > ((MagickRealType) *height/(MagickRealType)
-                    former_height))
-                  scale_factor=(MagickRealType) *height/(MagickRealType)
-                    former_height;
+                if (scale_factor > ((double) *height/(double) former_height))
+                  scale_factor=(double) *height/(double) former_height;
               }
             else
-              if (scale_factor < ((MagickRealType) *height/(MagickRealType)
-                  former_height))
-                scale_factor=(MagickRealType) *height/(MagickRealType)
-                  former_height;
+              if (scale_factor < ((double) *height/(double) former_height))
+                scale_factor=(double) *height/(double) former_height;
           }
         else
           if ((flags & RhoValue) != 0)
             {
-              scale_factor=(MagickRealType) *width/(MagickRealType)
-                former_width;
+              scale_factor=(double) *width/(double) former_width;
               if (((flags & MinimumValue) != 0) &&
-                  (scale_factor < ((MagickRealType) *width/(MagickRealType)
-                   former_height)))
-                scale_factor=(MagickRealType) *width/(MagickRealType)
-                  former_height;
+                  (scale_factor < ((double) *width/(double) former_height)))
+                scale_factor=(double) *width/(double) former_height;
             }
           else
             {
-              scale_factor=(MagickRealType) *height/(MagickRealType)
-                former_height;
+              scale_factor=(double) *height/(double) former_height;
               if (((flags & MinimumValue) != 0) &&
-                  (scale_factor < ((MagickRealType) *height/(MagickRealType)
-                   former_width)))
-                scale_factor=(MagickRealType) *height/(MagickRealType)
-                  former_width;
+                  (scale_factor < ((double) *height/(double) former_width)))
+                scale_factor=(double) *height/(double) former_width;
             }
       *width=MagickMax((size_t) floor(scale_factor*former_width+0.5),1UL);
       *height=MagickMax((size_t) floor(scale_factor*former_height+0.5),1UL);
@@ -1251,7 +1262,7 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
     }
   if ((flags & AreaValue) != 0)
     {
-      MagickRealType
+      double
         area,
         distance;
 
@@ -1264,12 +1275,12 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
       (void) ParseGeometry(geometry,&geometry_info);
       area=geometry_info.rho;
       distance=sqrt((double) former_width*former_height);
-      scale.x=(double) former_width/(double) (distance/sqrt((double) area));
-      scale.y=(double) former_height/(double) (distance/sqrt((double) area));
+      scale.x=(double) former_width/(distance/sqrt((double) area));
+      scale.y=(double) former_height/(distance/sqrt((double) area));
       if ((scale.x < (double) *width) || (scale.y < (double) *height))
         {
-          *width=(size_t) (former_width/(distance/sqrt((double) area)));
-          *height=(size_t) (former_height/(distance/sqrt((double) area)));
+          *width=(size_t) (former_width/(distance/sqrt(area))+0.5);
+          *height=(size_t) (former_height/(distance/sqrt(area))+0.5);
         }
       former_width=(*width);
       former_height=(*height);

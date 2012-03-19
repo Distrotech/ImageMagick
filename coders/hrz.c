@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -64,7 +64,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteHRZImage(const ImageInfo *,Image *);
+  WriteHRZImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,7 +129,7 @@ static Image *ReadHRZImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -154,7 +154,7 @@ static Image *ReadHRZImage(const ImageInfo *image_info,ExceptionInfo *exception)
       ThrowReaderException(CorruptImageError,"UnableToReadImageData");
     p=pixels;
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
@@ -253,7 +253,8 @@ ModuleExport void UnregisterHRZImage(void)
 %
 %  The format of the WriteHRZImage method is:
 %
-%      MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteHRZImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -261,8 +262,11 @@ ModuleExport void UnregisterHRZImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   Image
     *hrz_image;
@@ -295,15 +299,16 @@ static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  hrz_image=ResizeImage(image,256,240,image->filter,image->blur,
-    &image->exception);
+  hrz_image=ResizeImage(image,256,240,image->filter,image->blur,exception);
   if (hrz_image == (Image *) NULL)
     return(MagickFalse);
   if (IsRGBColorspace(hrz_image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(hrz_image,RGBColorspace);
+    (void) TransformImageColorspace(hrz_image,RGBColorspace,exception);
   /*
     Allocate memory for pixels.
   */
@@ -319,7 +324,7 @@ static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image)
   */
   for (y=0; y < (ssize_t) hrz_image->rows; y++)
   {
-    p=GetVirtualPixels(hrz_image,0,y,hrz_image->columns,1,&image->exception);
+    p=GetVirtualPixels(hrz_image,0,y,hrz_image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     q=pixels;

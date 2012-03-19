@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -93,7 +93,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteMIFFImage(const ImageInfo *,Image *);
+  WriteMIFFImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -199,7 +199,7 @@ static inline size_t MagickMin(const size_t x,const size_t y)
 }
 
 static void PushRunlengthPacket(Image *image,const unsigned char *pixels,
-  size_t *length,PixelInfo *pixel)
+  size_t *length,PixelInfo *pixel,ExceptionInfo *exception)
 {
   const unsigned char
     *p;
@@ -213,24 +213,25 @@ static void PushRunlengthPacket(Image *image,const unsigned char *pixels,
         case 32:
         {
           pixel->index=ConstrainColormapIndex(image,
-            (*p << 24) | (*(p+1) << 16) | (*(p+2) << 8) | *(p+3));
+            (*p << 24) | (*(p+1) << 16) | (*(p+2) << 8) | *(p+3),exception);
           p+=4;
           break;
         }
         case 16:
         {
-          pixel->index=ConstrainColormapIndex(image,(*p << 8) | *(p+1));
+          pixel->index=ConstrainColormapIndex(image,(*p << 8) | *(p+1),
+            exception);
           p+=2;
           break;
         }
         case 8:
         {
-          pixel->index=ConstrainColormapIndex(image,*p);
+          pixel->index=ConstrainColormapIndex(image,*p,exception);
           p++;
           break;
         }
         default:
-          (void) ThrowMagickException(&image->exception,GetMagickModule(),
+          (void) ThrowMagickException(exception,GetMagickModule(),
             CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
       }
       switch (image->depth)
@@ -274,7 +275,7 @@ static void PushRunlengthPacket(Image *image,const unsigned char *pixels,
           break;
         }
         default:
-          (void) ThrowMagickException(&image->exception,GetMagickModule(),
+          (void) ThrowMagickException(exception,GetMagickModule(),
             CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
       }
       *length=(size_t) (*p++)+1;
@@ -352,8 +353,8 @@ static void PushRunlengthPacket(Image *image,const unsigned char *pixels,
       break;
     }
     default:
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
-        CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
+      (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
+        "ImageDepthNotSupported","`%s'",image->filename);
   }
   *length=(size_t) (*p++)+1;
 }
@@ -412,8 +413,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
     *image;
 
   int
-    c,
-    code;
+    c;
 
 #if defined(MAGICKCORE_LZMA_DELEGATE)
   lzma_stream
@@ -480,7 +480,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -493,10 +493,10 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
   c=ReadBlobByte(image);
   if (c == EOF)
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
-  code=0;
   *id='\0';
   (void) ResetMagickMemory(keyword,0,sizeof(keyword));
   version=0.0;
+  (void) version;
   do
   {
     /*
@@ -544,7 +544,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
           if (comment == (char *) NULL)
             ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
           *p='\0';
-          (void) SetImageProperty(image,"comment",comment);
+          (void) SetImageProperty(image,"comment",comment,exception);
           comment=DestroyString(comment);
           c=ReadBlobByte(image);
         }
@@ -608,8 +608,8 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
               {
                 if (LocaleCompare(keyword,"background-color") == 0)
                   {
-                    (void) QueryColorDatabase(options,&image->background_color,
-                      exception);
+                    (void) QueryColorCompliance(options,AllCompliance,
+                      &image->background_color,exception);
                     break;
                   }
                 if (LocaleCompare(keyword,"blue-primary") == 0)
@@ -624,11 +624,11 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                   }
                 if (LocaleCompare(keyword,"border-color") == 0)
                   {
-                    (void) QueryColorDatabase(options,&image->border_color,
-                      exception);
+                    (void) QueryColorCompliance(options,AllCompliance,
+                      &image->border_color,exception);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'c':
@@ -680,7 +680,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->columns=StringToUnsignedLong(options);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'd':
@@ -708,7 +708,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->dispose=(DisposeType) dispose;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'e':
@@ -726,7 +726,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->endian=(EndianType) endian;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'g':
@@ -734,7 +734,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
               {
                 if (LocaleCompare(keyword,"gamma") == 0)
                   {
-                    image->gamma=InterpretLocaleValue(options,(char **) NULL);
+                    image->gamma=StringToDouble(options,(char **) NULL);
                     break;
                   }
                 if (LocaleCompare(keyword,"gravity") == 0)
@@ -759,7 +759,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                         image->chromaticity.green_primary.x;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'i':
@@ -775,7 +775,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->iterations=StringToUnsignedLong(options);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'm':
@@ -795,8 +795,8 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                   }
                 if (LocaleCompare(keyword,"matte-color") == 0)
                   {
-                    (void) QueryColorDatabase(options,&image->matte_color,
-                      exception);
+                    (void) QueryColorCompliance(options,AllCompliance,
+                      &image->matte_color,exception);
                     break;
                   }
                 if (LocaleCompare(keyword,"montage") == 0)
@@ -804,7 +804,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     (void) CloneString(&image->montage,options);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'o':
@@ -834,7 +834,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->orientation=(OrientationType) orientation;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'p':
@@ -860,12 +860,16 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                       profiles=NewLinkedList(0);
                     (void) AppendValueToLinkedList(profiles,
                       AcquireString(keyword+8));
-                    profile=AcquireStringInfo((size_t) StringToLong(options));
-                    (void) SetImageProfile(image,keyword+8,profile);
+                    profile=BlobToStringInfo((const void *) NULL,(size_t)
+                      StringToLong(options));
+                    if (profile == (StringInfo *) NULL)
+                      ThrowReaderException(ResourceLimitError,
+                        "MemoryAllocationFailed");
+                    (void) SetImageProfile(image,keyword+8,profile,exception);
                     profile=DestroyStringInfo(profile);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'q':
@@ -889,7 +893,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     quantum_format=(QuantumFormatType) format;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'r':
@@ -920,10 +924,10 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                 if (LocaleCompare(keyword,"resolution") == 0)
                   {
                     flags=ParseGeometry(options,&geometry_info);
-                    image->x_resolution=geometry_info.rho;
-                    image->y_resolution=geometry_info.sigma;
+                    image->resolution.x=geometry_info.rho;
+                    image->resolution.y=geometry_info.sigma;
                     if ((flags & SigmaValue) == 0)
-                      image->y_resolution=image->x_resolution;
+                      image->resolution.y=image->resolution.x;
                     break;
                   }
                 if (LocaleCompare(keyword,"rows") == 0)
@@ -931,7 +935,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->rows=StringToUnsignedLong(options);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 's':
@@ -942,7 +946,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->scene=StringToUnsignedLong(options);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 't':
@@ -975,7 +979,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->type=(ImageType) type;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'u':
@@ -993,7 +997,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                     image->units=(ResolutionType) units;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'v':
@@ -1001,10 +1005,10 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
               {
                 if (LocaleCompare(keyword,"version") == 0)
                   {
-                    version=InterpretLocaleValue(options,(char **) NULL);
+                    version=StringToDouble(options,(char **) NULL);
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               case 'w':
@@ -1020,12 +1024,12 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                         image->chromaticity.white_point.x;
                     break;
                   }
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
               default:
               {
-                (void) SetImageProperty(image,keyword,options);
+                (void) SetImageProperty(image,keyword,options,exception);
                 break;
               }
             }
@@ -1109,7 +1113,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
         /*
           Create image colormap.
         */
-        status=AcquireImageColormap(image,colors != 0 ? colors : 256);
+        status=AcquireImageColormap(image,colors != 0 ? colors : 256,exception);
         if (status == MagickFalse)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         if (colors != 0)
@@ -1205,6 +1209,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
     packet_size=(size_t) (quantum_info->depth/8);
     if (image->storage_class == DirectClass)
       packet_size=(size_t) (3*quantum_info->depth/8);
+    if ((image->type == BilevelType) || (image->type == GrayscaleType) ||
+        (image->type == GrayscaleMatteType))
+      packet_size=quantum_info->depth/8;
     if (image->matte != MagickFalse)
       packet_size+=quantum_info->depth/8;
     if (image->colorspace == CMYKColorspace)
@@ -1237,7 +1244,8 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
         if (image->matte != MagickFalse)
           quantum_type=IndexAlphaQuantum;
       }
-    if (image->colorspace == GRAYColorspace)
+    if ((image->type == BilevelType) || (image->type == GrayscaleType) ||
+        (image->type == GrayscaleMatteType))
       {
         quantum_type=GrayQuantum;
         if (image->matte != MagickFalse)
@@ -1249,6 +1257,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_BZLIB_DELEGATE)
       case BZipCompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&bzip_info,0,sizeof(bzip_info));
         bzip_info.bzalloc=AcquireBZIPMemory;
         bzip_info.bzfree=RelinquishBZIPMemory;
@@ -1263,6 +1274,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_LZMA_DELEGATE)
       case LZMACompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&allocator,0,sizeof(allocator));
         allocator.alloc=AcquireLZMAMemory;
         allocator.free=RelinquishLZMAMemory;
@@ -1278,6 +1292,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
       case LZWCompression:
       case ZipCompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&zip_info,0,sizeof(zip_info));
         zip_info.zalloc=AcquireZIPMemory;
         zip_info.zfree=RelinquishZIPMemory;
@@ -1309,7 +1326,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
       if (status == MagickFalse)
         break;
       q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         break;
       switch (image->compression)
       {
@@ -1324,7 +1341,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
               {
                 bzip_info.next_in=(char *) compress_pixels;
                 length=(size_t) BZipMaxExtent(packet_size*image->columns);
-                if (version != 0)
+                if (version != 0.0)
                   length=(size_t) ReadBlobMSBLong(image);
                 bzip_info.avail_in=(unsigned int) ReadBlob(image,length,
                   (unsigned char *) bzip_info.next_in);
@@ -1344,6 +1361,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
           lzma_info.avail_out=packet_size*image->columns;
           do
           {
+            int
+              code;
+
             if (lzma_info.avail_in == 0)
               {
                 lzma_info.next_in=compress_pixels;
@@ -1377,7 +1397,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
               {
                 zip_info.next_in=compress_pixels;
                 length=(size_t) ZipMaxExtent(packet_size*image->columns);
-                if (version != 0)
+                if (version != 0.0)
                   length=(size_t) ReadBlobMSBLong(image);
                 zip_info.avail_in=(unsigned int) ReadBlob(image,length,
                   zip_info.next_in);
@@ -1397,21 +1417,21 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
             if (length == 0)
               {
                 count=ReadBlob(image,packet_size,pixels);
-                PushRunlengthPacket(image,pixels,&length,&pixel);
+                PushRunlengthPacket(image,pixels,&length,&pixel,exception);
               }
             length--;
             if (image->storage_class == PseudoClass)
-              SetPixelIndex(image,pixel.index,q);
+              SetPixelIndex(image,ClampToQuantum(pixel.index),q);
             else
               {
-                SetPixelRed(image,pixel.red,q);
-                SetPixelGreen(image,pixel.green,q);
-                SetPixelBlue(image,pixel.blue,q);
+                SetPixelRed(image,ClampToQuantum(pixel.red),q);
+                SetPixelGreen(image,ClampToQuantum(pixel.green),q);
+                SetPixelBlue(image,ClampToQuantum(pixel.blue),q);
                 if (image->colorspace == CMYKColorspace)
-                  SetPixelBlack(image,pixel.black,q);
+                  SetPixelBlack(image,ClampToQuantum(pixel.black),q);
               }
             if (image->matte != MagickFalse)
-              SetPixelAlpha(image,pixel.alpha,q);
+              SetPixelAlpha(image,ClampToQuantum(pixel.alpha),q);
             q+=GetPixelChannels(image);
           }
           break;
@@ -1433,7 +1453,10 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_BZLIB_DELEGATE)
       case BZipCompression:
       {
-        if (version == 0)
+        int
+          code;
+
+        if (version == 0.0)
           {
             MagickOffsetType
               offset;
@@ -1453,6 +1476,9 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_LZMA_DELEGATE)
       case LZMACompression:
       {
+        int
+          code;
+
         code=lzma_code(&lzma_info,LZMA_FINISH);
         if ((code != LZMA_STREAM_END) && (code != LZMA_OK))
           status=MagickFalse;
@@ -1464,7 +1490,10 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
       case LZWCompression:
       case ZipCompression:
       {
-        if (version == 0)
+        int
+          code;
+
+        if (version == 0.0)
           {
             MagickOffsetType
               offset;
@@ -1512,7 +1541,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -1623,7 +1652,7 @@ ModuleExport void UnregisterMIFFImage(void)
 %  The format of the WriteMIFFImage method is:
 %
 %      MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  Compression code contributed by Kyle Shorter.
 %
@@ -1633,10 +1662,12 @@ ModuleExport void UnregisterMIFFImage(void)
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 
 static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
-  size_t length,PixelInfo *pixel)
+  size_t length,PixelInfo *pixel,ExceptionInfo *exception)
 {
   if (image->storage_class != DirectClass)
     {
@@ -1655,7 +1686,7 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
           break;
         }
         default:
-          (void) ThrowMagickException(&image->exception,GetMagickModule(),
+          (void) ThrowMagickException(exception,GetMagickModule(),
             CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
       }
       switch (image->depth)
@@ -1667,7 +1698,7 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
 
           if (image->matte != MagickFalse)
             {
-              value=ScaleQuantumToLong(pixel->alpha);
+              value=ScaleQuantumToLong(ClampToQuantum(pixel->alpha));
               pixels=PopLongPixel(MSBEndian,value,pixels);
             }
           break;
@@ -1679,7 +1710,7 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
 
           if (image->matte != MagickFalse)
             {
-              value=ScaleQuantumToShort(pixel->alpha);
+              value=ScaleQuantumToShort(ClampToQuantum(pixel->alpha));
               pixels=PopShortPixel(MSBEndian,value,pixels);
             }
           break;
@@ -1691,13 +1722,14 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
 
           if (image->matte != MagickFalse)
             {
-              value=(unsigned char) ScaleQuantumToChar(pixel->alpha);
+              value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(
+                pixel->alpha));
               pixels=PopCharPixel(value,pixels);
             }
           break;
         }
         default:
-          (void) ThrowMagickException(&image->exception,GetMagickModule(),
+          (void) ThrowMagickException(exception,GetMagickModule(),
             CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
       }
       *pixels++=(unsigned char) length;
@@ -1710,20 +1742,20 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
       unsigned int
         value;
 
-      value=ScaleQuantumToLong(pixel->red);
+      value=ScaleQuantumToLong(ClampToQuantum(pixel->red));
       pixels=PopLongPixel(MSBEndian,value,pixels);
-      value=ScaleQuantumToLong(pixel->green);
+      value=ScaleQuantumToLong(ClampToQuantum(pixel->green));
       pixels=PopLongPixel(MSBEndian,value,pixels);
-      value=ScaleQuantumToLong(pixel->blue);
+      value=ScaleQuantumToLong(ClampToQuantum(pixel->blue));
       pixels=PopLongPixel(MSBEndian,value,pixels);
       if (image->colorspace == CMYKColorspace)
         {
-          value=ScaleQuantumToLong(pixel->black);
+          value=ScaleQuantumToLong(ClampToQuantum(pixel->black));
           pixels=PopLongPixel(MSBEndian,value,pixels);
         }
       if (image->matte != MagickFalse)
         {
-          value=ScaleQuantumToLong(pixel->alpha);
+          value=ScaleQuantumToLong(ClampToQuantum(pixel->alpha));
           pixels=PopLongPixel(MSBEndian,value,pixels);
         }
       break;
@@ -1733,20 +1765,20 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
       unsigned short
         value;
 
-      value=ScaleQuantumToShort(pixel->red);
+      value=ScaleQuantumToShort(ClampToQuantum(pixel->red));
       pixels=PopShortPixel(MSBEndian,value,pixels);
-      value=ScaleQuantumToShort(pixel->green);
+      value=ScaleQuantumToShort(ClampToQuantum(pixel->green));
       pixels=PopShortPixel(MSBEndian,value,pixels);
-      value=ScaleQuantumToShort(pixel->blue);
+      value=ScaleQuantumToShort(ClampToQuantum(pixel->blue));
       pixels=PopShortPixel(MSBEndian,value,pixels);
       if (image->colorspace == CMYKColorspace)
         {
-          value=ScaleQuantumToShort(pixel->black);
+          value=ScaleQuantumToShort(ClampToQuantum(pixel->black));
           pixels=PopShortPixel(MSBEndian,value,pixels);
         }
       if (image->matte != MagickFalse)
         {
-          value=ScaleQuantumToShort(pixel->alpha);
+          value=ScaleQuantumToShort(ClampToQuantum(pixel->alpha));
           pixels=PopShortPixel(MSBEndian,value,pixels);
         }
       break;
@@ -1756,34 +1788,36 @@ static unsigned char *PopRunlengthPacket(Image *image,unsigned char *pixels,
       unsigned char
         value;
 
-      value=(unsigned char) ScaleQuantumToChar(pixel->red);
+      value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(pixel->red));
       pixels=PopCharPixel(value,pixels);
-      value=(unsigned char) ScaleQuantumToChar(pixel->green);
+      value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(pixel->green));
       pixels=PopCharPixel(value,pixels);
-      value=(unsigned char) ScaleQuantumToChar(pixel->blue);
+      value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(pixel->blue));
       pixels=PopCharPixel(value,pixels);
       if (image->colorspace == CMYKColorspace)
         {
-          value=(unsigned char) ScaleQuantumToChar(pixel->black);
+          value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(
+            pixel->black));
           pixels=PopCharPixel(value,pixels);
         }
       if (image->matte != MagickFalse)
         {
-          value=(unsigned char) ScaleQuantumToChar(pixel->alpha);
+          value=(unsigned char) ScaleQuantumToChar(ClampToQuantum(
+            pixel->alpha));
           pixels=PopCharPixel(value,pixels);
         }
       break;
     }
     default:
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
-        CorruptImageError,"ImageDepthNotSupported","`%s'",image->filename);
+      (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
+        "ImageDepthNotSupported","`%s'",image->filename);
   }
   *pixels++=(unsigned char) length;
   return(pixels);
 }
 
 static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
 #if defined(MAGICKCORE_BZLIB_DELEGATE)
   bz_stream
@@ -1799,9 +1833,6 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
   const char
     *property,
     *value;
-
-  int
-    code;
 
 #if defined(MAGICKCORE_LZMA_DELEGATE)
   lzma_allocator
@@ -1857,10 +1888,11 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  code=0;
   scene=0;
   do
   {
@@ -1874,7 +1906,7 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     if ((image->storage_class != PseudoClass) && (image->depth >= 32) &&
         (quantum_info->format == UndefinedQuantumFormat) &&
-        (IsHighDynamicRangeImage(image,&image->exception) != MagickFalse))
+        (IsHighDynamicRangeImage(image,exception) != MagickFalse))
       {
         status=SetQuantumFormat(image,quantum_info,FloatingPointQuantumFormat);
         if (status == MagickFalse)
@@ -1882,11 +1914,11 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       }
     if ((image->storage_class == PseudoClass) &&
         (image->colors > (size_t) (GetQuantumRange(image->depth)+1)))
-      (void) SetImageStorageClass(image,DirectClass);
-    if (IsImageGray(image,&image->exception) != MagickFalse)
+      (void) SetImageStorageClass(image,DirectClass,exception);
+    if (IsImageGray(image,exception) != MagickFalse)
       {
-        image->storage_class=DirectClass;
-        (void) SetImageColorspace(image,GRAYColorspace);
+        (void) SetImageStorageClass(image,DirectClass,exception);
+        (void) SetImageColorspace(image,GRAYColorspace,exception);
       }
     compression=image->compression;
     if (image_info->compression != UndefinedCompression)
@@ -1916,6 +1948,8 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
     packet_size=(size_t) (quantum_info->depth/8);
     if (image->storage_class == DirectClass)
       packet_size=(size_t) (3*quantum_info->depth/8);
+    if (IsImageGray(image,exception) != MagickFalse)
+      packet_size=(size_t) (quantum_info->depth/8);
     if (image->matte != MagickFalse)
       packet_size+=quantum_info->depth/8;
     if (image->colorspace == CMYKColorspace)
@@ -1970,10 +2004,10 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
           CommandOptionToMnemonic(MagickResolutionOptions,image->units));
         (void) WriteBlobString(image,buffer);
       }
-    if ((image->x_resolution != 0) || (image->y_resolution != 0))
+    if ((image->resolution.x != 0) || (image->resolution.y != 0))
       {
         (void) FormatLocaleString(buffer,MaxTextExtent,
-          "resolution=%gx%g\n",image->x_resolution,image->y_resolution);
+          "resolution=%gx%g\n",image->resolution.x,image->resolution.y);
         (void) WriteBlobString(image,buffer);
       }
     if ((image->page.width != 0) || (image->page.height != 0))
@@ -2051,9 +2085,8 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       }
     if (image->rendering_intent != UndefinedIntent)
       {
-        (void) FormatLocaleString(buffer,MaxTextExtent,
-          "rendering-intent=%s\n",
-           CommandOptionToMnemonic(MagickIntentOptions,image->rendering_intent));
+        (void) FormatLocaleString(buffer,MaxTextExtent,"rendering-intent=%s\n",
+          CommandOptionToMnemonic(MagickIntentOptions,image->rendering_intent));
         (void) WriteBlobString(image,buffer);
       }
     if (image->gamma != 0.0)
@@ -2119,14 +2152,15 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
         (void) WriteBlobString(image,buffer);
       }
     if (quantum_info->format == FloatingPointQuantumFormat)
-      (void) SetImageProperty(image,"quantum:format","floating-point");
+      (void) SetImageProperty(image,"quantum:format","floating-point",
+        exception);
     ResetImagePropertyIterator(image);
     property=GetNextImageProperty(image);
     while (property != (const char *) NULL)
     {
       (void) FormatLocaleString(buffer,MaxTextExtent,"%s=",property);
       (void) WriteBlobString(image,buffer);
-      value=GetImageProperty(image,property);
+      value=GetImageProperty(image,property,exception);
       if (value != (const char *) NULL)
         {
           for (i=0; i < (ssize_t) strlen(value); i++)
@@ -2254,6 +2288,9 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_BZLIB_DELEGATE)
       case BZipCompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&bzip_info,0,sizeof(bzip_info));
         bzip_info.bzalloc=AcquireBZIPMemory;
         bzip_info.bzfree=RelinquishBZIPMemory;
@@ -2268,6 +2305,9 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_LZMA_DELEGATE)
       case LZMACompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&allocator,0,sizeof(allocator));
         allocator.alloc=AcquireLZMAMemory;
         allocator.free=RelinquishLZMAMemory;
@@ -2283,6 +2323,9 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       case LZWCompression:
       case ZipCompression:
       {
+        int
+          code;
+
         (void) ResetMagickMemory(&zip_info,0,sizeof(zip_info));
         zip_info.zalloc=AcquireZIPMemory;
         zip_info.zfree=RelinquishZIPMemory;
@@ -2296,7 +2339,7 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       default:
         break;
     }
-    quantum_type=GetQuantumType(image,&image->exception);
+    quantum_type=GetQuantumType(image,exception);
     pixels=GetQuantumPixels(quantum_info);
     for (y=0; y < (ssize_t) image->rows; y++)
     {
@@ -2308,7 +2351,7 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
 
       if (status == MagickFalse)
         break;
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       q=pixels;
@@ -2320,9 +2363,12 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
           bzip_info.next_in=(char *) pixels;
           bzip_info.avail_in=(unsigned int) (packet_size*image->columns);
           (void) ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            quantum_type,pixels,&image->exception);
+            quantum_type,pixels,exception);
           do
           {
+            int
+              code;
+
             bzip_info.next_out=(char *) compress_pixels;
             bzip_info.avail_out=(unsigned int) BZipMaxExtent(packet_size*
               image->columns);
@@ -2345,9 +2391,12 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
           lzma_info.next_in=pixels;
           lzma_info.avail_in=packet_size*image->columns;
           (void) ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            quantum_type,pixels,&image->exception);
+            quantum_type,pixels,exception);
           do
           {
+            int
+              code;
+
             lzma_info.next_out=compress_pixels;
             lzma_info.avail_out=packet_size*image->columns;
             code=lzma_code(&lzma_info,LZMA_RUN);
@@ -2370,9 +2419,12 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
           zip_info.next_in=pixels;
           zip_info.avail_in=(uInt) (packet_size*image->columns);
           (void) ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            quantum_type,pixels,&image->exception);
+            quantum_type,pixels,exception);
           do
           {
+            int
+              code;
+
             zip_info.next_out=compress_pixels;
             zip_info.avail_out=(uInt) ZipMaxExtent(packet_size*image->columns);
             code=deflate(&zip_info,Z_SYNC_FLUSH);
@@ -2391,30 +2443,30 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
         case RLECompression:
         {
           length=0;
-          SetPixelInfo(image,p,&pixel);
+          GetPixelInfoPixel(image,p,&pixel);
           p+=GetPixelChannels(image);
           for (x=1; x < (ssize_t) image->columns; x++)
           {
-            SetPixelInfo(image,p,&target);
+            GetPixelInfoPixel(image,p,&target);
             if ((length < 255) &&
                 (IsPixelInfoEquivalent(&pixel,&target) != MagickFalse))
               length++;
             else
               {
-                q=PopRunlengthPacket(image,q,length,&pixel);
+                q=PopRunlengthPacket(image,q,length,&pixel,exception);
                 length=0;
               }
-            SetPixelInfo(image,p,&pixel);
+            GetPixelInfoPixel(image,p,&pixel);
             p+=GetPixelChannels(image);
           }
-          q=PopRunlengthPacket(image,q,length,&pixel);
+          q=PopRunlengthPacket(image,q,length,&pixel,exception);
           (void) WriteBlob(image,(size_t) (q-pixels),pixels);
           break;
         }
         default:
         {
           (void) ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            quantum_type,pixels,&image->exception);
+            quantum_type,pixels,exception);
           (void) WriteBlob(image,packet_size*image->columns,pixels);
           break;
         }
@@ -2432,6 +2484,9 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_BZLIB_DELEGATE)
       case BZipCompression:
       {
+        int
+          code;
+
         for ( ; ; )
         {
           if (status == MagickFalse)
@@ -2458,6 +2513,9 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
 #if defined(MAGICKCORE_LZMA_DELEGATE)
       case LZMACompression:
       {
+        int
+          code;
+
         for ( ; ; )
         {
           if (status == MagickFalse)
@@ -2482,13 +2540,15 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       case LZWCompression:
       case ZipCompression:
       {
+        int
+          code;
+
         for ( ; ; )
         {
           if (status == MagickFalse)
             break;
           zip_info.next_out=compress_pixels;
-          zip_info.avail_out=(uInt) ZipMaxExtent(packet_size*
-            image->columns);
+          zip_info.avail_out=(uInt) ZipMaxExtent(packet_size*image->columns);
           code=deflate(&zip_info,Z_FINISH);
           length=(size_t) (zip_info.next_out-compress_pixels);
           if (length > 6)

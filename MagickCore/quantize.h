@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ typedef enum
 typedef struct _QuantizeInfo
 {
   size_t
-    number_colors;
+    number_colors;     /* desired maximum number of colors */
 
   size_t
     tree_depth;
@@ -57,13 +57,13 @@ typedef struct _QuantizeInfo
 } QuantizeInfo;
 
 extern MagickExport MagickBooleanType
-  CompressImageColormap(Image *),
-  GetImageQuantizeError(Image *),
-  PosterizeImage(Image *,const size_t,const MagickBooleanType),
-  QuantizeImage(const QuantizeInfo *,Image *),
-  QuantizeImages(const QuantizeInfo *,Image *),
-  RemapImage(const QuantizeInfo *,Image *,const Image *),
-  RemapImages(const QuantizeInfo *,Image *,const Image *);
+  CompressImageColormap(Image *,ExceptionInfo *),
+  GetImageQuantizeError(Image *,ExceptionInfo *),
+  PosterizeImage(Image *,const size_t,const MagickBooleanType,ExceptionInfo *),
+  QuantizeImage(const QuantizeInfo *,Image *,ExceptionInfo *),
+  QuantizeImages(const QuantizeInfo *,Image *,ExceptionInfo *),
+  RemapImage(const QuantizeInfo *,Image *,const Image *,ExceptionInfo *),
+  RemapImages(const QuantizeInfo *,Image *,const Image *,ExceptionInfo *);
 
 extern MagickExport QuantizeInfo
   *AcquireQuantizeInfo(const ImageInfo *),

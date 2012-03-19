@@ -60,14 +60,11 @@
 
 /* Directory where ImageMagick documents live. */
 #ifndef MAGICKCORE_DOCUMENTATION_PATH
-#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick-7.0.0//"
+#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick//"
 #endif
 
 /* Define if you have Display Postscript */
 /* #undef DPS_DELEGATE */
-
-/* Build self-contained, embeddable, zero-configuration ImageMagick */
-/* #undef EMBEDDABLE_SUPPORT */
 
 /* exclude deprecated methods in MagickCore API */
 /* #undef EXCLUDE_DEPRECATED */
@@ -78,7 +75,9 @@
 #endif
 
 /* Define if you have FFTW library */
-/* #undef FFTW_DELEGATE */
+#ifndef MAGICKCORE_FFTW_DELEGATE
+#define MAGICKCORE_FFTW_DELEGATE 1
+#endif
 
 /* Location of filter modules */
 #ifndef MAGICKCORE_FILTER_PATH
@@ -109,6 +108,11 @@
 /* Define if you have GVC library */
 #ifndef MAGICKCORE_GVC_DELEGATE
 #define MAGICKCORE_GVC_DELEGATE 1
+#endif
+
+/* Define to 1 if you have the `acosh' function. */
+#ifndef MAGICKCORE_HAVE_ACOSH
+#define MAGICKCORE_HAVE_ACOSH 1
 #endif
 
 /* Define to 1 if you have the `argz_add' function. */
@@ -153,6 +157,16 @@
 
 /* Define to 1 if you have the <arm/limits.h> header file. */
 /* #undef HAVE_ARM_LIMITS_H */
+
+/* Define to 1 if you have the `asinh' function. */
+#ifndef MAGICKCORE_HAVE_ASINH
+#define MAGICKCORE_HAVE_ASINH 1
+#endif
+
+/* Define to 1 if you have the `atanh' function. */
+#ifndef MAGICKCORE_HAVE_ATANH
+#define MAGICKCORE_HAVE_ATANH 1
+#endif
 
 /* Define to 1 if you have the `atexit' function. */
 #ifndef MAGICKCORE_HAVE_ATEXIT
@@ -236,6 +250,12 @@
    */
 #ifndef MAGICKCORE_HAVE_DECL_PWRITE
 #define MAGICKCORE_HAVE_DECL_PWRITE 1
+#endif
+
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#ifndef MAGICKCORE_HAVE_DECL_STRERROR_R
+#define MAGICKCORE_HAVE_DECL_STRERROR_R 1
 #endif
 
 /* Define to 1 if you have the declaration of `strlcpy', and to 0 if you
@@ -404,6 +424,11 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #ifndef MAGICKCORE_HAVE_INTTYPES_H
 #define MAGICKCORE_HAVE_INTTYPES_H 1
+#endif
+
+/* Define to 1 if you have the `isnan' function. */
+#ifndef MAGICKCORE_HAVE_ISNAN
+#define MAGICKCORE_HAVE_ISNAN 1
 #endif
 
 /* Define to 1 if you have the `j0' function. */
@@ -633,6 +658,11 @@
 /* Define if you have POSIX threads libraries and header files. */
 #ifndef MAGICKCORE_HAVE_PTHREAD
 #define MAGICKCORE_HAVE_PTHREAD 1
+#endif
+
+/* Have PTHREAD_PRIO_INHERIT. */
+#ifndef MAGICKCORE_HAVE_PTHREAD_PRIO_INHERIT
+#define MAGICKCORE_HAVE_PTHREAD_PRIO_INHERIT 1
 #endif
 
 /* Define to 1 if you have the `pwrite' function. */
@@ -951,6 +981,11 @@
 #define MAGICKCORE_HAVE_TIFFCONF_H 1
 #endif
 
+/* Define to 1 if you have the `TIFFIsBigEndian' function. */
+#ifndef MAGICKCORE_HAVE_TIFFISBIGENDIAN
+#define MAGICKCORE_HAVE_TIFFISBIGENDIAN 1
+#endif
+
 /* Define to 1 if you have the `TIFFIsCODECConfigured' function. */
 #ifndef MAGICKCORE_HAVE_TIFFISCODECCONFIGURED
 #define MAGICKCORE_HAVE_TIFFISCODECCONFIGURED 1
@@ -1142,6 +1177,11 @@
 /* Define if you have umem memory allocation library */
 /* #undef HasUMEM */
 
+/* Directory where ImageMagick headers live. */
+#ifndef MAGICKCORE_INCLUDE_PATH
+#define MAGICKCORE_INCLUDE_PATH "/usr/local/include/ImageMagick/"
+#endif
+
 /* ImageMagick is formally installed under prefix */
 #ifndef MAGICKCORE_INSTALLED_SUPPORT
 #define MAGICKCORE_INSTALLED_SUPPORT 1
@@ -1189,7 +1229,7 @@
 
 /* Define to the system default library search path. */
 #ifndef MAGICKCORE_LT_DLSEARCH_PATH
-#define MAGICKCORE_LT_DLSEARCH_PATH "/lib64:/usr/lib64:/lib:/usr/lib:/usr/lib64/atlas:/usr/lib64/mysql:/usr/lib64/qt-3.3/lib:/usr/lib64/tcl8.5/tclx8.4:/usr/lib64/tcl8.5:/usr/lib/wine/:/usr/lib64/wine/:/usr/lib64/xulrunner-2"
+#define MAGICKCORE_LT_DLSEARCH_PATH "/lib64:/usr/lib64:/lib:/usr/lib:/usr/lib64/atlas:/usr/lib/llvm:/usr/lib64/llvm:/usr/local/lib:/usr/lib64/mysql:/usr/lib64/qt-3.3/lib:/usr/lib64/tcl8.5/tclx8.4:/usr/lib64/tcl8.5:/usr/lib64/tracker-0.12:/usr/lib/wine/:/usr/lib64/wine/:/usr/lib64/xulrunner-2"
 #endif
 
 /* The archive extension */
@@ -1219,7 +1259,10 @@
 #define MAGICKCORE_LT_OBJDIR ".libs/"
 #endif
 
-/* Define if you have lzma compression library */
+/* Define to the shared library suffix, say, ".dylib". */
+/* #undef LT_SHARED_EXT */
+
+/* Define if you have LZMA library */
 #ifndef MAGICKCORE_LZMA_DELEGATE
 #define MAGICKCORE_LZMA_DELEGATE 1
 #endif
@@ -1242,6 +1285,11 @@
 /* Define if you have OPENEXR library */
 /* #undef OPENEXR_DELEGATE */
 
+/* Name of package */
+#ifndef MAGICKCORE_PACKAGE
+#define MAGICKCORE_PACKAGE "ImageMagick"
+#endif
+
 /* Define to the address where bug reports for this package should be sent. */
 #ifndef MAGICKCORE_PACKAGE_BUGREPORT
 #define MAGICKCORE_PACKAGE_BUGREPORT "http://www.imagemagick.org"
@@ -1254,12 +1302,12 @@
 
 /* Define to the full name and version of this package. */
 #ifndef MAGICKCORE_PACKAGE_STRING
-#define MAGICKCORE_PACKAGE_STRING "ImageMagick 7.0.0"
+#define MAGICKCORE_PACKAGE_STRING "ImageMagick 7.0.0-0"
 #endif
 
 /* Define to the one symbol short name of this package. */
 #ifndef MAGICKCORE_PACKAGE_TARNAME
-#define MAGICKCORE_PACKAGE_TARNAME "ImageMagick-7.0.0"
+#define MAGICKCORE_PACKAGE_TARNAME "ImageMagick"
 #endif
 
 /* Define to the home page for this package. */
@@ -1269,7 +1317,17 @@
 
 /* Define to the version of this package. */
 #ifndef MAGICKCORE_PACKAGE_VERSION
-#define MAGICKCORE_PACKAGE_VERSION "7.0.0"
+#define MAGICKCORE_PACKAGE_VERSION "7.0.0-0"
+#endif
+
+/* Define if you have PANGOFT2 library */
+#ifndef MAGICKCORE_PANGOFT2_DELEGATE
+#define MAGICKCORE_PANGOFT2_DELEGATE 1
+#endif
+
+/* Define if you have PANGO library */
+#ifndef MAGICKCORE_PANGO_DELEGATE
+#define MAGICKCORE_PANGO_DELEGATE 1
 #endif
 
 /* Define if you have PNG library */
@@ -1310,6 +1368,17 @@
 /* Define to the type of arg 5 for `select'. */
 #ifndef MAGICKCORE_SELECT_TYPE_ARG5
 #define MAGICKCORE_SELECT_TYPE_ARG5 (struct timeval *)
+#endif
+
+/* Directory where architecture-independent configuration files live. */
+#ifndef MAGICKCORE_SHAREARCH_PATH
+#define MAGICKCORE_SHAREARCH_PATH "/usr/local/lib/ImageMagick-7.0.0/config/"
+#endif
+
+/* Subdirectory of lib where architecture-independent configuration files
+   live. */
+#ifndef MAGICKCORE_SHAREARCH_RELATIVE_PATH
+#define MAGICKCORE_SHAREARCH_RELATIVE_PATH "ImageMagick-7.0.0/config"
 #endif
 
 /* Directory where architecture-independent configuration files live. */
@@ -1391,6 +1460,11 @@
 #define MAGICKCORE_STDC_HEADERS 1
 #endif
 
+/* Define to 1 if strerror_r returns char *. */
+#ifndef MAGICKCORE_STRERROR_R_CHAR_P
+#define MAGICKCORE_STRERROR_R_CHAR_P 1
+#endif
+
 /* Define if you have POSIX threads libraries and header files. */
 #ifndef MAGICKCORE_THREAD_SUPPORT
 #define MAGICKCORE_THREAD_SUPPORT 1
@@ -1431,6 +1505,11 @@
 #endif
 
 
+/* Version number of package */
+#ifndef MAGICKCORE_VERSION
+#define MAGICKCORE_VERSION "7.0.0-0"
+#endif
+
 /* Define if you have WEBP library */
 /* #undef WEBP_DELEGATE */
 
@@ -1440,7 +1519,10 @@
 /* Define if using the dmalloc debugging malloc package */
 /* #undef WITH_DMALLOC */
 
-/* Define if you have WMF library */
+/* Define if you have wmflite library */
+/* #undef WMFLITE_DELEGATE */
+
+/* Define if you have wmf library */
 /* #undef WMF_DELEGATE */
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
@@ -1472,6 +1554,9 @@
 
 /* Define to 1 if the X Window System is missing or not being used. */
 /* #undef X_DISPLAY_MISSING */
+
+/* Build self-contained, embeddable, zero-configuration ImageMagick */
+/* #undef ZERO_CONFIGURATION_SUPPORT */
 
 /* Define if you have zlib compression library */
 #ifndef MAGICKCORE_ZLIB_DELEGATE

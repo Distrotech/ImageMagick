@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -58,75 +58,10 @@ extern "C" {
 #  define STDC
 #endif
 
-#if defined(__BORLANDC__) && defined(_DLL)
-#  pragma message("BCBMagick lib DLL export interface")
-#  define _MAGICKDLL_
-#  define _MAGICKLIB_
-#endif
-
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__CYGWIN__) && !defined(__MINGW32__)
-# if defined(_MT) && defined(_DLL) && !defined(_MAGICKDLL_) && !defined(_LIB)
-#  define _MAGICKDLL_
-# endif
-# if defined(_MAGICKDLL_)
-#  if defined(_VISUALC_)
-#   pragma warning( disable: 4273 )  /* Disable the dll linkage warnings */
-#  endif
-#  if !defined(_MAGICKLIB_)
-#   define WandExport  __declspec(dllimport)
-#   if defined(_VISUALC_)
-#    pragma message( "MagickWand lib DLL import interface" )
-#   endif
-#  else
-#   define WandExport  __declspec(dllexport)
-#   if defined(_VISUALC_)
-#    pragma message( "MagickWand lib DLL export interface" )
-#   endif
-#  endif
-# else
-#  define WandExport
-#  if defined(_VISUALC_)
-#   pragma message( "MagickWand lib static interface" )
-#  endif
-# endif
-
-# if defined(_DLL) && !defined(_LIB)
-#  define ModuleExport  __declspec(dllexport)
-#  if defined(_VISUALC_)
-#   pragma message( "MagickWand module DLL export interface" )
-#  endif
-# else
-#  define ModuleExport
-#  if defined(_VISUALC_)
-#   pragma message( "MagickWand module static interface" )
-#  endif
-
-# endif
-# define WandGlobal  __declspec(thread)
-# if defined(_VISUALC_)
-#  pragma warning(disable : 4018)
-#  pragma warning(disable : 4068)
-#  pragma warning(disable : 4244)
-#  pragma warning(disable : 4142)
-#  pragma warning(disable : 4800)
-#  pragma warning(disable : 4786)
-#  pragma warning(disable : 4996)
-# endif
-#else
-# define WandExport
-# define ModuleExport
-# define WandGlobal
-#endif
-
 #if defined(__cplusplus) || defined(c_plusplus)
 # define storage_class  c_class
 #else
 # define storage_class  class
-#endif
-
-#define WandSignature  0xabacadabUL
-#if !defined(MaxTextExtent)
-# define MaxTextExtent  4096
 #endif
 
 #include <stdarg.h>
@@ -216,7 +151,7 @@ extern "C" {
 #  define MAGICKCORE_OPENCL_SUPPORT  1
 #endif
 
-#if defined(_OPENMP) && (_OPENMP >= 200203)
+#if defined(_OPENMP) && ((_OPENMP >= 200203) || defined(__OPENCC__))
 #  include <omp.h>
 #  define MAGICKCORE_OPENMP_SUPPORT  1
 #endif
@@ -237,15 +172,7 @@ extern size_t strlcpy(char *,const char *,size_t);
 extern int vsnprintf(char *,size_t,const char *,va_list);
 #endif
 
-#if defined(MAGICKCORE_HAVE___ATTRIBUTE__)
-#  define wand_aligned(x)  __attribute__((aligned(x)))
-#  define wand_attribute  __attribute__
-#  define wand_unused(x)  wand_unused_ ## x __attribute__((unused))
-#else
-#  define wand_aligned(x)  /* nothing */
-#  define wand_attribute(x)  /* nothing */
-#  define wand_unused(x) x
-#endif
+#include "MagickWand/method-attribute.h"
 
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(MAGICKCORE_POSIX_SUPPORT)
 # include <sys/types.h>
@@ -299,7 +226,6 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 #  endif
 #  include <unix.h>
 # endif
-# include "MagickWand/MagickWand.h"
 #endif
 
 #if defined(S_IRUSR) && defined(S_IWUSR)
@@ -437,13 +363,13 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 #define ThrowWandFatalException(severity,tag,context) \
 { \
   ExceptionInfo \
-    *exception; \
+    *fatal_exception; \
  \
-  exception=AcquireExceptionInfo(); \
-  (void) ThrowMagickException(exception,GetMagickModule(),severity,tag, \
-    "`%s'",context); \
-  CatchException(exception); \
-  exception=DestroyExceptionInfo(exception); \
+  fatal_exception=AcquireExceptionInfo(); \
+  (void) ThrowMagickException(fatal_exception,GetMagickModule(),severity,tag, \
+    "`%s'",(context)); \
+  CatchException(fatal_exception); \
+  fatal_exception=DestroyExceptionInfo(fatal_exception); \
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)

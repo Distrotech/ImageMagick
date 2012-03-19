@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -69,7 +69,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteMAPImage(const ImageInfo *,Image *);
+  WriteMAPImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -143,7 +143,7 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -157,7 +157,7 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   image->storage_class=PseudoClass;
   status=AcquireImageColormap(image,(size_t)
-    (image->offset != 0 ? image->offset : 256));
+    (image->offset != 0 ? image->offset : 256),exception);
   if (status == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   depth=GetImageQuantumDepth(image,MagickTrue);
@@ -211,22 +211,23 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   {
     p=pixels;
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     count=ReadBlob(image,(size_t) packet_size*image->columns,pixels);
     if (count != (ssize_t) (packet_size*image->columns))
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      index=ConstrainColormapIndex(image,*p);
+      index=ConstrainColormapIndex(image,*p,exception);
       p++;
       if (image->colors > 256)
         {
-          index=ConstrainColormapIndex(image,((size_t) index << 8)+(*p));
+          index=ConstrainColormapIndex(image,((size_t) index << 8)+(*p),
+            exception);
           p++;
         }
       SetPixelIndex(image,index,q);
-      SetPixelPacket(image,image->colormap+(ssize_t) index,q);
+      SetPixelInfoPixel(image,image->colormap+(ssize_t) index,q);
       q+=GetPixelChannels(image);
     }
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -321,7 +322,8 @@ ModuleExport void UnregisterMAPImage(void)
 %
 %  The format of the WriteMAPImage method is:
 %
-%      MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteMAPImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -329,9 +331,11 @@ ModuleExport void UnregisterMAPImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
 %
 */
-static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   MagickBooleanType
     status;
@@ -366,16 +370,18 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Allocate colormap.
   */
-  if (IsPaletteImage(image,&image->exception) == MagickFalse)
-    (void) SetImageType(image,PaletteType);
+  if (IsPaletteImage(image,exception) == MagickFalse)
+    (void) SetImageType(image,PaletteType,exception);
   depth=GetImageQuantumDepth(image,MagickTrue);
   packet_size=(size_t) (depth/8);
   pixels=(unsigned char *) AcquireQuantumMemory(image->columns,packet_size*
@@ -414,7 +420,7 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image)
   */
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     q=pixels;

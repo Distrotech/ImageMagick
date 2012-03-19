@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -58,40 +58,29 @@ typedef enum
   JPEGPreview
 } PreviewType;
 
-typedef enum
-{
-  UndefinedStatistic,
-  GradientStatistic,
-  MaximumStatistic,
-  MeanStatistic,
-  MedianStatistic,
-  MinimumStatistic,
-  ModeStatistic,
-  NonpeakStatistic,
-  StandardDeviationStatistic
-} StatisticType;
-
 extern MagickExport Image
-  *AdaptiveBlurImage(const Image *,const double,const double,ExceptionInfo *),
-  *AdaptiveSharpenImage(const Image *,const double,const double,
+  *AdaptiveBlurImage(const Image *,const double,const double,const double,
+    ExceptionInfo *),
+  *AdaptiveSharpenImage(const Image *,const double,const double,const double,
      ExceptionInfo *),
-  *BlurImage(const Image *,const double,const double,ExceptionInfo *),
+  *BlurImage(const Image *,const double,const double,const double,
+    ExceptionInfo *),
   *ConvolveImage(const Image *,const KernelInfo *,ExceptionInfo *),
   *DespeckleImage(const Image *,ExceptionInfo *),
-  *EdgeImage(const Image *,const double,ExceptionInfo *),
+  *EdgeImage(const Image *,const double,const double,ExceptionInfo *),
   *EmbossImage(const Image *,const double,const double,ExceptionInfo *),
   *GaussianBlurImage(const Image *,const double,const double,ExceptionInfo *),
   *MotionBlurImage(const Image *,const double,const double,const double,
-    ExceptionInfo *),
+    const double,ExceptionInfo *),
   *PreviewImage(const Image *,const PreviewType,ExceptionInfo *),
-  *RadialBlurImage(const Image *,const double,ExceptionInfo *),
+  *RadialBlurImage(const Image *,const double,const double,ExceptionInfo *),
   *SelectiveBlurImage(const Image *,const double,const double,const double,
-    ExceptionInfo *),
+    const double,ExceptionInfo *),
   *ShadeImage(const Image *,const MagickBooleanType,const double,const double,
     ExceptionInfo *),
-  *SharpenImage(const Image *,const double,const double,ExceptionInfo *),
-  *SpreadImage(const Image *,const double,ExceptionInfo *),
-  *StatisticImage(const Image *,const StatisticType,const size_t,const size_t,
+  *SharpenImage(const Image *,const double,const double,const double,
+    ExceptionInfo *),
+  *SpreadImage(const Image *,const double,const PixelInterpolateMethod,
     ExceptionInfo *),
   *UnsharpMaskImage(const Image *,const double,const double,const double,
     const double,ExceptionInfo *);

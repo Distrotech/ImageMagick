@@ -1,4 +1,4 @@
-#  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -15,7 +15,7 @@
 #  Makefile for building the MagickCore API.
 # 
 
-MagickCoreincdir = $(topincludedir)/MagickCore
+MagickCoreincdir = $(INCLUDE_PATH)/MagickCore
 
 # Headers which are installed
 MagickCoreinc_HEADERS = \
@@ -70,6 +70,8 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/cache-private.h \
 	MagickCore/cache-view.c \
 	MagickCore/cache-view.h \
+	MagickCore/channel.c \
+	MagickCore/channel.h \
 	MagickCore/cipher.c \
 	MagickCore/cipher.h \
 	MagickCore/client.c \
@@ -127,6 +129,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/fx-private.h \
 	MagickCore/gem.c \
 	MagickCore/gem.h \
+	MagickCore/gem-private.h \
 	MagickCore/geometry.c \
 	MagickCore/geometry.h \
 	MagickCore/hashmap.c \
@@ -157,8 +160,10 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/magick.h \
 	MagickCore/matrix.c \
 	MagickCore/matrix.h \
+	MagickCore/matrix-private.h \
 	MagickCore/memory.c \
 	MagickCore/memory_.h \
+	MagickCore/method-attribute.h \
 	MagickCore/methods.h \
 	MagickCore/mime.c \
 	MagickCore/mime.h \
@@ -173,6 +178,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/morphology.h \
 	MagickCore/morphology-private.h \
 	MagickCore/nt-base.h \
+  MagickCore/nt-base-private.h \
 	MagickCore/nt-feature.h \
 	MagickCore/option.c \
 	MagickCore/option.h \
@@ -191,6 +197,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/property.h \
 	MagickCore/profile.c \
 	MagickCore/profile.h \
+	MagickCore/profile-private.h \
 	MagickCore/quantize.c \
 	MagickCore/quantize.h \
 	MagickCore/quantum.c \
@@ -211,6 +218,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/resize-private.h \
 	MagickCore/resource.c \
 	MagickCore/resource_.h \
+	MagickCore/resource-private.h \
 	MagickCore/segment.c \
 	MagickCore/segment.h \
 	MagickCore/semaphore.c \
@@ -250,27 +258,31 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/type.h \
 	MagickCore/utility.c \
 	MagickCore/utility.h \
+	MagickCore/utility-private.h \
 	MagickCore/version.c \
 	MagickCore/version.h \
 	MagickCore/vms.h \
 	MagickCore/widget.c \
 	MagickCore/widget.h \
+	MagickCore/widget-private.h \
 	MagickCore/xml-tree.c \
 	MagickCore/xml-tree.h \
+	MagickCore/xml-tree-private.h \
 	MagickCore/xwindow.c \
 	MagickCore/xwindow.h 
 
 if WIN32_NATIVE_BUILD
 MAGICKCORE_PLATFORM_SRCS = \
-	MagickCore/nt-base.c \
-	MagickCore/nt-base.h \
-	MagickCore/nt-feature.c \
-	MagickCore/nt-feature.h
+  MagickCore/nt-base.c \
+  MagickCore/nt-base.h \
+  MagickCore/nt-base-private.h \
+  MagickCore/nt-feature.c \
+  MagickCore/nt-feature.h
 else
 if CYGWIN_BUILD
 MAGICKCORE_PLATFORM_SRCS = \
-	MagickCore/nt-feature.c \
-	MagickCore/nt-feature.h
+  MagickCore/nt-feature.c \
+  MagickCore/nt-feature.h
 else
 MAGICKCORE_PLATFORM_SRCS =
 endif # if CYGWIN_BUILD
@@ -287,6 +299,7 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/blob.h \
 	MagickCore/cache.h \
 	MagickCore/cache-view.h \
+	MagickCore/channel.h \
 	MagickCore/cipher.h \
 	MagickCore/client.h \
 	MagickCore/coder.h \
@@ -322,17 +335,20 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/locale_.h \
 	MagickCore/log.h \
 	MagickCore/magic.h \
+	MagickCore/magic-private.h \
 	MagickCore/magick.h \
 	MagickCore/magick-config.h \
 	MagickCore/magick-type.h \
 	MagickCore/matrix.h \
 	MagickCore/memory_.h \
+	MagickCore/method-attribute.h \
 	MagickCore/methods.h \
 	MagickCore/mime.h \
 	MagickCore/module.h \
 	MagickCore/monitor.h \
 	MagickCore/montage.h \
 	MagickCore/morphology.h \
+	MagickCore/nt-base.h \
 	MagickCore/option.h \
 	MagickCore/paint.h \
 	MagickCore/pixel.h \
@@ -369,28 +385,51 @@ MAGICKCORE_INCLUDE_HDRS = \
 
 MAGICKCORE_NOINST_HDRS = \
 	MagickCore/animate-private.h \
+	MagickCore/annotate-private.h \
 	MagickCore/blob-private.h \
+ 	MagickCore/cache-private.h \
 	MagickCore/cache-private.h \
-	MagickCore/color-private.h \
+ 	MagickCore/coder-private.h \
 	MagickCore/colormap-private.h \
+ 	MagickCore/color-private.h \
+	MagickCore/color-private.h \
 	MagickCore/colorspace-private.h \
 	MagickCore/composite-private.h \
+ 	MagickCore/configure-private.h \
+ 	MagickCore/constitute-private.h \
+ 	MagickCore/delegate-private.h \
 	MagickCore/delegate-private.h \
 	MagickCore/display-private.h \
 	MagickCore/draw-private.h \
 	MagickCore/exception-private.h \
 	MagickCore/fx-private.h \
+	MagickCore/gem-private.h \
 	MagickCore/image-private.h \
+ 	MagickCore/locale-private.h \
+ 	MagickCore/log-private.h \
 	MagickCore/mac.h \
+ 	MagickCore/magick-private.h \
+ 	MagickCore/magic-private.h \
+	MagickCore/matrix-private.h \
+ 	MagickCore/methods-private.h \
+ 	MagickCore/mime-private.h \
 	MagickCore/mime-private.h \
+ 	MagickCore/module-private.h \
 	MagickCore/monitor-private.h \
 	MagickCore/morphology-private.h \
 	MagickCore/nt-base.h \
 	MagickCore/nt-feature.h \
+ 	MagickCore/policy-private.h \
+ 	MagickCore/profile-private.h \
 	MagickCore/quantum-private.h \
+ 	MagickCore/random_-private.h \
 	MagickCore/random-private.h \
+ 	MagickCore/registry-private.h \
 	MagickCore/resample-private.h \
 	MagickCore/resize-private.h \
+ 	MagickCore/resource-private.h \
+	MagickCore/resource-private.h \
+ 	MagickCore/semaphore-private.h \
 	MagickCore/semaphore-private.h \
 	MagickCore/signature-private.h \
 	MagickCore/static.h \
@@ -400,8 +439,12 @@ MAGICKCORE_NOINST_HDRS = \
 	MagickCore/thread_.h \
 	MagickCore/thread-private.h \
 	MagickCore/token-private.h \
-	MagickCore/xwindow-private.h \
-	MagickCore/vms.h
+ 	MagickCore/type-private.h \
+	MagickCore/utility-private.h \
+	MagickCore/vms.h \
+ 	MagickCore/widget-private.h \
+	MagickCore/xml-tree-private.h \
+	MagickCore/xwindow-private.h
 
 MAGICKCORE_EXTRA_DIST = \
 	MagickCore/MagickCore-config.in \

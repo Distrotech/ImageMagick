@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ typedef struct _ModuleInfo
     signature;
 } ModuleInfo;
 
-typedef ModuleExport size_t
+typedef size_t
   ImageFilterHandler(Image **,const int,const char **,ExceptionInfo *);
 
 extern MagickExport char
@@ -69,20 +69,15 @@ extern MagickExport const ModuleInfo
   **GetModuleInfoList(const char *,size_t *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
-  InitializeModuleList(ExceptionInfo *),
   InvokeDynamicImageFilter(const char *,Image **,const int,const char **,
     ExceptionInfo *),
-  ListModuleInfo(FILE *,ExceptionInfo *),
-  ModuleComponentGenesis(void),
-  OpenModule(const char *,ExceptionInfo *),
-  OpenModules(ExceptionInfo *);
+  ListModuleInfo(FILE *,ExceptionInfo *);
 
 extern MagickExport ModuleInfo
   *GetModuleInfo(const char *,ExceptionInfo *);
 
 extern MagickExport void
   DestroyModuleList(void),
-  ModuleComponentTerminus(void),
   RegisterStaticModules(void),
   UnregisterStaticModules(void);
 

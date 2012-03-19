@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -24,6 +24,12 @@ extern "C" {
 
 #include "MagickCore/thread-private.h"
 
+extern MagickPrivate MagickBooleanType
+  RandomComponentGenesis(void);
+
+extern MagickPrivate void
+  RandomComponentTerminus(void);
+
 static inline RandomInfo **DestroyRandomInfoThreadSet(
   RandomInfo **random_info)
 {
@@ -34,7 +40,7 @@ static inline RandomInfo **DestroyRandomInfoThreadSet(
   for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
     if (random_info[i] != (RandomInfo *) NULL)
       random_info[i]=DestroyRandomInfo(random_info[i]);
-  return((RandomInfo **) RelinquishAlignedMemory(random_info));
+  return((RandomInfo **) RelinquishMagickMemory(random_info));
 }
 
 static inline RandomInfo **AcquireRandomInfoThreadSet(void)
@@ -49,7 +55,7 @@ static inline RandomInfo **AcquireRandomInfoThreadSet(void)
     number_threads;
 
   number_threads=GetOpenMPMaximumThreads();
-  random_info=(RandomInfo **) AcquireAlignedMemory(number_threads,
+  random_info=(RandomInfo **) AcquireQuantumMemory(number_threads,
     sizeof(*random_info));
   if (random_info == (RandomInfo **) NULL)
     return((RandomInfo **) NULL);

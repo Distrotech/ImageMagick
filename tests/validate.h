@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -260,7 +260,7 @@ static const struct ReferenceFormats
     { "FRACTAL", UndefinedCompression, 0.0 },
     { "GIF", UndefinedCompression, 0.0 },
     { "GIF87", UndefinedCompression, 0.0 },
-    { "GRAY", UndefinedCompression, 0.0 },
+    { "GRAY", UndefinedCompression, 0.003 },
     { "HTM", UndefinedCompression, 0.0 },
     { "HRZ", UndefinedCompression, 0.0 },
     { "HTML", UndefinedCompression, 0.0 },
@@ -417,8 +417,8 @@ static const struct ReferenceStorage
     { CharPixel, sizeof(unsigned char) },
     { DoublePixel, sizeof(double) },
     { FloatPixel, sizeof(float) },
-    { IntegerPixel, sizeof(unsigned int) },
-    { LongPixel, sizeof(size_t) },
+    { LongPixel, sizeof(unsigned int) },
+    { LongLongPixel, sizeof(MagickSizeType) },
     { ShortPixel, sizeof(unsigned short) },
     { UndefinedPixel, 0 }
   };

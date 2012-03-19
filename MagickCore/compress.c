@@ -17,7 +17,7 @@
 %                              May  1993                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -361,11 +361,14 @@ MagickExport void Ascii85Encode(Image *image,const unsigned char code)
 %
 %  The format of the HuffmanDecodeImage method is:
 %
-%      MagickBooleanType HuffmanDecodeImage(Image *image)
+%      MagickBooleanType HuffmanDecodeImage(Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -383,7 +386,8 @@ static inline size_t MagickMin(const size_t x,const size_t y)
   return(y);
 }
 
-MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
+MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
+  ExceptionInfo *exception)
 {
 #define HashSize  1021
 #define MBHashA  293
@@ -422,9 +426,6 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
 
   const HuffmanTable
     *entry;
-
-  ExceptionInfo
-    *exception;
 
   HuffmanTable
     **mb_hash,
@@ -504,10 +505,9 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
   while (runlength < 11)
    InputBit(bit);
   do { InputBit(bit); } while ((int) bit == 0);
-  image->x_resolution=204.0;
-  image->y_resolution=196.0;
+  image->resolution.x=204.0;
+  image->resolution.y=196.0;
   image->units=PixelsPerInchResolution;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
   for (y=0; ((y < (ssize_t) image->rows) && (null_lines < 3)); )
   {
@@ -629,13 +629,13 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
     */
     p=scanline;
     q=QueueCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       index=(Quantum) (*p++);
       SetPixelIndex(image,index,q);
-      SetPixelPacket(image,image->colormap+(ssize_t) index,q);
+      SetPixelInfoPixel(image,image->colormap+(ssize_t) index,q);
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -673,7 +673,7 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
 %  The format of the HuffmanEncodeImage method is:
 %
 %      MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
-%        Image *image,Image *inject_image)
+%        Image *image,Image *inject_image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -683,9 +683,11 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image)
 %
 %    o inject_image: inject into the image stream.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
-  Image *image,Image *inject_image)
+  Image *image,Image *inject_image,ExceptionInfo *exception)
 {
 #define HuffmanOutputCode(entry)  \
 {  \
@@ -715,9 +717,6 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
 
   const HuffmanTable
     *entry;
-
-  ExceptionInfo
-    *exception;
 
   int
     k,
@@ -774,13 +773,13 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       inject_image->filename);
   (void) ResetMagickMemory(scanline,0,width*sizeof(*scanline));
-  huffman_image=CloneImage(inject_image,0,0,MagickTrue,&image->exception);
+  huffman_image=CloneImage(inject_image,0,0,MagickTrue,exception);
   if (huffman_image == (Image *) NULL)
     {
       scanline=(unsigned char *) RelinquishMagickMemory(scanline);
       return(MagickFalse);
     }
-  (void) SetImageType(huffman_image,BilevelType);
+  (void) SetImageType(huffman_image,BilevelType,exception);
   byte='\0';
   bit=(unsigned char) 0x80;
   if (LocaleCompare(image_info->magick,"FAX") != 0)
@@ -797,7 +796,6 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
   /*
     Compress to 1D Huffman pixels.
   */
-  exception=(&huffman_image->exception);
   q=scanline;
   for (y=0; y < (ssize_t) huffman_image->rows; y++)
   {
@@ -915,7 +913,7 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
 %  The format of the LZWEncodeImage method is:
 %
 %      MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
-%        unsigned char *pixels)
+%        unsigned char *pixels,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -926,9 +924,11 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
 %    o pixels: the address of an unsigned array of characters containing the
 %      pixels to compress.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
-  unsigned char *pixels)
+  unsigned char *pixels,ExceptionInfo *exception)
 {
 #define LZWClr  256UL  /* Clear Table Marker */
 #define LZWEod  257UL  /* End of Data marker */
@@ -1090,7 +1090,7 @@ MagickExport MagickBooleanType LZWEncodeImage(Image *image,const size_t length,
 %
 */
 MagickExport MagickBooleanType PackbitsEncodeImage(Image *image,
-  const size_t length,unsigned char *pixels)
+  const size_t length,unsigned char *pixels,ExceptionInfo *exception)
 {
   int
     count;
@@ -1212,7 +1212,7 @@ MagickExport MagickBooleanType PackbitsEncodeImage(Image *image,
 %  The format of the ZLIBEncodeImage method is:
 %
 %      MagickBooleanType ZLIBEncodeImage(Image *image,const size_t length,
-%        unsigned char *pixels)
+%        unsigned char *pixels,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1223,6 +1223,8 @@ MagickExport MagickBooleanType PackbitsEncodeImage(Image *image,
 %
 %    o pixels: the address of an unsigned array of characters containing the
 %      pixels to compress.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -1240,7 +1242,7 @@ static void RelinquishZIPMemory(voidpf context,voidpf memory)
 }
 
 MagickExport MagickBooleanType ZLIBEncodeImage(Image *image,const size_t length,
-  unsigned char *pixels)
+  unsigned char *pixels,ExceptionInfo *exception)
 {
   int
     status;
@@ -1295,15 +1297,15 @@ MagickExport MagickBooleanType ZLIBEncodeImage(Image *image,const size_t length,
 }
 #else
 MagickExport MagickBooleanType ZLIBEncodeImage(Image *image,
-  const size_t magick_unused(length),unsigned char *magick_unused(pixels))
+  const size_t magick_unused(length),unsigned char *magick_unused(pixels),
+  ExceptionInfo *exception)
 {
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  (void) ThrowMagickException(&image->exception,GetMagickModule(),
-    MissingDelegateError,"DelegateLibrarySupportNotBuiltIn","`%s' (ZIP)",
-    image->filename);
+  (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
+    "DelegateLibrarySupportNotBuiltIn","`%s' (ZIP)",image->filename);
   return(MagickFalse);
 }
 #endif

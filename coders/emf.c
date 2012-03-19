@@ -16,7 +16,7 @@
 %                              Bill Radcliffe                                 %
 %                                   2001                                      %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -38,14 +38,16 @@
  */
 
 #include "MagickCore/studio.h"
-#if defined(MAGICKCORE_WINGDI32_DELEGATE)
+#if defined(MAGICKCORE_WINGDI32_DELEGATE) && defined(__CYGWIN__)
+#  define MAGICKCORE_EMF_DELEGATE
+#endif
+#if defined(MAGICKCORE_EMF_DELEGATE)
 #  if defined(__CYGWIN__)
 #    include <windows.h>
 #  else
 #    include <wingdi.h>
 #  endif
 #endif
-
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -58,6 +60,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/pixel.h"
+#include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
@@ -161,6 +164,7 @@ static MagickBooleanType IsWMF(const unsigned char *magick,const size_t length)
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
 
 #if defined(MAGICKCORE_HAVE__WFOPEN)
 static size_t UTF8ToUTF16(const unsigned char *utf8,wchar_t *utf16)
@@ -284,7 +288,7 @@ static wchar_t *ConvertUTF8ToUTF16(const unsigned char *source)
   metafile, or an Aldus Placeable metafile and converts it into an enhanced
   metafile.  Width and height are returned in .01mm units.
 */
-#if defined(MAGICKCORE_WINGDI32_DELEGATE)
+#if defined(MAGICKCORE_EMF_DELEGATE)
 static HENHMETAFILE ReadEnhMetaFile(const char *path,ssize_t *width,
   ssize_t *height)
 {
@@ -465,7 +469,7 @@ static Image *ReadEMFImage(const ImageInfo *image_info,
     width,
     y;
 
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   hemf=ReadEnhMetaFile(image_info->filename,&width,&height);
   if (hemf == (HENHMETAFILE) NULL)
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
@@ -477,15 +481,15 @@ static Image *ReadEMFImage(const ImageInfo *image_info,
 
       y_resolution=DefaultResolution;
       x_resolution=DefaultResolution;
-      if (image->y_resolution > 0)
+      if (image->resolution.y > 0)
         {
-          y_resolution=image->y_resolution;
+          y_resolution=image->resolution.y;
           if (image->units == PixelsPerCentimeterResolution)
             y_resolution*=CENTIMETERS_INCH;
         }
-      if (image->x_resolution > 0)
+      if (image->resolution.x > 0)
         {
-          x_resolution=image->x_resolution;
+          x_resolution=image->resolution.x;
           if (image->units == PixelsPerCentimeterResolution)
             x_resolution*=CENTIMETERS_INCH;
         }
@@ -524,24 +528,25 @@ static Image *ReadEMFImage(const ImageInfo *image_info,
         {
           flags=ParseMetaGeometry(geometry,&sans,&sans,&image->columns,
             &image->rows);
-          if (image->x_resolution != 0.0)
-            image->columns=(size_t) floor((image->columns*image->x_resolution)+
+          if (image->resolution.x != 0.0)
+            image->columns=(size_t) floor((image->columns*image->resolution.x)+
               0.5);
-          if (image->y_resolution != 0.0)
-            image->rows=(size_t) floor((image->rows*image->y_resolution)+0.5);
+          if (image->resolution.y != 0.0)
+            image->rows=(size_t) floor((image->rows*image->resolution.y)+0.5);
         }
       else
         {
           *p='\0';
           flags=ParseMetaGeometry(geometry,&sans,&sans,&image->columns,
             &image->rows);
-          if (image->x_resolution != 0.0)
-            image->columns=(size_t) floor(((image->columns*image->x_resolution)/
+          if (image->resolution.x != 0.0)
+            image->columns=(size_t) floor(((image->columns*image->resolution.x)/
               DefaultResolution)+0.5);
-          if (image->y_resolution != 0.0)
-            image->rows=(size_t) floor(((image->rows*image->y_resolution)/
+          if (image->resolution.y != 0.0)
+            image->rows=(size_t) floor(((image->rows*image->resolution.y)/
               DefaultResolution)+0.5);
         }
+      (void) flags;
       geometry=DestroyString(geometry);
     }
   hDC=GetDC(NULL);
@@ -609,7 +614,7 @@ static Image *ReadEMFImage(const ImageInfo *image_info,
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
@@ -629,7 +634,7 @@ static Image *ReadEMFImage(const ImageInfo *image_info,
   DeleteObject(hBitmap);
   return(GetFirstImageInList(image));
 }
-#endif /* MAGICKCORE_WINGDI32_DELEGATE */
+#endif /* MAGICKCORE_EMF_DELEGATE */
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -660,7 +665,7 @@ ModuleExport size_t RegisterEMFImage(void)
     *entry;
 
   entry=SetMagickInfo("EMF");
-#if defined(MAGICKCORE_WINGDI32_DELEGATE)
+#if defined(MAGICKCORE_EMF_DELEGATE)
   entry->decoder=ReadEMFImage;
 #endif
   entry->description=ConstantString(
@@ -670,7 +675,7 @@ ModuleExport size_t RegisterEMFImage(void)
   entry->module=ConstantString("WMF");
   (void) RegisterMagickInfo(entry);
   entry=SetMagickInfo("WMFWIN32");
-#if defined(MAGICKCORE_WINGDI32_DELEGATE)
+#if defined(MAGICKCORE_EMF_DELEGATE)
   entry->decoder=ReadEMFImage;
 #endif
   entry->description=ConstantString("Windows WIN32 API rendered Meta File");

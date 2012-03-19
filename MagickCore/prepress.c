@@ -17,7 +17,7 @@
 %                                October 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -71,23 +71,24 @@
 %
 %  The format of the GetImageTotalInkDensity method is:
 %
-%      double GetImageTotalInkDensity(const Image *image)
+%      double GetImageTotalInkDensity(const Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport double GetImageTotalInkDensity(Image *image)
+MagickExport double GetImageTotalInkDensity(Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
 
   double
     total_ink_density;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -101,16 +102,15 @@ MagickExport double GetImageTotalInkDensity(Image *image)
   assert(image->signature == MagickSignature);
   if (image->colorspace != CMYKColorspace)
     {
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
-        ImageError,"ColorSeparatedImageRequired","`%s'",image->filename);
+      (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
+        "ColorSeparatedImageRequired","`%s'",image->filename);
       return(0.0);
     }
   status=MagickTrue;
   total_ink_density=0.0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

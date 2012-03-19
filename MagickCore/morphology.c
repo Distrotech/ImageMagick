@@ -17,7 +17,7 @@
 %                               January 2010                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -57,6 +57,7 @@
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/gem.h"
+#include "MagickCore/gem-private.h"
 #include "MagickCore/hashmap.h"
 #include "MagickCore/image.h"
 #include "MagickCore/image-private.h"
@@ -78,6 +79,7 @@
 #include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 
 /*
@@ -238,7 +240,7 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
   GeometryInfo
     args;
 
-  kernel=(KernelInfo *) AcquireMagickMemory(sizeof(*kernel));
+  kernel=(KernelInfo *) AcquireQuantumMemory(1,sizeof(*kernel));
   if (kernel == (KernelInfo *)NULL)
     return(kernel);
   (void) ResetMagickMemory(kernel,0,sizeof(*kernel));
@@ -312,15 +314,13 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
     }
 
   /* Read in the kernel values from rest of input string argument */
-  kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                        kernel->height*sizeof(double));
-  if (kernel->values == (double *) NULL)
+  kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+    kernel->height*sizeof(*kernel->values));
+  if (kernel->values == (MagickRealType *) NULL)
     return(DestroyKernelInfo(kernel));
-
   kernel->minimum = +MagickHuge;
   kernel->maximum = -MagickHuge;
   kernel->negative_range = kernel->positive_range = 0.0;
-
   for (i=0; (i < (ssize_t) (kernel->width*kernel->height)) && (p < end); i++)
   {
     GetMagickToken(p,&p,token);
@@ -331,7 +331,7 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
       kernel->values[i] = nan; /* do not include this value in kernel */
     }
     else {
-      kernel->values[i] = InterpretLocaleValue(token,(char **) NULL);
+      kernel->values[i]=StringToDouble(token,(char **) NULL);
       ( kernel->values[i] < 0)
           ?  ( kernel->negative_range += kernel->values[i] )
           :  ( kernel->positive_range += kernel->values[i] );
@@ -1028,8 +1028,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
       {
         kernel->height = kernel->width = (size_t) 1;
         kernel->x = kernel->y = (ssize_t) 0;
-        kernel->values=(double *) AcquireAlignedMemory(1,sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(1,
+          sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
         kernel->maximum = kernel->values[0] = args->rho;
         break;
@@ -1051,9 +1052,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           kernel->width = GetOptimalKernelWidth2D(args->rho,sigma2);
         kernel->height = kernel->width;
         kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         /* WARNING: The following generates a 'sampled gaussian' kernel.
@@ -1142,9 +1143,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
         kernel->x = (ssize_t) (kernel->width-1)/2;
         kernel->y = 0;
         kernel->negative_range = kernel->positive_range = 0.0;
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
 #if 1
@@ -1226,9 +1227,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
         kernel->x = kernel->y = 0;
         kernel->height = 1;
         kernel->negative_range = kernel->positive_range = 0.0;
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         /* A comet blur is half a 1D gaussian curve, so that the object is
@@ -1381,8 +1382,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[3] = +MagickSQ2;
-            kernel->values[5] = -MagickSQ2;
+            kernel->values[3]+=(MagickRealType) MagickSQ2;
+            kernel->values[5]-=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);     /* recalculate meta-data */
             break;
           case 2:
@@ -1390,8 +1391,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[1] = kernel->values[3] = +MagickSQ2;
-            kernel->values[5] = kernel->values[7] = -MagickSQ2;
+            kernel->values[1] = kernel->values[3]+=(MagickRealType) MagickSQ2;
+            kernel->values[5] = kernel->values[7]-=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);     /* recalculate meta-data */
             ScaleKernelInfo(kernel, (double) (1.0/2.0*MagickSQ2), NoValue);
             break;
@@ -1406,8 +1407,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[3] = +MagickSQ2;
-            kernel->values[5] = -MagickSQ2;
+            kernel->values[3]+=(MagickRealType) MagickSQ2;
+            kernel->values[5]-=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);     /* recalculate meta-data */
             ScaleKernelInfo(kernel, (double) (1.0/2.0*MagickSQ2), NoValue);
             break;
@@ -1416,8 +1417,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[1] = +MagickSQ2;
-            kernel->values[7] = +MagickSQ2;
+            kernel->values[1]+=(MagickRealType) MagickSQ2;
+            kernel->values[7]+=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);
             ScaleKernelInfo(kernel, (double) (1.0/2.0*MagickSQ2), NoValue);
             break;
@@ -1426,8 +1427,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[0] = +MagickSQ2;
-            kernel->values[8] = -MagickSQ2;
+            kernel->values[0]+=(MagickRealType) MagickSQ2;
+            kernel->values[8]-=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);
             ScaleKernelInfo(kernel, (double) (1.0/2.0*MagickSQ2), NoValue);
             break;
@@ -1436,8 +1437,8 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             if (kernel == (KernelInfo *) NULL)
               return(kernel);
             kernel->type = type;
-            kernel->values[2] = -MagickSQ2;
-            kernel->values[6] = +MagickSQ2;
+            kernel->values[2]-=(MagickRealType) MagickSQ2;
+            kernel->values[6]+=(MagickRealType) MagickSQ2;
             CalcKernelMetaData(kernel);
             ScaleKernelInfo(kernel, (double) (1.0/2.0*MagickSQ2), NoValue);
             break;
@@ -1497,9 +1498,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           kernel->width = kernel->height = ((size_t)args->rho)*2+1;
         kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         /* set all kernel values within diamond area to scale given */
@@ -1538,9 +1539,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->y = (ssize_t) args->psi;
             scale = 1.0;
           }
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         /* set all kernel values to scale given */
@@ -1559,9 +1560,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = ((size_t)args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -1585,9 +1586,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = (size_t)fabs(args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -1607,9 +1608,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = ((size_t)args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           /* set all kernel values along axises to given scale */
@@ -1628,9 +1629,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = ((size_t)args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           /* set all kernel values along axises to given scale */
@@ -1669,9 +1670,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 
           kernel->height = kernel->width;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           /* set a ring of points of 'scale' ( 0.0 for PeaksKernel ) */
@@ -2039,9 +2040,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = ((size_t)args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -2059,9 +2060,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
             kernel->width = kernel->height = ((size_t)args->rho)*2+1;
           kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-          kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                                kernel->height*sizeof(double));
-          if (kernel->values == (double *) NULL)
+          kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+            kernel->height*sizeof(*kernel->values));
+          if (kernel->values == (MagickRealType *) NULL)
             return(DestroyKernelInfo(kernel));
 
           for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -2079,9 +2080,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           kernel->width = kernel->height = ((size_t)args->rho)*2+1;
         kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -2104,9 +2105,9 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           kernel->width = kernel->height = ((size_t)args->rho)*2+1;
         kernel->x = kernel->y = (ssize_t) (kernel->width-1)/2;
 
-        kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-                              kernel->height*sizeof(double));
-        if (kernel->values == (double *) NULL)
+        kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+          kernel->height*sizeof(*kernel->values));
+        if (kernel->values == (MagickRealType *) NULL)
           return(DestroyKernelInfo(kernel));
 
         for ( i=0, v=-kernel->y; v <= (ssize_t)kernel->y; v++)
@@ -2143,7 +2144,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 %
 %  CloneKernelInfo() creates a new clone of the given Kernel List so that its
 %  can be modified without effecting the original.  The cloned kernel should
-%  be destroyed using DestoryKernelInfo() when no longer needed.
+%  be destroyed using DestroyKernelInfo() when no longer needed.
 %
 %  The format of the CloneKernelInfo method is:
 %
@@ -2169,9 +2170,9 @@ MagickExport KernelInfo *CloneKernelInfo(const KernelInfo *kernel)
   *new_kernel=(*kernel); /* copy values in structure */
 
   /* replace the values with a copy of the values */
-  new_kernel->values=(double *) AcquireAlignedMemory(kernel->width,
-    kernel->height*sizeof(double));
-  if (new_kernel->values == (double *) NULL)
+  new_kernel->values=(MagickRealType *) AcquireAlignedMemory(kernel->width,
+    kernel->height*sizeof(*kernel->values));
+  if (new_kernel->values == (MagickRealType *) NULL)
     return(DestroyKernelInfo(new_kernel));
   for (i=0; i < (ssize_t) (kernel->width*kernel->height); i++)
     new_kernel->values[i]=kernel->values[i];
@@ -2212,12 +2213,10 @@ MagickExport KernelInfo *CloneKernelInfo(const KernelInfo *kernel)
 MagickExport KernelInfo *DestroyKernelInfo(KernelInfo *kernel)
 {
   assert(kernel != (KernelInfo *) NULL);
-
   if ( kernel->next != (KernelInfo *) NULL )
-    kernel->next = DestroyKernelInfo(kernel->next);
-
-  kernel->values = (double *)RelinquishMagickMemory(kernel->values);
-  kernel = (KernelInfo *) RelinquishMagickMemory(kernel);
+    kernel->next=DestroyKernelInfo(kernel->next);
+  kernel->values=(MagickRealType *) RelinquishAlignedMemory(kernel->values);
+  kernel=(KernelInfo *) RelinquishMagickMemory(kernel);
   return(kernel);
 }
 
@@ -2547,7 +2546,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
     case ConvolveMorphology:
     case DilateMorphology:
     case DilateIntensityMorphology:
-    /*case DistanceMorphology:*/
+    case IterativeDistanceMorphology:
       /* kernel needs to used with reflection about origin */
       offx = (ssize_t) kernel->width-offx-1;
       offy = (ssize_t) kernel->height-offy-1;
@@ -2584,7 +2583,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
       x;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-#pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+#pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
     for (x=0; x < (ssize_t) image->columns; x++)
     {
@@ -2622,7 +2621,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         register ssize_t
           v;
 
-        register const double
+        register const MagickRealType
           *restrict k;
 
         register const Quantum
@@ -2657,7 +2656,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         */
         k = &kernel->values[ kernel->height-1 ];
         k_pixels = p;
-        if ( (image->sync == MagickFalse) || (image->matte == MagickFalse) )
+        if ( (image->channel_mask != DefaultChannels) || (image->matte == MagickFalse) )
           { /* No 'Sync' involved.
             ** Convolution is simple greyscale channel operation
             */
@@ -2759,7 +2758,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
   ** Normal handling of horizontal or rectangular kernels (row by row)
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2797,7 +2796,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
       register ssize_t
         u;
 
-      register const double
+      register const MagickRealType
         *restrict k;
 
       register const Quantum
@@ -2881,7 +2880,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
             */
             k = &kernel->values[ kernel->width*kernel->height-1 ];
             k_pixels = p;
-            if ( (image->sync == MagickFalse) ||
+            if ( (image->channel_mask != DefaultChannels) ||
                  (image->matte == MagickFalse) )
               { /* No 'Sync' involved.
                 ** Convolution is simple greyscale channel operation
@@ -2982,15 +2981,15 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                 if ( IsNan(*k) || (*k) < 0.5 ) continue;
                 Minimize(min.red,     (double)
                   GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(min.green,   (double) 
+                Minimize(min.green,   (double)
                   GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
                 Minimize(min.blue,    (double)
                   GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                if (image->colorspace == CMYKColorspace)
-                  Minimize(min.black,(double)
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(min.alpha,(double)
+                Minimize(min.alpha,   (double)
                   GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
+                if (image->colorspace == CMYKColorspace)
+                  Minimize(min.black,  (double)
+                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
               }
               k_pixels += virt_width*GetPixelChannels(image);
             }
@@ -3015,15 +3014,15 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                 if ( IsNan(*k) || (*k) < 0.5 ) continue;
                 Maximize(max.red,     (double)
                   GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.green,   (double) 
+                Maximize(max.green,   (double)
                   GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.blue,    (double) 
+                Maximize(max.blue,    (double)
                   GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
+                Maximize(max.alpha,   (double)
+                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                 if (image->colorspace == CMYKColorspace)
                   Maximize(max.black,   (double)
                     GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.alpha,(double) 
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
               }
               k_pixels += virt_width*GetPixelChannels(image);
             }
@@ -3056,11 +3055,11 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                     GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
                   Minimize(min.blue,    (double)
                     GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
+                  Minimize(min.alpha,(double)
+                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                   if ( image->colorspace == CMYKColorspace)
                     Minimize(min.black,(double)
                       GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                  Minimize(min.alpha,(double)
-                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                 }
                 else if ( (*k) < 0.3 )
                 { /* maximum of background pixels */
@@ -3070,11 +3069,11 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                     GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
                   Maximize(max.blue,    (double)
                     GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
+                  Maximize(max.alpha,(double)
+                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                   if (image->colorspace == CMYKColorspace)
                     Maximize(max.black,   (double)
                       GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                  Maximize(max.alpha,(double)
-                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                 }
               }
               k_pixels += virt_width*GetPixelChannels(image);
@@ -3154,43 +3153,52 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
               k_pixels += virt_width*GetPixelChannels(image);
             }
             break;
-#if 0
-  This code has been obsoleted by the MorphologyPrimitiveDirect() function.
-  However it is still (almost) correct coding for Grayscale Morphology.
-  That is...
 
-  GrayErode    is equivalent but with kernel values subtracted from pixels
-               without the kernel rotation
-  GreyDilate   is equivalent but using Maximum() instead of Minimum()
-               using kernel rotation
-
-  It has thus been preserved for future implementation of those methods.
-
-        case DistanceMorphology:
-            /* Add kernel Value and select the minimum value found.
-            ** The result is a iterative distance from edge of image shape.
+        case IterativeDistanceMorphology:
+            /* Work out an iterative distance from black edge of a white image
+            ** shape.  Essentually white values are decreased to the smallest
+            ** 'distance from edge' it can find.
             **
-            ** All Distance Kernels are symetrical, but that may not always
-            ** be the case. For example how about a distance from left edges?
-            ** To work correctly with asymetrical kernels the reflected kernel
-            ** needs to be applied.
+            ** It works by adding kernel values to the neighbourhood, and and
+            ** select the minimum value found. The kernel is rotated before
+            ** use, so kernel distances match resulting distances, when a user
+            ** provided asymmetric kernel is applied.
+            **
+            **
+            ** This code is almost identical to True GrayScale Morphology But
+            ** not quite.
+            **
+            ** GreyDilate  Kernel values added, maximum value found Kernel is
+            ** rotated before use.
+            **
+            ** GrayErode:  Kernel values subtracted and minimum value found No
+            ** kernel rotation used.
+            **
+            ** Note the the Iterative Distance method is essentially a
+            ** GrayErode, but with negative kernel values, and kernel
+            ** rotation applied.
             */
             k = &kernel->values[ kernel->width*kernel->height-1 ];
             k_pixels = p;
             for (v=0; v < (ssize_t) kernel->height; v++) {
               for (u=0; u < (ssize_t) kernel->width; u++, k--) {
                 if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+k_pixels[u].red);
-                Minimize(result.green,   (*k)+k_pixels[u].green);
-                Minimize(result.blue,    (*k)+k_pixels[u].blue);
-                Minimize(result.alpha, (*k)+k_pixels[u].alpha);
+                Minimize(result.red,     (*k)+(double)
+                     GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
+                Minimize(result.green,   (*k)+(double)
+                     GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
+                Minimize(result.blue,    (*k)+(double)
+                     GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
+                Minimize(result.alpha,   (*k)+(double)
+                     GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
                 if ( image->colorspace == CMYKColorspace)
-                  Minimize(result.black,(*k)+GetPixelBlack(p_image,k_indexes+u));
+                  Maximize(result.black, (*k)+(double)
+                      GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
               }
               k_pixels += virt_width*GetPixelChannels(image);
             }
             break;
-#endif
+
         case UndefinedMorphology:
         default:
             break; /* Do nothing */
@@ -3216,7 +3224,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           result.green   -= min.green;
           result.blue    -= min.blue;
           result.black   -= min.black;
-          result.alpha -= min.alpha;
+          result.alpha   -= min.alpha;
           break;
         case ThickenMorphology:
           /* Add the pattern matchs to the original */
@@ -3224,7 +3232,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           result.green   += min.green;
           result.blue    += min.blue;
           result.black   += min.black;
-          result.alpha += min.alpha;
+          result.alpha   += min.alpha;
           break;
         default:
           /* result directly calculated or assigned */
@@ -3284,13 +3292,15 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
 }
 
 /* This is almost identical to the MorphologyPrimative() function above,
-** but will apply the primitive directly to the image in two passes.
+** but will apply the primitive directly to the actual image using two
+** passes, once in each direction, with the results of the previous (and
+** current) row being re-used.
 **
 ** That is after each row is 'Sync'ed' into the image, the next row will
 ** make use of those values as part of the calculation of the next row.
 ** It then repeats, but going in the oppisite (bottom-up) direction.
 **
-** Because of this 'iterative' handling this function can not make use
+** Because of this 're-use of results' this function can not make use
 ** of multi-threaded, parellel processing.
 */
 static ssize_t MorphologyPrimitiveDirect(Image *image,
@@ -3396,7 +3406,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       register ssize_t
         u;
 
-      register const double
+      register const MagickRealType
         *restrict k;
 
       register const Quantum
@@ -3407,7 +3417,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
 
       /* Starting Defaults */
       GetPixelInfo(image,&result);
-      SetPixelInfo(image,q,&result);
+      GetPixelInfoPixel(image,q,&result);
       if ( method != VoronoiMorphology )
         result.alpha = QuantumRange - result.alpha;
 
@@ -3456,7 +3466,8 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
             /* Apply Distance to 'Matte' channel, coping the closest color.
             **
             ** This is experimental, and realy the 'alpha' component should
-            ** be completely separate 'masking' channel.
+            ** be completely separate 'masking' channel so that alpha can
+            ** also be used as part of the results.
             */
             k = &kernel->values[ kernel->width*kernel->height-1 ];
             k_pixels = p;
@@ -3465,7 +3476,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
                 if ( IsNan(*k) ) continue;
                 if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
                   {
-                    SetPixelInfo(image,k_pixels+u*GetPixelChannels(image),
+                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
                       &result);
                     result.alpha += *k;
                   }
@@ -3480,7 +3491,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
                 if ( IsNan(*k) ) continue;
                 if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
                   {
-                    SetPixelInfo(image,k_pixels+u*GetPixelChannels(image),
+                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
                       &result);
                     result.alpha += *k;
                   }
@@ -3493,7 +3504,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       /* Assign the resulting pixel values - Clamping Result */
       switch ( method ) {
         case VoronoiMorphology:
-          SetPixelPixelInfo(image,&result,q);
+          SetPixelInfoPixel(image,&result,q);
           break;
         default:
           if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
@@ -3580,7 +3591,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       register ssize_t
         u;
 
-      register const double
+      register const MagickRealType
         *restrict k;
 
       register const Quantum
@@ -3591,7 +3602,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
 
       /* Default - previously modified pixel */
       GetPixelInfo(image,&result);
-      SetPixelInfo(image,q,&result);
+      GetPixelInfoPixel(image,q,&result);
       if ( method != VoronoiMorphology )
         result.alpha = QuantumRange - result.alpha;
 
@@ -3649,7 +3660,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
                 if ( IsNan(*k) ) continue;
                 if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
                   {
-                    SetPixelInfo(image,k_pixels+u*GetPixelChannels(image),
+                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
                       &result);
                     result.alpha += *k;
                   }
@@ -3664,7 +3675,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
                 if ( IsNan(*k) ) continue;
                 if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
                   {
-                    SetPixelInfo(image,k_pixels+u*GetPixelChannels(image),
+                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
                       &result);
                     result.alpha += *k;
                   }
@@ -3677,7 +3688,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       /* Assign the resulting pixel values - Clamping Result */
       switch ( method ) {
         case VoronoiMorphology:
-          SetPixelPixelInfo(image,&result,q);
+          SetPixelInfoPixel(image,&result,q);
           break;
         default:
           if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
@@ -3720,15 +3731,15 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
   return(status ? (ssize_t) changed : -1);
 }
 
-/* Apply a Morphology by calling theabove low level primitive application
-** functions.  This function handles any iteration loops, composition or
-** re-iteration of results, and compound morphology methods that is based
-** on multiple low-level (staged) morphology methods.
+/* Apply a Morphology by calling one of the above low level primitive
+** application functions.  This function handles any iteration loops,
+** composition or re-iteration of results, and compound morphology methods
+** that is based on multiple low-level (staged) morphology methods.
 **
 ** Basically this provides the complex grue between the requested morphology
 ** method and raw low-level implementation (above).
 */
-MagickExport Image *MorphologyApply(const Image *image,
+MagickPrivate Image *MorphologyApply(const Image *image,
   const MorphologyMethod method, const ssize_t iterations,
   const KernelInfo *kernel, const CompositeOperator compose,const double bias,
   ExceptionInfo *exception)
@@ -3832,7 +3843,7 @@ MagickExport Image *MorphologyApply(const Image *image,
       break;
     case DistanceMorphology:
     case VoronoiMorphology:
-      special = MagickTrue;
+      special = MagickTrue;         /* use special direct primative */
       break;
     default:
       break;
@@ -3846,11 +3857,8 @@ MagickExport Image *MorphologyApply(const Image *image,
       rslt_image=CloneImage(image,0,0,MagickTrue,exception);
       if (rslt_image == (Image *) NULL)
         goto error_cleanup;
-      if (SetImageStorageClass(rslt_image,DirectClass) == MagickFalse)
-        {
-          InheritException(exception,&rslt_image->exception);
-          goto error_cleanup;
-        }
+      if (SetImageStorageClass(rslt_image,DirectClass,exception) == MagickFalse)
+        goto error_cleanup;
 
       changed = MorphologyPrimitiveDirect(rslt_image, method,
          kernel, exception);
@@ -3866,9 +3874,12 @@ MagickExport Image *MorphologyApply(const Image *image,
 
       if ( method == VoronoiMorphology ) {
         /* Preserve the alpha channel of input image - but turned off */
-        (void) SetImageAlphaChannel(rslt_image, DeactivateAlphaChannel);
-        (void) CompositeImage(rslt_image, CopyOpacityCompositeOp, image, 0, 0);
-        (void) SetImageAlphaChannel(rslt_image, DeactivateAlphaChannel);
+        (void) SetImageAlphaChannel(rslt_image, DeactivateAlphaChannel,
+          exception);
+        (void) CompositeImage(rslt_image, CopyAlphaCompositeOp, image, 0, 0,
+          exception);
+        (void) SetImageAlphaChannel(rslt_image, DeactivateAlphaChannel,
+          exception);
       }
       goto exit_cleanup;
     }
@@ -4026,11 +4037,8 @@ MagickExport Image *MorphologyApply(const Image *image,
               work_image=CloneImage(image,0,0,MagickTrue,exception);
               if (work_image == (Image *) NULL)
                 goto error_cleanup;
-              if (SetImageStorageClass(work_image,DirectClass) == MagickFalse)
-                {
-                  InheritException(exception,&work_image->exception);
-                  goto error_cleanup;
-                }
+              if (SetImageStorageClass(work_image,DirectClass,exception) == MagickFalse)
+                goto error_cleanup;
               /* work_image->type=image->type; ??? */
             }
 
@@ -4092,18 +4100,19 @@ MagickExport Image *MorphologyApply(const Image *image,
         case TopHatMorphology:
         case BottomHatMorphology:
           if ( verbose == MagickTrue )
-            (void) FormatLocaleFile(stderr, "\n%s: Difference with original image",
-                 CommandOptionToMnemonic(MagickMorphologyOptions, method) );
-          curr_image->sync=MagickFalse;
-          (void) CompositeImage(curr_image,DifferenceCompositeOp,image,0,0);
+            (void) FormatLocaleFile(stderr,
+              "\n%s: Difference with original image",CommandOptionToMnemonic(
+              MagickMorphologyOptions, method) );
+          (void) CompositeImage(curr_image,DifferenceCompositeOp,image,0,0,
+            exception);
           break;
         case EdgeMorphology:
           if ( verbose == MagickTrue )
-            (void) FormatLocaleFile(stderr, "\n%s: Difference of Dilate and Erode",
-                 CommandOptionToMnemonic(MagickMorphologyOptions, method) );
-          curr_image->sync=MagickFalse;
+            (void) FormatLocaleFile(stderr,
+              "\n%s: Difference of Dilate and Erode",CommandOptionToMnemonic(
+              MagickMorphologyOptions, method) );
           (void) CompositeImage(curr_image,DifferenceCompositeOp,save_image,0,
-            0);
+            0,exception);
           save_image = DestroyImage(save_image); /* finished with save image */
           break;
         default:
@@ -4139,8 +4148,8 @@ MagickExport Image *MorphologyApply(const Image *image,
           if ( verbose == MagickTrue )
             (void) FormatLocaleFile(stderr, " (compose \"%s\")",
                  CommandOptionToMnemonic(MagickComposeOptions, rslt_compose) );
-          rslt_image->sync=MagickFalse;
-          (void) CompositeImage(rslt_image, rslt_compose, curr_image, 0, 0);
+          (void) CompositeImage(rslt_image, rslt_compose, curr_image, 0, 0,
+            exception);
           curr_image = DestroyImage(curr_image);
           curr_image = (Image *) image;  /* continue with original image */
         }
@@ -4466,13 +4475,19 @@ static void RotateKernelInfo(KernelInfo *kernel, double angle)
        * Basically all that is needed is a reversal of the kernel data!
        * And a reflection of the origon
        */
-      size_t
-        i,j;
-      register double
-        *k,t;
+      double
+        t;
+
+      register MagickRealType
+        *k;
+
+      ssize_t
+        i,
+        j;
 
       k=kernel->values;
-      for ( i=0, j=kernel->width*kernel->height-1;  i<j;  i++, j--)
+      j=(ssize_t) (kernel->width*kernel->height-1);
+      for (i=0;  i < j;  i++, j--)
         t=k[i],  k[i]=k[j],  k[j]=t;
 
       kernel->x = (ssize_t) kernel->width  - kernel->x - 1;
@@ -4713,7 +4728,7 @@ MagickExport void ScaleKernelInfo(KernelInfo *kernel,
 %    o kernel: the Morphology/Convolution kernel
 %
 */
-MagickExport void ShowKernelInfo(const KernelInfo *kernel)
+MagickPrivate void ShowKernelInfo(const KernelInfo *kernel)
 {
   const KernelInfo
     *k;
@@ -4831,7 +4846,7 @@ MagickExport void UnityAddKernelInfo(KernelInfo *kernel,
 %    o kernel: the Morphology/Convolution kernel
 %
 */
-MagickExport void ZeroKernelNans(KernelInfo *kernel)
+MagickPrivate void ZeroKernelNans(KernelInfo *kernel)
 {
   register size_t
     i;

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -28,6 +28,9 @@ extern "C" {
 
 #define MaxMultibyteCodes  6
 
+extern MagickPrivate MagickBooleanType
+  IsGlob(const char *);
+
 typedef struct
 {
   int
@@ -50,6 +53,9 @@ static UTFInfo
 
 static inline unsigned char *ConvertLatin1ToUTF8(const unsigned char *content)
 {
+  int
+    c;
+
   register const unsigned char
     *p;
 
@@ -61,9 +67,6 @@ static inline unsigned char *ConvertLatin1ToUTF8(const unsigned char *content)
 
   unsigned char
     *utf8;
-
-  unsigned int
-    c;
 
   length=0;
   for (p=content; *p != '\0'; p++)
@@ -78,11 +81,11 @@ static inline unsigned char *ConvertLatin1ToUTF8(const unsigned char *content)
   {
     c=(*p);
     if ((c & 0x80) == 0)
-      *q++=c;
+      *q++=(unsigned char) c;
     else
       {
-        *q++=0xc0 | ((c >> 6) & 0x3f);
-        *q++=0x80 | (c & 0x3f);
+        *q++=(unsigned char) (0xc0 | ((c >> 6) & 0x3f));
+        *q++=(unsigned char) (0x80 | (c & 0x3f));
       }
   }
   *q='\0';

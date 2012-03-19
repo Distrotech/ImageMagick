@@ -17,7 +17,7 @@
 %                              August 2007                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,8 +41,8 @@
 */
 #include "MagickCore/studio.h"
 #include "MagickCore/matrix.h"
+#include "MagickCore/matrix-private.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/utility.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -58,9 +58,11 @@
 %  AcquireMagickMatrix() allocates and returns a matrix in the form of an
 %  array of pointers to an array of doubles, with all values pre-set to zero.
 %
-%  This used to generate the two dimensional matrix, and vectors required
-%  for the GaussJordanElimination() method below, solving some system of
-%  simultanious equations.
+%  This used to generate the two dimensional matrix, that can be referenced
+%  using the simple C-code of the form "matrix[y][x]".
+%
+%  This matrix is typically used for perform for the GaussJordanElimination()
+%  method below, solving some system of simultanious equations.
 %
 %  The format of the AcquireMagickMatrix method is:
 %
@@ -88,7 +90,7 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 
   matrix=(double **) AcquireQuantumMemory(number_rows,sizeof(*matrix));
   if (matrix == (double **) NULL)
-    return((double **)NULL);
+    return((double **) NULL);
   for (i=0; i < (ssize_t) number_rows; i++)
   {
     matrix[i]=(double *) AcquireQuantumMemory(size,sizeof(*matrix[i]));
@@ -124,8 +126,8 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 %
 %  The format of the GaussJordanElimination method is:
 %
-%      MagickBooleanType GaussJordanElimination(double **matrix,double **vectors,
-%        const size_t rank,const size_t number_vectors)
+%      MagickBooleanType GaussJordanElimination(double **matrix,
+%        double **vectors,const size_t rank,const size_t number_vectors)
 %
 %  A description of each parameter follows:
 %
@@ -134,7 +136,7 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 %    o vectors: the additional matrix argumenting the matrix for row reduction.
 %             Producing an 'array of column vectors'.
 %
-%    o rank:  The size of the matrix (both rows and columns).
+%    o rank:  The size of the square matrix (both rows and columns).
 %             Also represents the number terms that need to be solved.
 %
 %    o number_vectors: Number of vectors columns, argumenting the above matrix.
@@ -147,9 +149,14 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 %
 %  However 'vectors' is a 'array of column pointers' which can have any number
 %  of columns, with each column array the same 'rank' size as 'matrix'.
+%  It is assigned  vector[column][row]  where 'column' is the specific
+%  'result' and 'row' is the 'values' for that answer.  After processing
+%  the same vector array contains the 'weights' (answers) for each of the
+%  'separatable' results.
 %
 %  This allows for simpler handling of the results, especially is only one
-%  column 'vector' is all that is required to produce the desired solution.
+%  column 'vector' is all that is required to produce the desired solution
+%  for that specific set of equations.
 %
 %  For example, the 'vectors' can consist of a pointer to a simple array of
 %  doubles.  when only one set of simultanious equations is to be solved from
@@ -160,8 +167,8 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 %     ...
 %     GaussJordanElimination(matrix, &coefficents, 8UL, 1UL);
 %
-%  However by specifing more 'columns' (as an 'array of vector columns',
-%  you can use this function to solve a set of 'separable' equations.
+%  However by specifing more 'columns' (as an 'array of vector columns'),
+%  you can use this function to solve multiple sets of 'separable' equations.
 %
 %  For example a distortion function where    u = U(x,y)   v = V(x,y)
 %  And the functions U() and V() have separate coefficents, but are being
@@ -169,14 +176,18 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
 %
 %  Another example is generation of a color gradient from a set of colors
 %  at specific coordients, such as a list    x,y -> r,g,b,a
-%  (Reference to be added - Anthony)
+%
+%  See LeastSquaresAddTerms() below for such an example.
 %
 %  You can also use the 'vectors' to generate an inverse of the given 'matrix'
-%  though as a 'column first array' rather than a 'row first array'. For
-%  details see    http://en.wikipedia.org/wiki/Gauss-Jordan_elimination
+%  though as a 'column first array' rather than a 'row first array' (matrix
+%  is transposed).
+%
+%  For details of this process see...
+%     http://en.wikipedia.org/wiki/Gauss-Jordan_elimination
 %
 */
-MagickExport MagickBooleanType GaussJordanElimination(double **matrix,
+MagickPrivate MagickBooleanType GaussJordanElimination(double **matrix,
   double **vectors,const size_t rank,const size_t number_vectors)
 {
 #define GaussJordanSwap(x,y) \
@@ -255,7 +266,7 @@ MagickExport MagickBooleanType GaussJordanElimination(double **matrix,
     rows[i]=row;
     columns[i]=column;
     if (matrix[column][column] == 0.0)
-      return(MagickFalse);  /* sigularity */
+      return(MagickFalse);  /* singularity */
     scale=1.0/matrix[column][column];
     matrix[column][column]=1.0;
     for (j=0; j < (ssize_t) rank; j++)
@@ -310,13 +321,13 @@ MagickExport MagickBooleanType GaussJordanElimination(double **matrix,
 %    o vectors: the result vectors to add terms/results to.
 %
 %    o terms: the pre-calculated terms (without the unknown coefficent
-%             weights) that forms the equation being added.
+%      weights) that forms the equation being added.
 %
 %    o results: the result(s) that should be generated from the given terms
-%               weighted by the yet-to-be-solved coefficents.
+%      weighted by the yet-to-be-solved coefficents.
 %
 %    o rank: the rank or size of the dimentions of the square matrix.
-%            Also the length of vectors, and number of terms being added.
+%      Also the length of vectors, and number of terms being added.
 %
 %    o number_vectors: Number of result vectors, and number or results being
 %      added.  Also represents the number of separable systems of equations
@@ -342,10 +353,10 @@ MagickExport MagickBooleanType GaussJordanElimination(double **matrix,
 %     ...
 %     if ( GaussJordanElimination(matrix,vectors,3UL,2UL) ) {
 %       c0 = vectors[0][0];
-%       c2 = vectors[0][1];
+%       c2 = vectors[0][1];  %* weights to calculate u from any given x,y *%
 %       c4 = vectors[0][2];
 %       c1 = vectors[1][0];
-%       c3 = vectors[1][1];
+%       c3 = vectors[1][1];  %* weights for calculate v from any given x,y *%
 %       c5 = vectors[1][2];
 %     }
 %     else
@@ -353,8 +364,10 @@ MagickExport MagickBooleanType GaussJordanElimination(double **matrix,
 %     RelinquishMagickMatrix(matrix,3UL);
 %     RelinquishMagickMatrix(vectors,2UL);
 %
+% More examples can be found in "distort.c"
+%
 */
-MagickExport void LeastSquaresAddTerms(double **matrix,double **vectors,
+MagickPrivate void LeastSquaresAddTerms(double **matrix,double **vectors,
   const double *terms,const double *results,const size_t rank,
   const size_t number_vectors)
 {
@@ -369,7 +382,6 @@ MagickExport void LeastSquaresAddTerms(double **matrix,double **vectors,
     for (i=0; i < (ssize_t) number_vectors; i++)
       vectors[i][j]+=results[i]*terms[j];
   }
-  return;
 }
 
 /*
@@ -412,4 +424,3 @@ MagickExport double **RelinquishMagickMatrix(double **matrix,
   matrix=(double **) RelinquishMagickMemory(matrix);
   return(matrix);
 }
-

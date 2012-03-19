@@ -18,7 +18,7 @@
 %                                 June 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -151,6 +151,17 @@ MagickExport SemaphoreInfo *AllocateSemaphoreInfo(void)
         ThrowFatalException(ResourceLimitFatalError,
           "UnableToInitializeSemaphore");
       }
+#if defined(MAGICKCORE_DEBUG)
+#if defined(PTHREAD_MUTEX_ERRORCHECK)
+    status=pthread_mutex_settype(&mutex_info,PTHREAD_MUTEX_ERRORCHECK);
+    if (status != 0)
+      {
+        errno=status;
+        ThrowFatalException(ResourceLimitFatalError,
+          "UnableToInitializeSemaphore");
+      }
+#endif
+#endif
     status=pthread_mutex_init(&semaphore_info->mutex,&mutex_info);
     if (status != 0)
       {
@@ -335,7 +346,7 @@ MagickExport void RelinquishSemaphoreInfo(SemaphoreInfo *semaphore_info)
 %      MagickBooleanType SemaphoreComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType SemaphoreComponentGenesis(void)
+MagickPrivate MagickBooleanType SemaphoreComponentGenesis(void)
 {
   LockMagickMutex();
   UnlockMagickMutex();
@@ -360,7 +371,7 @@ MagickExport MagickBooleanType SemaphoreComponentGenesis(void)
 %      SemaphoreComponentTerminus(void)
 %
 */
-MagickExport void SemaphoreComponentTerminus(void)
+MagickPrivate void SemaphoreComponentTerminus(void)
 {
 }
 

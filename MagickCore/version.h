@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@ extern "C" {
   Define declarations.
 */
 #define MagickPackageName "ImageMagick"
-#define MagickCopyright  "Copyright (C) 1999-2011 ImageMagick Studio LLC"
-#define MagickSVNRevision  "4861"
+#define MagickCopyright  "Copyright (C) 1999-2012 ImageMagick Studio LLC"
+#define MagickSVNRevision  "7154"
 #define MagickLibVersion  0x700
 #define MagickLibVersionText  "7.0.0"
-#define MagickLibVersionNumber  5,0,0
+#define MagickLibVersionNumber  7,0,0
 #define MagickLibAddendum  "-0"
-#define MagickLibInterface  5
-#define MagickLibMinInterface  5
-#define MagickReleaseDate  "2011-08-01"
+#define MagickLibInterface  7
+#define MagickLibMinInterface  7
+#define MagickReleaseDate  "2012-03-18"
 #define MagickChangeDate   "20110801"
 #define MagickAuthoritativeURL  "http://www.imagemagick.org"
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
@@ -52,8 +52,13 @@ extern "C" {
 #else
 #define MagickHDRIFeature  " "
 #endif
-#define MagickFeatures MagickOpenMPFeature MagickOpenCLFeature MagickHDRIFeature
-#define MagickHomeURL  "file:///usr/local/share/doc/ImageMagick-7.0.0//index.html"
+#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#define MagickZeroConfigurationFeature  "Zero-Configuration "
+#else
+#define MagickZeroConfigurationFeature  " "
+#endif
+#define MagickFeatures MagickOpenMPFeature MagickOpenCLFeature MagickHDRIFeature MagickZeroConfigurationFeature
+#define MagickHomeURL  "file:///usr/local/share/doc/ImageMagick//index.html"
 #if (MAGICKCORE_QUANTUM_DEPTH == 8)
 #define MagickQuantumDepth  "Q8"
 #define MagickQuantumRange  "255"

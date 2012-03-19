@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ extern "C" {
 #endif
 
 #define Magick2PI    6.28318530717958647692528676655900576839433879875020L
+#define MagickPHI    1.61803398874989484820458683436563811772030917980576L
 #define MagickPI2    1.57079632679489661923132169163975144209858469968755L
 #define MagickSQ1_2  0.70710678118654752440084436210484903928483593768847L
 #define MagickSQ2    1.41421356237309504880168872420969807856967187537695L
@@ -30,23 +31,12 @@ extern "C" {
 #define UndefinedTicksPerSecond  100L
 #define UndefinedCompressionQuality  0UL
 
-extern MagickExport const char
+extern MagickPrivate const char
   BackgroundColor[],
   BorderColor[],
-  DefaultTileFrame[],
-  DefaultTileGeometry[],
-  DefaultTileLabel[],
   ForegroundColor[],
-  MatteColor[],
-  LoadImageTag[],
-  LoadImagesTag[],
-  PSDensityGeometry[],
-  PSPageGeometry[],
-  SaveImageTag[],
-  SaveImagesTag[];
-
-extern MagickExport const double
-  DefaultResolution;
+  DefaultTileFrame[],
+  MatteColor[];
 
 static inline double DegreesToRadians(const double degrees)
 {

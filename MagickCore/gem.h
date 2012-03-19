@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  MagickCore private graphic gems methods.
+  MagickCore graphic gems methods.
 */
-#ifndef _MAGICKCORE_GEM_PRIVATE_H
-#define _MAGICKCORE_GEM_PRIVATE_H
+#ifndef _MAGICKCORE_GEM_H
+#define _MAGICKCORE_GEM_H
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -26,27 +26,12 @@ extern "C" {
 #include <MagickCore/random_.h>
 
 extern MagickExport double
-  ExpandAffine(const AffineMatrix *),
-  GenerateDifferentialNoise(RandomInfo *,const Quantum,const NoiseType,
-    const MagickRealType);
-
-extern MagickExport size_t
-  GetOptimalKernelWidth(const double,const double),
-  GetOptimalKernelWidth1D(const double,const double),
-  GetOptimalKernelWidth2D(const double,const double);
+  ExpandAffine(const AffineMatrix *);
 
 extern MagickExport void
-  ConvertHSBToRGB(const double,const double,const double,Quantum *,Quantum *,
-    Quantum *),
-  ConvertHSLToRGB(const double,const double,const double,Quantum *,Quantum *,
-    Quantum *),
-  ConvertHWBToRGB(const double,const double,const double,Quantum *,Quantum *,
-    Quantum *),
-  ConvertRGBToHSB(const Quantum,const Quantum,const Quantum,double *,double *,
+  ConvertHSLToRGB(const double,const double,const double,double *,double *,
     double *),
-  ConvertRGBToHSL(const Quantum,const Quantum,const Quantum,double *,double *,
-    double *),
-  ConvertRGBToHWB(const Quantum,const Quantum,const Quantum,double *,double *,
+  ConvertRGBToHSL(const double,const double,const double,double *,double *,
     double *);
 
 #if defined(__cplusplus) || defined(c_plusplus)

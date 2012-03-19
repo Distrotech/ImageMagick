@@ -22,7 +22,7 @@
 
 namespace Magick
 {
-  class MagickDLLDecl Image;
+  class Image;
 
   class Options
   {
@@ -258,10 +258,6 @@ namespace Magick
     
     void            view ( const std::string &view_ );
     std::string     view ( void ) const;
-
-    // Virtual pixel method.
-    void            virtualPixelMethod ( VirtualPixelMethod virtual_pixel_method_ );
-    VirtualPixelMethod virtualPixelMethod ( void ) const;
 
     // X11 display name
     void            x11Display ( const std::string &display_ );

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -50,10 +50,10 @@ typedef enum
 } ColorspaceType;
 
 extern MagickExport MagickBooleanType
-  RGBTransformImage(Image *,const ColorspaceType),
-  SetImageColorspace(Image *,const ColorspaceType),
-  TransformImageColorspace(Image *,const ColorspaceType),
-  TransformRGBImage(Image *,const ColorspaceType);
+  RGBTransformImage(Image *,const ColorspaceType,ExceptionInfo *),
+  SetImageColorspace(Image *,const ColorspaceType,ExceptionInfo *),
+  TransformImageColorspace(Image *,const ColorspaceType,ExceptionInfo *),
+  TransformRGBImage(Image *,const ColorspaceType,ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

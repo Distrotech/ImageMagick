@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -29,21 +29,18 @@ extern "C" {
 typedef struct _SignatureInfo
   SignatureInfo;
 
-extern MagickExport MagickBooleanType
-  SignatureImage(Image *);
-
-extern MagickExport SignatureInfo
+extern MagickPrivate SignatureInfo
   *AcquireSignatureInfo(void),
   *DestroySignatureInfo(SignatureInfo *);
 
-extern MagickExport const StringInfo
+extern MagickPrivate const StringInfo
   *GetSignatureDigest(const SignatureInfo *);
 
-extern MagickExport unsigned int
+extern MagickPrivate unsigned int
   GetSignatureBlocksize(const SignatureInfo *),
   GetSignatureDigestsize(const SignatureInfo *);
 
-extern MagickExport void
+extern MagickPrivate void
   InitializeSignature(SignatureInfo *),
   FinalizeSignature(SignatureInfo *),
   SetSignatureDigest(SignatureInfo *,const StringInfo *),

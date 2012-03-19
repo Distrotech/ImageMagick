@@ -15,7 +15,7 @@
 %                                February 2008                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteBRAILLEImage(const ImageInfo *,Image *);
+  WriteBRAILLEImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -158,7 +158,7 @@ ModuleExport void UnregisterBRAILLEImage(void)
 %  The format of the WriteBRAILLEImage method is:
 %
 %      MagickBooleanType WriteBRAILLEImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -166,9 +166,11 @@ ModuleExport void UnregisterBRAILLEImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WriteBRAILLEImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   char
     buffer[MaxTextExtent];
@@ -214,12 +216,14 @@ static MagickBooleanType WriteBRAILLEImage(const ImageInfo *image_info,
       cell_height=3;
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (!iso_11548_1)
     {
-      value=GetImageProperty(image,"label");
+      value=GetImageProperty(image,"label",exception);
       if (value != (const char *) NULL)
         {
           (void) FormatLocaleString(buffer,MaxTextExtent,"Title: %s\n", value);
@@ -245,21 +249,21 @@ static MagickBooleanType WriteBRAILLEImage(const ImageInfo *image_info,
       (void) WriteBlobString(image,buffer);
       (void) WriteBlobString(image,"\n");
     }
-  (void) SetImageType(image,BilevelType);
+  (void) SetImageType(image,BilevelType,exception);
   polarity = 0;
   if (image->storage_class == PseudoClass) {
-    polarity=(Quantum) (GetPixelPacketIntensity(&image->colormap[0]) >=
+    polarity=(Quantum) (GetPixelInfoIntensity(&image->colormap[0]) >=
       (Quantum) (QuantumRange/2));
     if (image->colors == 2)
-      polarity=(Quantum) (GetPixelPacketIntensity(&image->colormap[0]) >=
-        GetPixelPacketIntensity(&image->colormap[1]));
+      polarity=(Quantum) (GetPixelInfoIntensity(&image->colormap[0]) >=
+        GetPixelInfoIntensity(&image->colormap[1]));
   }
   for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) cell_height)
   {
     if ((y+cell_height) > image->rows)
       cell_height = (size_t) (image->rows-y);
 
-    p=GetVirtualPixels(image,0,y,image->columns,cell_height,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,cell_height,exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x+=2)

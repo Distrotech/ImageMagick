@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -2873,7 +2873,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -3061,9 +3061,9 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
               count=ReadBlob(image,(size_t) quantum*length,data);
               if (count != (ssize_t) (quantum*length))
                 {
-                  (void) FormatLocaleFile(stdout,"count=%d quantum=%d length=%d "
-                    "group=%d\n",(int) count,(int) quantum,(int) length,(int)
-                    group);
+                  (void) FormatLocaleFile(stdout,"count=%d quantum=%d "
+                    "length=%d group=%d\n",(int) count,(int) quantum,(int)
+                    length,(int) group);
                    ThrowReaderException(CorruptImageError,
                      "InsufficientImageDataInFile");
                 }
@@ -3412,7 +3412,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         if ((i == (ssize_t) length) || (length > 4))
           {
             (void) SubstituteString(&attribute," ","");
-            (void) SetImageProperty(image,attribute,(char *) data);
+            (void) SetImageProperty(image,attribute,(char *) data,exception);
           }
         attribute=DestroyString(attribute);
       }
@@ -3568,7 +3568,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
             while (property != (const char *) NULL)
             {
               (void) SetImageProperty(jpeg_image,property,
-                GetImageProperty(image,property));
+                GetImageProperty(image,property,exception),exception);
               property=GetNextImageProperty(image);
             }
             AppendImageToList(&images,jpeg_image);
@@ -3638,7 +3638,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     image->columns=(size_t) width;
     image->rows=(size_t) height;
     image->depth=depth;
-    if ((image->colormap == (PixelPacket *) NULL) && (samples_per_pixel == 1))
+    if ((image->colormap == (PixelInfo *) NULL) && (samples_per_pixel == 1))
       {
         size_t
           one;
@@ -3646,7 +3646,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         one=1;
         if (colors == 0)
           colors=one << depth;
-        if (AcquireImageColormap(image,colors) == MagickFalse)
+        if (AcquireImageColormap(image,one << depth,exception) == MagickFalse)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         if (redmap != (int *) NULL)
           for (i=0; i < (ssize_t) colors; i++)
@@ -3719,7 +3719,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -3774,7 +3774,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         int
           byte;
 
-        LongPixelPacket
+        PixelPacket
           pixel;
 
         /*
@@ -3794,7 +3794,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         for (y=0; y < (ssize_t) image->rows; y++)
         {
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
@@ -3818,8 +3818,6 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
                         pixel_value=(int) (polarity != MagickFalse ? (max_value-
                           ReadDCMLSBShort(stream_info,image)) :
                           ReadDCMLSBShort(stream_info,image));
-                      if (signed_data == 1)
-                        pixel_value=((signed short) pixel_value);
                     }
                   else
                     {
@@ -3865,7 +3863,8 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
                           0.5)/(window_width-1))+0.5));
                   }
                 index&=mask;
-                index=(int) ConstrainColormapIndex(image,(size_t) index);
+                index=(int) ConstrainColormapIndex(image,(size_t) index,
+                  exception);
                 SetPixelIndex(image,index,q);
                 pixel.red=1UL*image->colormap[index].red;
                 pixel.green=1UL*image->colormap[index].green;
@@ -3923,7 +3922,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (y=0; y < (ssize_t) image->rows; y++)
           {
             q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
@@ -3994,7 +3993,8 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
                             0.5)/(window_width-1))+0.5));
                     }
                   index&=mask;
-                  index=(int) ConstrainColormapIndex(image,(size_t) index);
+                  index=(int) ConstrainColormapIndex(image,(size_t) index,
+                    exception);
                   SetPixelIndex(image,(((size_t) GetPixelIndex(image,q)) |
                     (((size_t) index) << 8)),q);
                   pixel.red=1UL*image->colormap[index].red;
@@ -4070,7 +4070,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -321,7 +321,7 @@ static const PICTCode
   Forward declarations.
 */
 static MagickBooleanType
-  WritePICTImage(const ImageInfo *,Image *);
+  WritePICTImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -427,7 +427,8 @@ static unsigned char *ExpandBuffer(unsigned char *pixels,
 }
 
 static unsigned char *DecodeImage(Image *blob,Image *image,
-  size_t bytes_per_line,const unsigned int bits_per_pixel,size_t *extent)
+  size_t bytes_per_line,const unsigned int bits_per_pixel,size_t *extent,
+  ExceptionInfo *exception)
 {
   MagickSizeType
     number_pixels;
@@ -501,7 +502,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
         p=ExpandBuffer(scanline,&number_pixels,bits_per_pixel);
         if ((q+number_pixels) > (pixels+(*extent)))
           {
-            (void) ThrowMagickException(&image->exception,GetMagickModule(),
+            (void) ThrowMagickException(exception,GetMagickModule(),
               CorruptImageError,"UnableToUncompressImage","`%s'",
               image->filename);
             break;
@@ -523,7 +524,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
       scanline_length=1UL*ReadBlobByte(blob);
     if (scanline_length >= row_bytes)
       {
-        (void) ThrowMagickException(&image->exception,GetMagickModule(),
+        (void) ThrowMagickException(exception,GetMagickModule(),
           CorruptImageError,"UnableToUncompressImage","`%s'",image->filename);
         break;
       }
@@ -845,7 +846,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   image->depth=8;
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
@@ -885,8 +886,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
   flags=0;
   image->columns=1UL*(frame.right-frame.left);
   image->rows=1UL*(frame.bottom-frame.top);
-  image->x_resolution=DefaultResolution;
-  image->y_resolution=DefaultResolution;
+  image->resolution.x=DefaultResolution;
+  image->resolution.y=DefaultResolution;
   image->units=UndefinedResolution;
   /*
     Interpret PICT opcodes.
@@ -930,7 +931,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               break;
             image->columns=1UL*(frame.right-frame.left);
             image->rows=1UL*(frame.bottom-frame.top);
-            (void) SetImageBackgroundColor(image);
+            (void) SetImageBackgroundColor(image,exception);
             break;
           }
           case 0x12:
@@ -962,8 +963,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
             ReadRectangle(image,frame);
             ReadPixmap(pixmap);
             image->depth=1UL*pixmap.component_size;
-            image->x_resolution=1.0*pixmap.horizontal_resolution;
-            image->y_resolution=1.0*pixmap.vertical_resolution;
+            image->resolution.x=1.0*pixmap.horizontal_resolution;
+            image->resolution.y=1.0*pixmap.vertical_resolution;
             image->units=PixelsPerInchResolution;
             (void) ReadBlobMSBLong(image);
             flags=1L*ReadBlobMSBShort(image);
@@ -1076,8 +1077,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
                 tile_image->depth=1UL*pixmap.component_size;
                 tile_image->matte=pixmap.component_count == 4 ?
                   MagickTrue : MagickFalse;
-                tile_image->x_resolution=(double) pixmap.horizontal_resolution;
-                tile_image->y_resolution=(double) pixmap.vertical_resolution;
+                tile_image->resolution.x=(double) pixmap.horizontal_resolution;
+                tile_image->resolution.y=(double) pixmap.vertical_resolution;
                 tile_image->units=PixelsPerInchResolution;
                 if (tile_image->matte != MagickFalse)
                   image->matte=tile_image->matte;
@@ -1094,7 +1095,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
                     flags=1L*ReadBlobMSBShort(image);
                     tile_image->colors=1UL*ReadBlobMSBShort(image)+1;
                   }
-                status=AcquireImageColormap(tile_image,tile_image->colors);
+                status=AcquireImageColormap(tile_image,tile_image->colors,
+                  exception);
                 if (status == MagickFalse)
                   {
                     tile_image=DestroyImage(tile_image);
@@ -1143,10 +1145,11 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               }
             if ((code != 0x9a) && (code != 0x9b) &&
                 (bytes_per_line & 0x8000) == 0)
-              pixels=DecodeImage(image,tile_image,1UL*bytes_per_line,1,&extent);
+              pixels=DecodeImage(image,tile_image,1UL*bytes_per_line,1,&extent,
+                exception);
             else
               pixels=DecodeImage(image,tile_image,1UL*bytes_per_line,1U*
-                pixmap.bits_per_pixel,&extent);
+                pixmap.bits_per_pixel,&extent,exception);
             if (pixels == (unsigned char *) NULL)
               {
                 tile_image=DestroyImage(tile_image);
@@ -1163,13 +1166,13 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
                 ThrowReaderException(CorruptImageError,"NotEnoughPixelData");
               q=QueueAuthenticPixels(tile_image,0,y,tile_image->columns,1,
                 exception);
-              if (q == (const Quantum *) NULL)
+              if (q == (Quantum *) NULL)
                 break;
               for (x=0; x < (ssize_t) tile_image->columns; x++)
               {
                 if (tile_image->storage_class == PseudoClass)
                   {
-                    index=ConstrainColormapIndex(tile_image,*p);
+                    index=ConstrainColormapIndex(tile_image,*p,exception);
                     SetPixelIndex(tile_image,index,q);
                     SetPixelRed(tile_image,
                       tile_image->colormap[(ssize_t) index].red,q);
@@ -1239,7 +1242,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               if ((code == 0x9a) || (code == 0x9b) ||
                   ((bytes_per_line & 0x8000) != 0))
                 (void) CompositeImage(image,CopyCompositeOp,tile_image,
-                  destination.left,destination.top);
+                  destination.left,destination.top,exception);
             tile_image=DestroyImage(tile_image);
             break;
           }
@@ -1273,9 +1276,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               {
                 if (length == 0)
                   break;
-                profile=AcquireStringInfo(length);
+                profile=BlobToStringInfo((const void *) NULL,length);
                 SetStringInfoDatum(profile,info);
-                status=SetImageProfile(image,"icc",profile);
+                status=SetImageProfile(image,"icc",profile,exception);
                 profile=DestroyStringInfo(profile);
                 if (status == MagickFalse)
                   ThrowReaderException(ResourceLimitError,
@@ -1286,9 +1289,9 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               {
                 if (length == 0)
                   break;
-                profile=AcquireStringInfo(length);
+                profile=BlobToStringInfo((const void *) NULL,length);
                 SetStringInfoDatum(profile,info);
-                status=SetImageProfile(image,"iptc",profile);
+                status=SetImageProfile(image,"iptc",profile,exception);
                 if (status == MagickFalse)
                   ThrowReaderException(ResourceLimitError,
                     "MemoryAllocationFailed");
@@ -1381,11 +1384,12 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
           (double) MagickMax(image->rows,tile_image->rows));
         (void) SetImageExtent(image,
           MagickMax(image->columns,tile_image->columns),
-          MagickMax(image->rows,tile_image->rows));
+          MagickMax(image->rows,tile_image->rows),exception);
         if (IsRGBColorspace(image->colorspace) == MagickFalse)
-          (void) TransformImageColorspace(image,tile_image->colorspace);
+          (void) TransformImageColorspace(image,tile_image->colorspace,
+            exception);
         (void) CompositeImage(image,CopyCompositeOp,tile_image,frame.left,
-          frame.right);
+          frame.right,exception);
         image->compression=tile_image->compression;
         tile_image=DestroyImage(tile_image);
         continue;
@@ -1510,7 +1514,7 @@ ModuleExport void UnregisterPICTImage(void)
 %  The format of the WritePICTImage method is:
 %
 %      MagickBooleanType WritePICTImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -1518,9 +1522,11 @@ ModuleExport void UnregisterPICTImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
 #define MaxCount  128
 #define PictCropRegionOp  0x01
@@ -1592,11 +1598,13 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if ((image->columns > 65535L) || (image->rows > 65535L))
     ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Initialize image info.
   */
@@ -1625,9 +1633,9 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   pixmap.table=0;
   pixmap.reserved=0;
   transfer_mode=0;
-  x_resolution=image->x_resolution != 0.0 ? image->x_resolution :
+  x_resolution=image->resolution.x != 0.0 ? image->resolution.x :
     DefaultResolution;
-  y_resolution=image->y_resolution != 0.0 ? image->y_resolution :
+  y_resolution=image->resolution.y != 0.0 ? image->resolution.y :
     DefaultResolution;
   storage_class=image->storage_class;
   if (image_info->compression == JPEGCompression)
@@ -1732,7 +1740,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
       unsigned char
         *blob;
 
-      jpeg_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+      jpeg_image=CloneImage(image,0,0,MagickTrue,exception);
       if (jpeg_image == (Image *) NULL)
         {
           (void) CloseBlob(image);
@@ -1742,7 +1750,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
       (void) CopyMagickString(jpeg_info->magick,"JPEG",MaxTextExtent);
       length=0;
       blob=(unsigned char *) ImageToBlob(jpeg_info,jpeg_image,&length,
-        &image->exception);
+        exception);
       jpeg_info=DestroyImageInfo(jpeg_info);
       if (blob == (unsigned char *) NULL)
         return(MagickFalse);
@@ -1872,7 +1880,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   if ((storage_class == PseudoClass) && (image->matte == MagickFalse))
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
@@ -1912,7 +1920,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
         opacity=scanline+3*image->columns;
         for (y=0; y < (ssize_t) image->rows; y++)
         {
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           red=scanline;

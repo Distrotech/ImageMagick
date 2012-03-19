@@ -583,6 +583,9 @@
         <message name="CompositeImageRequired">
           image composite requise
         </message>
+        <message name="DepreciatedOption">
+          option est obsolète
+        </message>
         <message name="DivideByZero">
           division par zéro
         </message>
@@ -594,6 +597,9 @@
         </message>
         <message name="GeometryDoesNotContainImage">
           image non incluse dans la géométrie
+        </message>
+        <message name="InvalidUseOfOption">
+          Invalide utilisation de l'option
         </message>
         <message name="ImagesAreNotTheSameSize">
           images diffèrent par la taille
@@ -617,9 +623,10 @@
           image map requise
         </message>
         <message name="MissingArgument">
-          l'option a besoin d'un argument
+          manque argument obligatoire
         </message>
         <message name="MissingAnImageFilename">
+        <!-- FUTURE: Depreciate using MissingOutputFilename -->
           nom de fichier d'image absent
         </message>
         <message name="MissingExpression">
@@ -627,6 +634,9 @@
         </message>
         <message name="MissingNullSeparator">
           Séparateur nul pour liste d'image absent
+        </message>
+        <message name="MissingOutputFilename">
+          output filename absente
         </message>
         <message name="MustSpecifyAnImageName">
           Il faut spécifier un nom d'image
@@ -642,6 +652,9 @@
         </message>
         <message name="NoImagesDefined">
           pas d'images définies
+        </message>
+        <message name="NoImagesForFinalWrite">
+          pas d'images for final write
         </message>
         <message name="NoImageVectorGraphics">
           pas de graphiques vectoriels
@@ -698,7 +711,7 @@
           couleur non reconnue
         </message>
         <message name="UnrecognizedColorspace">
-          espace colorimétrique de l'image non reconnu
+          espace colorimétrique non reconnu
         </message>
         <message name="UnrecognizedComposeOperator">
           opérateur de composition non reconnu
@@ -828,11 +841,20 @@
         </message>
       </error>
       <fatalerror>
+        <message name="FilenameTruncated">
+          image filename truncated
+        </message>
         <message name="MissingAnImageFilename">
           nom de fichier d'image absent
         </message>
-        <message name="FilenameTruncated">
-          image filename truncated
+        <message name="ScriptIsBinary">
+          de script en binaire
+        </message>
+        <message name="ScriptTokenMemoryFailed">
+          de script token trop gros
+        </message>
+        <message name="ScriptUnbalancedQuotes">
+          de script token avec des citations asymétriques
         </message>
         <message name="UnrecognizedColormapType">
           type de table de couleurs non reconnnu

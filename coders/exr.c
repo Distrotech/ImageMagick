@@ -17,7 +17,7 @@
 %                                 April 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteEXRImage(const ImageInfo *,Image *);
+  WriteEXRImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 /*
@@ -174,7 +174,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -218,7 +218,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     ImfInputSetFrameBuffer(file,scanline-min_x-image->columns*(min_y+y),1,
       image->columns);
@@ -331,7 +331,8 @@ ModuleExport void UnregisterEXRImage(void)
 %
 %  The format of the WriteEXRImage method is:
 %
-%      MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteEXRImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -339,8 +340,11 @@ ModuleExport void UnregisterEXRImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   ImageInfo
     *write_info;
@@ -381,7 +385,9 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   write_info=CloneImageInfo(image_info);
@@ -414,7 +420,7 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
   ImfDeleteHeader(hdr_info);
   if (file == (ImfOutputFile *) NULL)
     {
-      ThrowFileException(&image->exception,BlobError,"UnableToOpenBlob",
+      ThrowFileException(exception,BlobError,"UnableToOpenBlob",
         ImfErrorMessage());
       write_info=DestroyImageInfo(write_info);
       return(MagickFalse);
@@ -427,7 +433,7 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
     }
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
@@ -450,7 +456,7 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image)
   }
   (void) ImfCloseOutputFile(file);
   scanline=(ImfRgba *) RelinquishMagickMemory(scanline);
-  (void) FileToImage(image,write_info->filename);
+  (void) FileToImage(image,write_info->filename,exception);
   (void) RelinquishUniqueFileResource(write_info->filename);
   write_info=DestroyImageInfo(write_info);
   (void) CloseBlob(image);

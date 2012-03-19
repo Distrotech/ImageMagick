@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -44,7 +44,9 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
 #include "MagickCore/animate-private.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/xwindow-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -450,11 +452,10 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             option=argv[++i];
             filename=option;
           }
-        (void) CopyMagickString(image_info->filename,filename,MaxTextExtent);
         if (image_info->ping != MagickFalse)
-          images=PingImages(image_info,exception);
+          images=PingImages(image_info,filename,exception);
         else
-          images=ReadImages(image_info,exception);
+          images=ReadImages(image_info,filename,exception);
         status&=(images != (Image *) NULL) &&
           (exception->severity < ErrorException);
         if (images == (Image *) NULL)
@@ -1006,7 +1007,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowAnimateException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowAnimateInvalidArgumentException(option,argv[i]);
@@ -1442,7 +1443,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
     ThrowAnimateException(OptionError,"MissingAnImageFilename",argv[argc-1])
   if (resource_info.window_id != (char *) NULL)
     {
-      XAnimateBackgroundImage(display,&resource_info,image);
+      XAnimateBackgroundImage(display,&resource_info,image,exception);
       status&=MagickTrue;
     }
   else
@@ -1453,12 +1454,14 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
       /*
         Animate image to X server.
       */
-      animate_image=XAnimateImages(display,&resource_info,argv,argc,image);
+      animate_image=XAnimateImages(display,&resource_info,argv,argc,image,
+        exception);
       status&=animate_image != (Image *) NULL;
       while (animate_image != (Image *) NULL)
       {
         image=animate_image;
-        animate_image=XAnimateImages(display,&resource_info,argv,argc,image);
+        animate_image=XAnimateImages(display,&resource_info,argv,argc,image,
+          exception);
         if (animate_image != image)
           image=DestroyImageList(image);
       }

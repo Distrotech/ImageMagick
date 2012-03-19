@@ -17,7 +17,7 @@
 %                                   July 1992                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -86,19 +86,22 @@
 %  The format of the BorderImage method is:
 %
 %      Image *BorderImage(const Image *image,const RectangleInfo *border_info,
-%        ExceptionInfo *exception)
+%        const CompositeOperator compose,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
-%    o border_info:  Define the width and height of the border.
+%    o border_info:  define the width and height of the border.
+%
+%    o compose:  the composite operator.
 %
 %    o exception: return any errors or warnings in this structure.
 %
 */
 MagickExport Image *BorderImage(const Image *image,
-  const RectangleInfo *border_info,ExceptionInfo *exception)
+  const RectangleInfo *border_info,const CompositeOperator compose,
+  ExceptionInfo *exception)
 {
   Image
     *border_image,
@@ -122,7 +125,7 @@ MagickExport Image *BorderImage(const Image *image,
   if (clone_image == (Image *) NULL)
     return((Image *) NULL);
   clone_image->matte_color=image->border_color;
-  border_image=FrameImage(clone_image,&frame_info,exception);
+  border_image=FrameImage(clone_image,&frame_info,compose,exception);
   clone_image=DestroyImage(clone_image);
   if (border_image != (Image *) NULL)
     border_image->matte_color=image->matte_color;
@@ -149,7 +152,7 @@ MagickExport Image *BorderImage(const Image *image,
 %  The format of the FrameImage method is:
 %
 %      Image *FrameImage(const Image *image,const FrameInfo *frame_info,
-%        ExceptionInfo *exception)
+%        const CompositeOperator compose,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -157,11 +160,13 @@ MagickExport Image *BorderImage(const Image *image,
 %
 %    o frame_info: Define the width and height of the frame and its bevels.
 %
+%    o compose: the composite operator.
+%
 %    o exception: return any errors or warnings in this structure.
 %
 */
 MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
-  ExceptionInfo *exception)
+  const CompositeOperator compose,ExceptionInfo *exception)
 {
 #define FrameImageTag  "Frame/Image"
 
@@ -180,7 +185,6 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
 
   PixelInfo
     accentuate,
-    border,
     highlight,
     interior,
     matte,
@@ -220,14 +224,14 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     exception);
   if (frame_image == (Image *) NULL)
     return((Image *) NULL);
-  if (SetImageStorageClass(frame_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(frame_image,DirectClass,exception) == MagickFalse)
     {
-      InheritException(exception,&frame_image->exception);
       frame_image=DestroyImage(frame_image);
       return((Image *) NULL);
     }
-  if (frame_image->matte_color.alpha != OpaqueAlpha)
-    frame_image->matte=MagickTrue;
+  if ((frame_image->border_color.matte != MagickFalse) &&
+      (frame_image->matte == MagickFalse))
+    (void) SetImageAlpha(frame_image,OpaqueAlpha,exception);
   frame_image->page=image->page;
   if ((image->page.width != 0) && (image->page.height != 0))
     {
@@ -237,50 +241,40 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
   /*
     Initialize 3D effects color.
   */
-  GetPixelInfo(frame_image,&interior);
-  SetPixelInfoPacket(frame_image,&image->border_color,&interior);
-  GetPixelInfo(frame_image,&matte);
-  matte.colorspace=RGBColorspace;
-  SetPixelInfoPacket(frame_image,&image->matte_color,&matte);
-  GetPixelInfo(frame_image,&border);
-  border.colorspace=RGBColorspace;
-  SetPixelInfoPacket(frame_image,&image->border_color,&border);
-  GetPixelInfo(frame_image,&accentuate);
+  interior=image->border_color;
+  matte=image->matte_color;
+  accentuate=matte;
   accentuate.red=(MagickRealType) (QuantumScale*((QuantumRange-
     AccentuateModulate)*matte.red+(QuantumRange*AccentuateModulate)));
   accentuate.green=(MagickRealType) (QuantumScale*((QuantumRange-
     AccentuateModulate)*matte.green+(QuantumRange*AccentuateModulate)));
   accentuate.blue=(MagickRealType) (QuantumScale*((QuantumRange-
     AccentuateModulate)*matte.blue+(QuantumRange*AccentuateModulate)));
+  accentuate.black=(MagickRealType) (QuantumScale*((QuantumRange-
+    AccentuateModulate)*matte.black+(QuantumRange*AccentuateModulate)));
   accentuate.alpha=matte.alpha;
-  GetPixelInfo(frame_image,&highlight);
+  highlight=matte;
   highlight.red=(MagickRealType) (QuantumScale*((QuantumRange-
     HighlightModulate)*matte.red+(QuantumRange*HighlightModulate)));
   highlight.green=(MagickRealType) (QuantumScale*((QuantumRange-
     HighlightModulate)*matte.green+(QuantumRange*HighlightModulate)));
   highlight.blue=(MagickRealType) (QuantumScale*((QuantumRange-
     HighlightModulate)*matte.blue+(QuantumRange*HighlightModulate)));
+  highlight.black=(MagickRealType) (QuantumScale*((QuantumRange-
+    HighlightModulate)*matte.black+(QuantumRange*HighlightModulate)));
   highlight.alpha=matte.alpha;
-  GetPixelInfo(frame_image,&shadow);
+  shadow=matte;
   shadow.red=QuantumScale*matte.red*ShadowModulate;
   shadow.green=QuantumScale*matte.green*ShadowModulate;
   shadow.blue=QuantumScale*matte.blue*ShadowModulate;
+  shadow.black=QuantumScale*matte.black*ShadowModulate;
   shadow.alpha=matte.alpha;
-  GetPixelInfo(frame_image,&trough);
+  trough=matte;
   trough.red=QuantumScale*matte.red*TroughModulate;
   trough.green=QuantumScale*matte.green*TroughModulate;
   trough.blue=QuantumScale*matte.blue*TroughModulate;
+  trough.black=QuantumScale*matte.black*TroughModulate;
   trough.alpha=matte.alpha;
-  if (image->colorspace == CMYKColorspace)
-    {
-      ConvertRGBToCMYK(&interior);
-      ConvertRGBToCMYK(&matte);
-      ConvertRGBToCMYK(&border);
-      ConvertRGBToCMYK(&accentuate);
-      ConvertRGBToCMYK(&highlight);
-      ConvertRGBToCMYK(&shadow);
-      ConvertRGBToCMYK(&trough);
-    }
   status=MagickTrue;
   progress=0;
   image_view=AcquireCacheView(image);
@@ -310,14 +304,14 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
             for (x=0; x < (ssize_t) (frame_image->columns-y); x++)
             {
               if (x < y)
-                SetPixelPixelInfo(frame_image,&highlight,q);
+                SetPixelInfoPixel(frame_image,&highlight,q);
               else
-                SetPixelPixelInfo(frame_image,&accentuate,q);
+                SetPixelInfoPixel(frame_image,&accentuate,q);
               q+=GetPixelChannels(frame_image);
             }
             for ( ; x < (ssize_t) frame_image->columns; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -325,18 +319,18 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           {
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             width=frame_image->columns-2*frame_info->outer_bevel;
             for (x=0; x < (ssize_t) width; x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -344,12 +338,12 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           {
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) (frame_info->x-bevel_width); x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             width=image->columns+((size_t) frame_info->inner_bevel << 1)-
@@ -357,25 +351,25 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
             for (x=0; x < (ssize_t) width; x++)
             {
               if (x < y)
-                SetPixelPixelInfo(frame_image,&shadow,q);
+                SetPixelInfoPixel(frame_image,&shadow,q);
               else
-                SetPixelPixelInfo(frame_image,&trough,q);
+                SetPixelInfoPixel(frame_image,&trough,q);
               q+=GetPixelChannels(frame_image);
             }
             for ( ; x < (ssize_t) (image->columns+2*frame_info->inner_bevel); x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             width=frame_info->width-frame_info->x-image->columns-bevel_width;
             for (x=0; x < (ssize_t) width; x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -386,7 +380,7 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     Draw sides of ornamental border.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status) omp_throttle(1)
+  #pragma omp parallel for schedule(static) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -396,6 +390,9 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     register Quantum
       *restrict q;
 
+    size_t
+      width;
+
     /*
       Initialize scanline with matte color.
     */
@@ -403,34 +400,34 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
       continue;
     q=QueueCacheViewAuthenticPixels(frame_view,0,frame_info->y+y,
       frame_image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
       }
     for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
     {
-      SetPixelPixelInfo(frame_image,&highlight,q);
+      SetPixelInfoPixel(frame_image,&highlight,q);
       q+=GetPixelChannels(frame_image);
     }
     for (x=0; x < (ssize_t) (frame_info->x-bevel_width); x++)
     {
-      SetPixelPixelInfo(frame_image,&matte,q);
+      SetPixelInfoPixel(frame_image,&matte,q);
       q+=GetPixelChannels(frame_image);
     }
     for (x=0; x < (ssize_t) frame_info->inner_bevel; x++)
     {
-      SetPixelPixelInfo(frame_image,&shadow,q);
+      SetPixelInfoPixel(frame_image,&shadow,q);
       q+=GetPixelChannels(frame_image);
     }
     /*
       Set frame interior to interior color.
     */
-    if ((image->compose != CopyCompositeOp) &&
-        ((image->compose != OverCompositeOp) || (image->matte != MagickFalse)))
+    if ((compose != CopyCompositeOp) && ((compose != OverCompositeOp) ||
+        (image->matte != MagickFalse)))
       for (x=0; x < (ssize_t) image->columns; x++)
       {
-        SetPixelPixelInfo(frame_image,&interior,q);
+        SetPixelInfoPixel(frame_image,&interior,q);
         q+=GetPixelChannels(frame_image);
       }
     else
@@ -446,30 +443,34 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           }
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          SetPixelRed(frame_image,GetPixelRed(image,p),q);
-          SetPixelGreen(frame_image,GetPixelGreen(image,p),q);
-          SetPixelBlue(frame_image,GetPixelBlue(image,p),q);
-          if (image->colorspace == CMYKColorspace)
+          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
+            SetPixelRed(frame_image,GetPixelRed(image,p),q);
+          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
+            SetPixelGreen(frame_image,GetPixelGreen(image,p),q);
+          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
+            SetPixelBlue(frame_image,GetPixelBlue(image,p),q);
+          if ((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0)
             SetPixelBlack(frame_image,GetPixelBlack(image,p),q);
-          SetPixelAlpha(frame_image,GetPixelAlpha(image,p),q);
+          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
+            SetPixelAlpha(frame_image,GetPixelAlpha(image,p),q);
           p+=GetPixelChannels(image);
           q+=GetPixelChannels(frame_image);
         }
       }
     for (x=0; x < (ssize_t) frame_info->inner_bevel; x++)
     {
-      SetPixelPixelInfo(frame_image,&highlight,q);
+      SetPixelInfoPixel(frame_image,&highlight,q);
       q+=GetPixelChannels(frame_image);
     }
     width=frame_info->width-frame_info->x-image->columns-bevel_width;
     for (x=0; x < (ssize_t) width; x++)
     {
-      SetPixelPixelInfo(frame_image,&matte,q);
+      SetPixelInfoPixel(frame_image,&matte,q);
       q+=GetPixelChannels(frame_image);
     }
     for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
     {
-      SetPixelPixelInfo(frame_image,&shadow,q);
+      SetPixelInfoPixel(frame_image,&shadow,q);
       q+=GetPixelChannels(frame_image);
     }
     if (SyncCacheViewAuthenticPixels(frame_view,exception) == MagickFalse)
@@ -480,7 +481,7 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp critical (MagickCore_FrameImage)
+        #pragma omp critical (MagickCore_FrameImage)
 #endif
         proceed=SetImageProgress(image,FrameImageTag,progress++,image->rows);
         if (proceed == MagickFalse)
@@ -511,36 +512,36 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           {
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) (frame_info->x-bevel_width); x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < y; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
             for ( ; x < (ssize_t) (image->columns+2*frame_info->inner_bevel); x++)
             {
               if (x >= (ssize_t) (image->columns+2*frame_info->inner_bevel-y))
-                SetPixelPixelInfo(frame_image,&highlight,q);
+                SetPixelInfoPixel(frame_image,&highlight,q);
               else
-                SetPixelPixelInfo(frame_image,&accentuate,q);
+                SetPixelInfoPixel(frame_image,&accentuate,q);
               q+=GetPixelChannels(frame_image);
             }
             width=frame_info->width-frame_info->x-image->columns-bevel_width;
             for (x=0; x < (ssize_t) width; x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -549,18 +550,18 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           {
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             width=frame_image->columns-2*frame_info->outer_bevel;
             for (x=0; x < (ssize_t) width; x++)
             {
-              SetPixelPixelInfo(frame_image,&matte,q);
+              SetPixelInfoPixel(frame_image,&matte,q);
               q+=GetPixelChannels(frame_image);
             }
             for (x=0; x < (ssize_t) frame_info->outer_bevel; x++)
             {
-              SetPixelPixelInfo(frame_image,&shadow,q);
+              SetPixelInfoPixel(frame_image,&shadow,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -568,15 +569,15 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
           {
             for (x=0; x < y; x++)
             {
-              SetPixelPixelInfo(frame_image,&highlight,q);
+              SetPixelInfoPixel(frame_image,&highlight,q);
               q+=GetPixelChannels(frame_image);
             }
             for ( ; x < (ssize_t) frame_image->columns; x++)
             {
               if (x >= (ssize_t) (frame_image->columns-y))
-                SetPixelPixelInfo(frame_image,&shadow,q);
+                SetPixelInfoPixel(frame_image,&shadow,q);
               else
-                SetPixelPixelInfo(frame_image,&trough,q);
+                SetPixelInfoPixel(frame_image,&trough,q);
               q+=GetPixelChannels(frame_image);
             }
           }
@@ -585,14 +586,14 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     }
   frame_view=DestroyCacheView(frame_view);
   image_view=DestroyCacheView(image_view);
-  if ((image->compose != CopyCompositeOp) &&
-      ((image->compose != OverCompositeOp) || (image->matte != MagickFalse)))
+  if ((compose != CopyCompositeOp) && ((compose != OverCompositeOp) ||
+      (image->matte != MagickFalse)))
     {
       x=(ssize_t) (frame_info->outer_bevel+(frame_info->x-bevel_width)+
         frame_info->inner_bevel);
       y=(ssize_t) (frame_info->outer_bevel+(frame_info->y-bevel_width)+
         frame_info->inner_bevel);
-      (void) CompositeImage(frame_image,image->compose,image,x,y);
+      (void) CompositeImage(frame_image,compose,image,x,y,exception);
     }
   return(frame_image);
 }
@@ -616,7 +617,8 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
 %  The format of the RaiseImage method is:
 %
 %      MagickBooleanType RaiseImage(const Image *image,
-%        const RectangleInfo *raise_info,const MagickBooleanType raise)
+%        const RectangleInfo *raise_info,const MagickBooleanType raise,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -627,9 +629,12 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
 %    o raise: A value other than zero creates a 3-D raise effect,
 %      otherwise it has a lowered effect.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType RaiseImage(Image *image,
-  const RectangleInfo *raise_info,const MagickBooleanType raise)
+  const RectangleInfo *raise_info,const MagickBooleanType raise,
+  ExceptionInfo *exception)
 {
 #define AccentuateFactor  ScaleCharToQuantum(135)
 #define HighlightFactor  ScaleCharToQuantum(190)
@@ -639,9 +644,6 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
 
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -672,21 +674,21 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
       foreground=(Quantum) 0;
       background=(Quantum) QuantumRange;
     }
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   /*
     Raise image.
   */
   status=MagickTrue;
   progress=0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status) omp_throttle(1)
+  #pragma omp parallel for schedule(static) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) raise_info->height; y++)
   {
     register ssize_t
+      i,
       x;
 
     register Quantum
@@ -695,48 +697,82 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
       }
     for (x=0; x < y; x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*HighlightFactor+
+          (MagickRealType) foreground*(QuantumRange-HighlightFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     for ( ; x < (ssize_t) (image->columns-y); x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*AccentuateFactor+(MagickRealType) foreground*
-        (QuantumRange-AccentuateFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*AccentuateFactor+(MagickRealType) foreground*
-        (QuantumRange-AccentuateFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*AccentuateFactor+(MagickRealType) foreground*
-        (QuantumRange-AccentuateFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*
+          AccentuateFactor+(MagickRealType) foreground*(QuantumRange-
+          AccentuateFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     for ( ; x < (ssize_t) image->columns; x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*ShadowFactor+
+          (MagickRealType) background*(QuantumRange-ShadowFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -752,11 +788,12 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
       }
   }
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status) omp_throttle(1)
+  #pragma omp parallel for schedule(static) shared(progress,status)
 #endif
   for (y=(ssize_t) raise_info->height; y < (ssize_t) (image->rows-raise_info->height); y++)
   {
     register ssize_t
+      i,
       x;
 
     register Quantum
@@ -765,37 +802,59 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
       }
     for (x=0; x < (ssize_t) raise_info->width; x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*HighlightFactor+
+          (MagickRealType) foreground*(QuantumRange-HighlightFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     for ( ; x < (ssize_t) (image->columns-raise_info->width); x++)
       q+=GetPixelChannels(image);
     for ( ; x < (ssize_t) image->columns; x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*ShadowFactor+
+          (MagickRealType) background*(QuantumRange-ShadowFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -811,11 +870,12 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
       }
   }
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status) omp_throttle(1)
+  #pragma omp parallel for schedule(static) shared(progress,status)
 #endif
   for (y=(ssize_t) (image->rows-raise_info->height); y < (ssize_t) image->rows; y++)
   {
     register ssize_t
+      i,
       x;
 
     register Quantum
@@ -824,48 +884,76 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
       }
     for (x=0; x < (ssize_t) (image->rows-y); x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*HighlightFactor+(MagickRealType) foreground*
-        (QuantumRange-HighlightFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*HighlightFactor+
+          (MagickRealType) foreground*(QuantumRange-HighlightFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     for ( ; x < (ssize_t) (image->columns-(image->rows-y)); x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*TroughFactor+(MagickRealType) background*
-        (QuantumRange-TroughFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*TroughFactor+(MagickRealType) background*
-        (QuantumRange-TroughFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*TroughFactor+(MagickRealType) background*
-        (QuantumRange-TroughFactor))),q);
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*TroughFactor+
+          (MagickRealType) background*(QuantumRange-TroughFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     for ( ; x < (ssize_t) image->columns; x++)
     {
-      SetPixelRed(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelRed(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelGreen(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelGreen(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
-      SetPixelBlue(image,ClampToQuantum(QuantumScale*((MagickRealType)
-        GetPixelBlue(image,q)*ShadowFactor+(MagickRealType) background*
-        (QuantumRange-ShadowFactor))),q);
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumScale*((MagickRealType) q[i]*ShadowFactor+
+          (MagickRealType) background*(QuantumRange-ShadowFactor)));
+      }
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -876,7 +964,7 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_RaiseImage)
+        #pragma omp critical (MagickCore_RaiseImage)
 #endif
         proceed=SetImageProgress(image,RaiseImageTag,progress++,image->rows);
         if (proceed == MagickFalse)

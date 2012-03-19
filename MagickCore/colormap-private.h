@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -26,12 +26,13 @@ extern "C" {
 #include <MagickCore/color.h>
 #include <MagickCore/exception-private.h>
 
-static inline Quantum ConstrainColormapIndex(Image *image,const size_t index)
+static inline Quantum ConstrainColormapIndex(Image *image,const size_t index,
+  ExceptionInfo *exception)
 {
   if (index < image->colors)
     return((Quantum) index);
-  (void) ThrowMagickException(&image->exception,GetMagickModule(),
-    CorruptImageError,"InvalidColormapIndex","`%s'",image->filename);
+  (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
+    "InvalidColormapIndex","`%s'",image->filename);
   return((Quantum) 0);
 }
 

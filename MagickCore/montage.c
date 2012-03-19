@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -63,12 +63,14 @@
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/montage.h"
 #include "MagickCore/option.h"
+#include "MagickCore/pixel.h"
 #include "MagickCore/quantize.h"
 #include "MagickCore/property.h"
 #include "MagickCore/resize.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
 
 /*
@@ -386,7 +388,6 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     geometry,
     extract_info;
 
-
   size_t
     bevel_width,
     border_width,
@@ -548,7 +549,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   draw_info->stroke=montage_info->stroke;
   draw_info->fill=montage_info->fill;
   draw_info->text=AcquireString("");
-  (void) GetTypeMetrics(image_list[0],draw_info,&metrics);
+  (void) GetTypeMetrics(image_list[0],draw_info,&metrics,exception);
   texture=NewImageList();
   if (montage_info->texture != (char *) NULL)
     {
@@ -559,7 +560,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   /*
     Determine the number of lines in an next label.
   */
-  title=InterpretImageProperties(clone_info,image_list[0],montage_info->title);
+  title=InterpretImageProperties(clone_info,image_list[0],montage_info->title,
+    exception);
   title_offset=0;
   if (montage_info->title != (char *) NULL)
     title_offset=(size_t) (2*(metrics.ascent-metrics.descent)*
@@ -567,7 +569,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   number_lines=0;
   for (i=0; i < (ssize_t) number_images; i++)
   {
-    value=GetImageProperty(image_list[i],"label");
+    value=GetImageProperty(image_list[i],"label",exception);
     if (value == (const char *) NULL)
       continue;
     if (MultilineCensus(value) > number_lines)
@@ -576,8 +578,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   /*
     Allocate next structure.
   */
-  tile_image=AcquireImage(NULL);
-  montage=AcquireImage(clone_info);
+  tile_image=AcquireImage((ImageInfo *) NULL,exception);
+  montage=AcquireImage(clone_info,exception);
   montage->background_color=montage_info->background_color;
   montage->scene=0;
   images_per_page=(number_images-1)/(tiles_per_row*tiles_per_column)+1;
@@ -635,9 +637,9 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     */
     (void) CopyMagickString(montage->filename,montage_info->filename,
       MaxTextExtent);
-    montage->columns=bounds.width;
-    montage->rows=bounds.height;
-    (void) SetImageBackgroundColor(montage);
+    montage->columns=(size_t) MagickMax((ssize_t) bounds.width,1);
+    montage->rows=(size_t) MagickMax((ssize_t) bounds.height,1);
+    (void) SetImageBackgroundColor(montage,exception);
     /*
       Set montage geometry.
     */
@@ -678,7 +680,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     progress_monitor=SetImageProgressMonitor(montage,(MagickProgressMonitor)
       NULL,montage->client_data);
     if (texture != (Image *) NULL)
-      (void) TextureImage(montage,texture);
+      (void) TextureImage(montage,texture,exception);
     if (montage_info->title != (char *) NULL)
       {
         char
@@ -696,13 +698,13 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
         clone_info=CloneDrawInfo(image_info,draw_info);
         clone_info->gravity=CenterGravity;
         clone_info->pointsize*=2.0;
-        (void) GetTypeMetrics(image_list[0],clone_info,&metrics);
+        (void) GetTypeMetrics(image_list[0],clone_info,&metrics,exception);
         (void) FormatLocaleString(geometry,MaxTextExtent,
           "%.20gx%.20g%+.20g%+.20g",(double) montage->columns,(double)
           (metrics.ascent-metrics.descent),0.0,(double) extract_info.y+4);
         (void) CloneString(&clone_info->geometry,geometry);
         (void) CloneString(&clone_info->text,title);
-        (void) AnnotateImage(montage,clone_info);
+        (void) AnnotateImage(montage,clone_info,exception);
         clone_info=DestroyDrawInfo(clone_info);
       }
     (void) SetImageProgressMonitor(montage,progress_monitor,
@@ -749,7 +751,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
               border_info.width=(width-image->columns+1)/2;
               border_info.height=(height-image->rows+1)/2;
             }
-          border_image=BorderImage(image,&border_info,exception);
+          border_image=BorderImage(image,&border_info,image->compose,exception);
           if (border_image != (Image *) NULL)
             {
               image=DestroyImage(image);
@@ -758,9 +760,9 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           if ((montage_info->frame != (char *) NULL) &&
               (image->compose == DstOutCompositeOp))
             {
-              SetPixelChannelMap(image,AlphaChannel);
+              SetPixelChannelMapMask(image,AlphaChannel);
               (void) NegateImage(image,MagickFalse,exception);
-              SetPixelChannelMap(image,DefaultChannels);
+              SetPixelChannelMapMask(image,DefaultChannels);
             }
         }
       /*
@@ -790,11 +792,11 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           extract_info=frame_info;
           extract_info.width=width+2*frame_info.width;
           extract_info.height=height+2*frame_info.height;
-          value=GetImageProperty(image,"label");
+          value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
             extract_info.height+=(size_t) ((metrics.ascent-
               metrics.descent+4)*MultilineCensus(value));
-          frame_image=FrameImage(image,&extract_info,exception);
+          frame_image=FrameImage(image,&extract_info,image->compose,exception);
           if (frame_image != (Image *) NULL)
             {
               image=DestroyImage(image);
@@ -816,20 +818,20 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
               /*
                 Shadow image.
               */
-              (void) QueryColorDatabase("#00000000",&image->background_color,
-                exception);
-              shadow_image=ShadowImage(image,80.0,2.0,5,5,exception);
+              (void) QueryColorCompliance("#0000",AllCompliance,
+                &image->background_color,exception);
+              shadow_image=ShadowImage(image,80.0,2.0,0.0,5,5,exception);
               if (shadow_image != (Image *) NULL)
                 {
-                  InheritException(&shadow_image->exception,exception);
-                  (void) CompositeImage(shadow_image,OverCompositeOp,image,0,0);
+                  (void) CompositeImage(shadow_image,OverCompositeOp,image,0,0,
+                    exception);
                   image=DestroyImage(image);
                   image=shadow_image;
                 }
           }
           (void) CompositeImage(montage,image->compose,image,x_offset+x,
-            y_offset+y);
-          value=GetImageProperty(image,"label");
+            y_offset+y,exception);
+          value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
             {
               char
@@ -848,7 +850,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
                 (montage_info->shadow != MagickFalse ? 4 : 0))+bevel_width));
               (void) CloneString(&draw_info->geometry,geometry);
               (void) CloneString(&draw_info->text,value);
-              (void) AnnotateImage(montage,draw_info);
+              (void) AnnotateImage(montage,draw_info,exception);
             }
         }
       x_offset+=(ssize_t) (width+2*(extract_info.x+border_width));
@@ -880,7 +882,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(clone_info,montage);
+        AcquireNextImage(clone_info,montage,exception);
         if (GetNextImageInList(montage) == (Image *) NULL)
           {
             montage=DestroyImageList(montage);

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -44,36 +44,37 @@ typedef struct _ChannelStatistics
 typedef enum
 {
   UndefinedEvaluateOperator,
+  AbsEvaluateOperator,
   AddEvaluateOperator,
+  AddModulusEvaluateOperator,
   AndEvaluateOperator,
+  CosineEvaluateOperator,
   DivideEvaluateOperator,
-  LeftShiftEvaluateOperator,
-  MaxEvaluateOperator,
-  MinEvaluateOperator,
-  MultiplyEvaluateOperator,
-  OrEvaluateOperator,
-  RightShiftEvaluateOperator,
-  SetEvaluateOperator,
-  SubtractEvaluateOperator,
-  XorEvaluateOperator,
-  PowEvaluateOperator,
-  LogEvaluateOperator,
-  ThresholdEvaluateOperator,
-  ThresholdBlackEvaluateOperator,
-  ThresholdWhiteEvaluateOperator,
+  ExponentialEvaluateOperator,
   GaussianNoiseEvaluateOperator,
   ImpulseNoiseEvaluateOperator,
   LaplacianNoiseEvaluateOperator,
-  MultiplicativeNoiseEvaluateOperator,
-  PoissonNoiseEvaluateOperator,
-  UniformNoiseEvaluateOperator,
-  CosineEvaluateOperator,
-  SineEvaluateOperator,
-  AddModulusEvaluateOperator,
+  LeftShiftEvaluateOperator,
+  LogEvaluateOperator,
+  MaxEvaluateOperator,
   MeanEvaluateOperator,
-  AbsEvaluateOperator,
-  ExponentialEvaluateOperator,
-  MedianEvaluateOperator
+  MedianEvaluateOperator,
+  MinEvaluateOperator,
+  MultiplicativeNoiseEvaluateOperator,
+  MultiplyEvaluateOperator,
+  OrEvaluateOperator,
+  PoissonNoiseEvaluateOperator,
+  PowEvaluateOperator,
+  RightShiftEvaluateOperator,
+  SetEvaluateOperator,
+  SineEvaluateOperator,
+  SubtractEvaluateOperator,
+  SumEvaluateOperator,
+  ThresholdBlackEvaluateOperator,
+  ThresholdEvaluateOperator,
+  ThresholdWhiteEvaluateOperator,
+  UniformNoiseEvaluateOperator,
+  XorEvaluateOperator
 } MagickEvaluateOperator;
 
 typedef enum
@@ -85,11 +86,26 @@ typedef enum
   ArctanFunction
 } MagickFunction;
 
+typedef enum
+{
+  UndefinedStatistic,
+  GradientStatistic,
+  MaximumStatistic,
+  MeanStatistic,
+  MedianStatistic,
+  MinimumStatistic,
+  ModeStatistic,
+  NonpeakStatistic,
+  StandardDeviationStatistic
+} StatisticType;
+
 extern MagickExport ChannelStatistics
   *GetImageStatistics(const Image *,ExceptionInfo *);
 
 extern MagickExport Image
-  *EvaluateImages(const Image *,const MagickEvaluateOperator,ExceptionInfo *);
+  *EvaluateImages(const Image *,const MagickEvaluateOperator,ExceptionInfo *),
+  *StatisticImage(const Image *,const StatisticType,const size_t,const size_t,
+    ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
   EvaluateImage(Image *,const MagickEvaluateOperator,const double,

@@ -49,14 +49,17 @@
 #include "MagickCore/hashmap.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/type.h"
+#include "MagickCore/type-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 #if defined(MAGICKCORE_FONTCONFIG_DELEGATE)
 # include "fontconfig/fontconfig.h"
@@ -89,9 +92,6 @@
 #define FC_WEIGHT_BLACK            210
 #define FC_WEIGHT_HEAVY            FC_WEIGHT_BLACK
 #endif
-#endif
-#if defined(MAGICKCORE_WINDOWS_SUPPORT)
-# include "MagickCore/nt-feature.h"
 #endif
 
 /*
@@ -209,16 +209,14 @@ MagickExport const TypeInfo *GetTypeInfo(const char *name,
 %
 */
 
-static inline size_t MagickMax(const size_t x,
-  const size_t y)
+static inline size_t MagickMax(const size_t x,const size_t y)
 {
   if (x > y)
     return(x);
   return(y);
 }
 
-static inline size_t MagickMin(const size_t x,
-  const size_t y)
+static inline size_t MagickMin(const size_t x,const size_t y)
 {
   if (x < y)
     return(x);
@@ -1277,7 +1275,7 @@ static MagickBooleanType LoadTypeList(const char *xml,const char *filename,
 static MagickBooleanType LoadTypeLists(const char *filename,
   ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_EMBEDDABLE_SUPPORT)
+#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   return(LoadTypeList(TypeMap,"built-in",0,exception));
 #else
   char
@@ -1349,7 +1347,7 @@ static MagickBooleanType LoadTypeLists(const char *filename,
 %      MagickBooleanType TypeComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType TypeComponentGenesis(void)
+MagickPrivate MagickBooleanType TypeComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&type_semaphore);
   return(MagickTrue);
@@ -1373,7 +1371,7 @@ MagickExport MagickBooleanType TypeComponentGenesis(void)
 %      void TypeComponentTerminus(void)
 %
 */
-MagickExport void TypeComponentTerminus(void)
+MagickPrivate void TypeComponentTerminus(void)
 {
   if (type_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&type_semaphore);

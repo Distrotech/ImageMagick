@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -22,34 +22,20 @@
 extern "C" {
 #endif
 
-typedef enum
-{
-  UndefinedPixel,
-  CharPixel,
-  DoublePixel,
-  FloatPixel,
-  IntegerPixel,
-  LongPixel,
-  QuantumPixel,
-  ShortPixel
-} StorageType;
+#include <MagickCore/pixel.h>
 
 extern MagickExport Image
   *ConstituteImage(const size_t,const size_t,const char *,const StorageType,
     const void *,ExceptionInfo *),
   *PingImage(const ImageInfo *,ExceptionInfo *),
-  *PingImages(const ImageInfo *,ExceptionInfo *),
+  *PingImages(ImageInfo *,const char *,ExceptionInfo *),
   *ReadImage(const ImageInfo *,ExceptionInfo *),
-  *ReadImages(const ImageInfo *,ExceptionInfo *),
+  *ReadImages(ImageInfo *,const char *,ExceptionInfo *),
   *ReadInlineImage(const ImageInfo *,const char *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
-  ConstituteComponentGenesis(void),
-  WriteImage(const ImageInfo *,Image *),
+  WriteImage(const ImageInfo *,Image *,ExceptionInfo *),
   WriteImages(const ImageInfo *,Image *,const char *,ExceptionInfo *);
-
-extern MagickExport void
-  ConstituteComponentTerminus(void);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

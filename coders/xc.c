@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -97,9 +97,6 @@ static Image *ReadXCImage(const ImageInfo *image_info,ExceptionInfo *exception)
     status;
 
   PixelInfo
-    color;
-
-  PixelPacket
     pixel;
 
   register ssize_t
@@ -121,32 +118,29 @@ static Image *ReadXCImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if (image->columns == 0)
     image->columns=1;
   if (image->rows == 0)
     image->rows=1;
   (void) CopyMagickString(image->filename,image_info->filename,MaxTextExtent);
-  status=QueryMagickColor((char *) image_info->filename,&color,exception);
+  status=QueryColorCompliance((char *) image_info->filename,AllCompliance,
+    &pixel,exception);
   if (status == MagickFalse)
     {
       image=DestroyImage(image);
       return((Image *) NULL);
     }
-  image->colorspace=color.colorspace;
-  image->matte=color.matte;
-  pixel.black=0;
-  SetPacketPixelInfo(image,&color,&pixel);
+  image->colorspace=pixel.colorspace;
+  image->matte=pixel.matte;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelPacket(image,&pixel,q);
-      if (image->colorspace == CMYKColorspace)
-        SetPixelBlack(image,pixel.black,q);
+      SetPixelInfoPixel(image,&pixel,q);
       q+=GetPixelChannels(image);
     }
     if (SyncAuthenticPixels(image,exception) == MagickFalse)

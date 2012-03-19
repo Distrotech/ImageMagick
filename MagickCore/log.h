@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ extern "C" {
 
 typedef enum
 {
-  UndefinedEvents,
+  UndefinedEvents = 0x000000,
   NoEvents = 0x00000,
-  TraceEvent = 0x00001,
+  AccelerateEvent = 0x00001,
   AnnotateEvent = 0x00002,
   BlobEvent = 0x00004,
   CacheEvent = 0x00008,
@@ -47,12 +47,14 @@ typedef enum
   ImageEvent = 0x00200,
   LocaleEvent = 0x00400,
   ModuleEvent = 0x00800,
-  PolicyEvent = 0x01000,
-  ResourceEvent = 0x02000,
-  TransformEvent = 0x04000,
-  UserEvent = 0x09000,
-  WandEvent = 0x10000,
-  X11Event = 0x20000,
+  PixelEvent = 0x01000,
+  PolicyEvent = 0x02000,
+  ResourceEvent = 0x04000,
+  TraceEvent = 0x08000,
+  TransformEvent = 0x10000,
+  UserEvent = 0x20000,
+  WandEvent = 0x40000,
+  X11Event = 0x80000,
   AllEvents = 0x7fffffff
 } LogEventType;
 
@@ -75,16 +77,14 @@ extern MagickExport LogEventType
 extern MagickExport MagickBooleanType
   IsEventLogging(void),
   ListLogInfo(FILE *,ExceptionInfo *),
-  LogComponentGenesis(void),
   LogMagickEvent(const LogEventType,const char *,const char *,const size_t,
     const char *,...) 
-    magick_attribute((format (printf,5,6))),
+    magick_attribute((__format__ (__printf__,5,6))),
   LogMagickEventList(const LogEventType,const char *,const char *,const size_t,
-    const char *,va_list) magick_attribute((format (printf,5,0)));
+    const char *,va_list) magick_attribute((__format__ (__printf__,5,0)));
 
 extern MagickExport void
   CloseMagickLog(void),
-  LogComponentTerminus(void),
   SetLogFormat(const char *);
 
 #if defined(__cplusplus) || defined(c_plusplus)

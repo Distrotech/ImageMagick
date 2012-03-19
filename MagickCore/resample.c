@@ -18,7 +18,7 @@
 %                                August 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -62,6 +62,7 @@
 #include "MagickCore/transform.h"
 #include "MagickCore/signature-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 /*
   EWA Resampling Options
 */
@@ -103,7 +104,7 @@ struct _ResampleFilter
   ssize_t
     image_area;
 
-  InterpolatePixelMethod
+  PixelInterpolateMethod
     interpolate;
 
   VirtualPixelMethod
@@ -332,9 +333,8 @@ MagickExport MagickBooleanType ResamplePixelColor(
   status=MagickTrue;
   /* GetPixelInfo(resample_filter->image,pixel); */
   if ( resample_filter->do_interpolate ) {
-    status=InterpolatePixelInfo(resample_filter->image,
-      resample_filter->view,resample_filter->interpolate,u0,v0,pixel,
-      resample_filter->exception);
+    status=InterpolatePixelInfo(resample_filter->image,resample_filter->view,
+      resample_filter->interpolate,u0,v0,pixel,resample_filter->exception);
     return(status);
   }
 
@@ -484,7 +484,7 @@ MagickExport MagickBooleanType ResamplePixelColor(
             *pixel=resample_filter->average_pixel; /* FAILED */
             break;
           }
-          SetPixelInfo(resample_filter->image,pixels,
+          GetPixelInfoPixel(resample_filter->image,pixels,
             &(resample_filter->average_pixel));
           average_view=DestroyCacheView(average_view);
           average_image=DestroyImage(average_image);
@@ -1381,7 +1381,7 @@ MagickExport void SetResampleFilter(ResampleFilter *resample_filter,
 %
 */
 MagickExport MagickBooleanType SetResampleFilterInterpolateMethod(
-  ResampleFilter *resample_filter,const InterpolatePixelMethod method)
+  ResampleFilter *resample_filter,const PixelInterpolateMethod method)
 {
   assert(resample_filter != (ResampleFilter *) NULL);
   assert(resample_filter->signature == MagickSignature);

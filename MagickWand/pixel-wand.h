@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ extern WandExport double
   PixelGetFuzz(const PixelWand *),
   PixelGetGreen(const PixelWand *),
   PixelGetMagenta(const PixelWand *),
-  PixelGetOpacity(const PixelWand *),
+  PixelGetAlpha(const PixelWand *),
   PixelGetRed(const PixelWand *),
   PixelGetYellow(const PixelWand *);
 
@@ -50,6 +50,9 @@ extern WandExport MagickBooleanType
   IsPixelWandSimilar(PixelWand *,PixelWand *,const double),
   PixelClearException(PixelWand *),
   PixelSetColor(PixelWand *,const char *);
+
+extern WandExport PixelInfo
+  PixelGetPixel(const PixelWand *);
 
 extern WandExport PixelWand
   *ClonePixelWand(const PixelWand *),
@@ -67,7 +70,7 @@ extern WandExport Quantum
   PixelGetGreenQuantum(const PixelWand *),
   PixelGetIndex(const PixelWand *),
   PixelGetMagentaQuantum(const PixelWand *),
-  PixelGetOpacityQuantum(const PixelWand *),
+  PixelGetAlphaQuantum(const PixelWand *),
   PixelGetRedQuantum(const PixelWand *),
   PixelGetYellowQuantum(const PixelWand *);
 
@@ -78,7 +81,7 @@ extern WandExport void
   ClearPixelWand(PixelWand *),
   PixelGetHSL(const PixelWand *,double *,double *,double *),
   PixelGetMagickColor(const PixelWand *,PixelInfo *),
-  PixelGetQuantumPacket(const PixelWand *,PixelPacket *),
+  PixelGetQuantumPacket(const PixelWand *,PixelInfo *),
   PixelGetQuantumPixel(const Image *,const PixelWand *,Quantum *),
   PixelSetAlpha(PixelWand *,const double),
   PixelSetAlphaQuantum(PixelWand *,const Quantum),
@@ -97,10 +100,10 @@ extern WandExport void
   PixelSetIndex(PixelWand *,const Quantum),
   PixelSetMagenta(PixelWand *,const double),
   PixelSetMagentaQuantum(PixelWand *,const Quantum),
-  PixelSetPixelInfo(PixelWand *,const PixelInfo *),
-  PixelSetOpacity(PixelWand *,const double),
-  PixelSetOpacityQuantum(PixelWand *,const Quantum),
-  PixelSetQuantumPacket(PixelWand *,const PixelPacket *),
+  PixelSetPixelColor(PixelWand *,const PixelInfo *),
+  PixelSetAlpha(PixelWand *,const double),
+  PixelSetAlphaQuantum(PixelWand *,const Quantum),
+  PixelSetPixelColor(PixelWand *,const PixelInfo *),
   PixelSetQuantumPixel(const Image *,const Quantum *,PixelWand *),
   PixelSetRed(PixelWand *,const double),
   PixelSetRedQuantum(PixelWand *,const Quantum),

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -20,35 +20,6 @@
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
-#endif
-
-#if defined(MAGICKCORE_X11_DELEGATE)
-
-#include "MagickCore/xwindow-private.h"
-
-extern MagickExport int
-  XCommandWidget(Display *,XWindows *,const char **,XEvent *),
-  XConfirmWidget(Display *,XWindows *,const char *,const char *),
-  XDialogWidget(Display *,XWindows *,const char *,const char *,char *),
-  XMenuWidget(Display *,XWindows *,const char *,const char **,char *);
-
-extern MagickExport MagickBooleanType
-  XPreferencesWidget(Display *,XResourceInfo *,XWindows *);
-
-extern MagickExport void
-  DestroyXWidget(void),
-  XColorBrowserWidget(Display *,XWindows *,const char *,char *),
-  XFileBrowserWidget(Display *,XWindows *,const char *,char *),
-  XFontBrowserWidget(Display *,XWindows *,const char *,char *),
-  XInfoWidget(Display *,XWindows *,const char *),
-  XListBrowserWidget(Display *,XWindows *,XWindowInfo *,const char **,
-    const char *,const char *,char *),
-  XNoticeWidget(Display *,XWindows *,const char *,const char *),
-  XProgressMonitorWidget(Display *,XWindows *,const char *,
-    const MagickOffsetType,const MagickSizeType),
-  XTextViewWidget(Display *,const XResourceInfo *,XWindows *,
-    const MagickBooleanType,const char *,const char **);
-
 #endif
 
 #if defined(__cplusplus) || defined(c_plusplus)

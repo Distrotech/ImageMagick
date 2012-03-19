@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -57,6 +57,9 @@ extern MagickExport char
 extern MagickExport const char
   *GetStringInfoPath(const StringInfo *);
 
+extern MagickExport double
+  InterpretSiPrefixValue(const char *restrict,char **restrict);
+
 extern MagickExport int
   CompareStringInfo(const StringInfo *,const StringInfo *),
   LocaleCompare(const char *,const char *),
@@ -68,9 +71,9 @@ extern MagickExport MagickBooleanType
 
 extern MagickExport size_t
   ConcatenateMagickString(char *,const char *,const size_t)
-    magick_attribute((nonnull)),
+    magick_attribute((__nonnull__)),
   CopyMagickString(char *,const char *,const size_t)
-    magick_attribute((nonnull)),
+    magick_attribute((__nonnull__)),
   GetStringInfoLength(const StringInfo *);
 
 extern MagickExport ssize_t
@@ -79,6 +82,7 @@ extern MagickExport ssize_t
 
 extern MagickExport StringInfo
   *AcquireStringInfo(const size_t),
+  *BlobToStringInfo(const void *,const size_t),
   *CloneStringInfo(const StringInfo *),
   *ConfigureFileToStringInfo(const char *),
   *DestroyStringInfo(StringInfo *),
@@ -91,7 +95,7 @@ extern MagickExport unsigned char
 
 extern MagickExport void
   ConcatenateStringInfo(StringInfo *,const StringInfo *)
-    magick_attribute((nonnull)),
+    magick_attribute((__nonnull__)),
   LocaleLower(char *),
   LocaleUpper(char *),
   PrintStringInfo(FILE *file,const char *,const StringInfo *),

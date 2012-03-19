@@ -15,7 +15,7 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,6 +41,7 @@
 #include "MagickCore/blob.h"
 #include "MagickCore/client.h"
 #include "MagickCore/configure.h"
+#include "MagickCore/configure-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
@@ -52,7 +53,9 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
+#include "MagickCore/xml-tree-private.h"
 
 /*
   Define declarations.
@@ -954,7 +957,7 @@ static MagickBooleanType LoadMimeList(const char *xml,const char *filename,
 MagickExport MagickBooleanType LoadMimeLists(const char *filename,
   ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_EMBEDDABLE_SUPPORT)
+#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   return(LoadMimeList(MimeMap,"built-in",0,exception));
 #else
   const StringInfo
@@ -1052,7 +1055,7 @@ MagickExport char *MagickToMime(const char *magick)
 %      MagickBooleanType MimeComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType MimeComponentGenesis(void)
+MagickPrivate MagickBooleanType MimeComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&mime_semaphore);
   return(MagickTrue);
@@ -1097,7 +1100,7 @@ static void *DestroyMimeElement(void *mime_info)
   return((void *) NULL);
 }
 
-MagickExport void MimeComponentTerminus(void)
+MagickPrivate void MimeComponentTerminus(void)
 {
   if (mime_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&mime_semaphore);

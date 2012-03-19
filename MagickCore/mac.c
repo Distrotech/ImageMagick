@@ -17,7 +17,7 @@
 %                                September 1996                               %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1234,7 +1234,7 @@ MagickExport Image *ReadPICTImage(const ImageInfo *image_info,
   /*
     Open image file.
   */
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(NULL);
@@ -1299,8 +1299,8 @@ MagickExport Image *ReadPICTImage(const ImageInfo *image_info,
       break;
     }
   }
-  image->x_resolution=(picture_info.hRes) >> 16;
-  image->y_resolution=(picture_info.vRes) >> 16;
+  image->resolution.x=(picture_info.hRes) >> 16;
+  image->resolution.y=(picture_info.vRes) >> 16;
   image->units=PixelsPerInchResolution;
   image->columns=picture_info.sourceRect.right-picture_info.sourceRect.left;
   image->rows=picture_info.sourceRect.bottom-picture_info.sourceRect.top;
@@ -1355,7 +1355,7 @@ MagickExport Image *ReadPICTImage(const ImageInfo *image_info,
       *restrict q;
 
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     for (x=0; x < image->columns; x++)
     {

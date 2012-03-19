@@ -18,7 +18,7 @@
 %                             November 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,33 +41,37 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
-#include "MagickCore/annotate.h"
+#include "MagickCore/annotate-private.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
-#include "MagickCore/coder.h"
+#include "MagickCore/cache-private.h"
+#include "MagickCore/coder-private.h"
 #include "MagickCore/client.h"
-#include "MagickCore/coder.h"
-#include "MagickCore/configure.h"
-#include "MagickCore/constitute.h"
-#include "MagickCore/delegate.h"
+#include "MagickCore/color-private.h"
+#include "MagickCore/configure-private.h"
+#include "MagickCore/constitute-private.h"
+#include "MagickCore/delegate-private.h"
 #include "MagickCore/draw.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
-#include "MagickCore/locale_.h"
-#include "MagickCore/log.h"
-#include "MagickCore/magic.h"
+#include "MagickCore/locale-private.h"
+#include "MagickCore/log-private.h"
+#include "MagickCore/magic-private.h"
 #include "MagickCore/magick.h"
+#include "MagickCore/magick-private.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/mime.h"
+#include "MagickCore/mime-private.h"
 #include "MagickCore/module.h"
-#if defined(MAGICKCORE_WINDOWS_SUPPORT)
-# include "MagickCore/nt-feature.h"
-#endif
-#include "MagickCore/random_.h"
+#include "MagickCore/module-private.h"
+#include "MagickCore/nt-base-private.h"
+#include "MagickCore/random-private.h"
 #include "MagickCore/registry.h"
+#include "MagickCore/registry-private.h"
 #include "MagickCore/resource_.h"
+#include "MagickCore/resource-private.h"
 #include "MagickCore/policy.h"
+#include "MagickCore/policy-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/semaphore-private.h"
 #include "MagickCore/signature-private.h"
@@ -76,8 +80,10 @@
 #include "MagickCore/string-private.h"
 #include "MagickCore/thread_.h"
 #include "MagickCore/thread-private.h"
+#include "MagickCore/type-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xwindow-private.h"
 
 /*
@@ -659,24 +665,7 @@ MagickExport char **GetMagickList(const char *pattern,
 */
 MagickExport int GetMagickPrecision(void)
 {
-#define MagickPrecision  6
-
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  if (SetMagickPrecision(0) == 0)
-    {
-      char
-        *limit;
-
-      (void) SetMagickPrecision(MagickPrecision);
-      limit=GetEnvironmentValue("MAGICK_PRECISION");
-      if (limit == (char *) NULL)
-        limit=GetPolicyValue("precision");
-      if (limit != (char *) NULL)
-        {
-          (void) SetMagickPrecision(StringToInteger(limit));
-          limit=DestroyString(limit);
-        }
-    }
   return(SetMagickPrecision(0));
 }
 
@@ -894,7 +883,7 @@ static MagickBooleanType InitializeMagickList(ExceptionInfo *exception)
 %    o magick: Specifies the image format.
 %
 */
-MagickExport MagickBooleanType IsMagickConflict(const char *magick)
+MagickPrivate MagickBooleanType IsMagickConflict(const char *magick)
 {
   assert(magick != (char *) NULL);
 #if defined(macintosh)
@@ -1059,7 +1048,7 @@ MagickExport MagickBooleanType IsMagickInstantiated(void)
 %      MagickBooleanType MagickComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType MagickComponentGenesis(void)
+MagickPrivate MagickBooleanType MagickComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&magick_semaphore);
   return(MagickTrue);
@@ -1083,7 +1072,7 @@ MagickExport MagickBooleanType MagickComponentGenesis(void)
 %      void MagickComponentTerminus(void)
 %
 */
-MagickExport void MagickComponentTerminus(void)
+MagickPrivate void MagickComponentTerminus(void)
 {
   if (magick_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&magick_semaphore);
@@ -1275,7 +1264,8 @@ MagickExport void MagickCoreGenesis(const char *path,
     Set client name and execution path.
   */
   (void) GetExecutionPath(execution_path,MaxTextExtent);
-  if ((path != (const char *) NULL) && (*path != '\0'))
+  if ((path != (const char *) NULL) && (*path == *DirectorySeparator) &&
+      (IsPathAccessible(path) != MagickFalse))
     (void) CopyMagickString(execution_path,path,MaxTextExtent);
   GetPathComponent(execution_path,TailPath,filename);
   (void) SetClientName(filename);
@@ -1514,7 +1504,13 @@ MagickExport MagickInfo *SetMagickInfo(const char *name)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  SetMagickPrecision() sets the maximum number of significant digits to be
-%  printed and returns it.
+%  printed.
+%
+%  An input argument of 0 returns the current precision setting.
+%
+%  A negative value forces the precision to reset to a default value according
+%  to the environment variable "MAGICK_PRECISION", the current 'policy'
+%  configuration setting, or the default value of '6', in that order.
 %
 %  The format of the SetMagickPrecision method is:
 %
@@ -1527,12 +1523,32 @@ MagickExport MagickInfo *SetMagickInfo(const char *name)
 */
 MagickExport int SetMagickPrecision(const int precision)
 {
+#define MagickPrecision  6
+
   static int
     magick_precision = 0;
 
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  if (precision != 0)
+  if (precision > 0)
     magick_precision=precision;
+  if ((precision < 0) || (magick_precision == 0))
+    {
+      char
+        *limit;
+
+      /*
+        Precision reset, or it has not been set yet
+      */
+      magick_precision = MagickPrecision;
+      limit=GetEnvironmentValue("MAGICK_PRECISION");
+      if (limit == (char *) NULL)
+        limit=GetPolicyValue("precision");
+      if (limit != (char *) NULL)
+        {
+          magick_precision=StringToInteger(limit);
+          limit=DestroyString(limit);
+        }
+    }
   return(magick_precision);
 }
 

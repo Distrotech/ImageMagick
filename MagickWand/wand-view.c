@@ -22,7 +22,7 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -263,9 +263,6 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
   WandView *duplex,WandView *destination,DuplexTransferWandViewMethod transfer,
   void *context)
 {
-  ExceptionInfo
-    *exception;
-
   Image
     *destination_image,
     *source_image;
@@ -285,13 +282,14 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
     return(MagickFalse);
   source_image=source->wand->images;
   destination_image=destination->wand->images;
-  if (SetImageStorageClass(destination_image,DirectClass) == MagickFalse)
+  status=SetImageStorageClass(destination_image,DirectClass,
+    destination->exception);
+  if (status == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
   progress=0;
-  exception=destination->exception;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,1) shared(progress,status) num_threads(source->number_threads)
+  #pragma omp parallel for schedule(static) shared(progress,status) num_threads(source->number_threads)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -339,7 +337,8 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
       duplex_pixels+=GetPixelChannels(duplex->image);
     }
     destination_pixels=GetCacheViewAuthenticPixels(destination->view,
-      destination->extent.x,y,destination->extent.width,1,exception);
+      destination->extent.x,y,destination->extent.width,1,
+      destination->exception);
     if (destination_pixels == (Quantum *) NULL)
       {
         status=MagickFalse;
@@ -354,27 +353,24 @@ WandExport MagickBooleanType DuplexTransferWandViewIterator(WandView *source,
     if (transfer(source,duplex,destination,y,id,context) == MagickFalse)
       status=MagickFalse;
     destination_pixels=GetCacheViewAuthenticPixels(destination->view,
-      destination->extent.x,y,destination->extent.width,1,exception);
+      destination->extent.x,y,destination->extent.width,1,
+      destination->exception);
     for (x=0; x < (ssize_t) destination->extent.width; x++)
     {
       PixelGetQuantumPixel(destination->image,destination->pixel_wands[id][x],
         destination_pixels);
       destination_pixels+=GetPixelChannels(destination->image);
     }
-    sync=SyncCacheViewAuthenticPixels(destination->view,exception);
+    sync=SyncCacheViewAuthenticPixels(destination->view,destination->exception);
     if (sync == MagickFalse)
-      {
-        InheritException(destination->exception,GetCacheViewException(
-          source->view));
-        status=MagickFalse;
-      }
+      status=MagickFalse;
     if (source_image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickWand_DuplexTransferWandViewIterator)
+        #pragma omp critical (MagickWand_DuplexTransferWandViewIterator)
 #endif
         proceed=SetImageProgress(source_image,source->description,progress++,
           source->extent.height);
@@ -539,7 +535,7 @@ WandExport MagickBooleanType GetWandViewIterator(WandView *source,
   status=MagickTrue;
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,1) shared(progress,status) num_threads(source->number_threads)
+  #pragma omp parallel for schedule(static) shared(progress,status) num_threads(source->number_threads)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -574,7 +570,7 @@ WandExport MagickBooleanType GetWandViewIterator(WandView *source,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickWand_GetWandViewIterator)
+        #pragma omp critical (MagickWand_GetWandViewIterator)
 #endif
         proceed=SetImageProgress(source_image,source->description,progress++,
           source->extent.height);
@@ -904,9 +900,6 @@ MagickExport void SetWandViewDescription(WandView *wand_view,
 WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
   SetWandViewMethod set,void *context)
 {
-  ExceptionInfo
-    *exception;
-
   Image
     *destination_image;
 
@@ -924,13 +917,14 @@ WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
   if (set == (SetWandViewMethod) NULL)
     return(MagickFalse);
   destination_image=destination->wand->images;
-  if (SetImageStorageClass(destination_image,DirectClass) == MagickFalse)
+  status=SetImageStorageClass(destination_image,DirectClass,
+    destination->exception);
+  if (status == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
   progress=0;
-  exception=destination->exception;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,1) shared(progress,status) num_threads(destination->number_threads)
+  #pragma omp parallel for schedule(static) shared(progress,status) num_threads(destination->number_threads)
 #endif
   for (y=destination->extent.y; y < (ssize_t) destination->extent.height; y++)
   {
@@ -949,11 +943,9 @@ WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
     if (status == MagickFalse)
       continue;
     pixels=GetCacheViewAuthenticPixels(destination->view,destination->extent.x,
-      y,destination->extent.width,1,exception);
+      y,destination->extent.width,1,destination->exception);
     if (pixels == (Quantum *) NULL)
       {
-        InheritException(destination->exception,GetCacheViewException(
-          destination->view));
         status=MagickFalse;
         continue;
       }
@@ -965,20 +957,16 @@ WandExport MagickBooleanType SetWandViewIterator(WandView *destination,
         pixels);
       pixels+=GetPixelChannels(destination->image);
     }
-    sync=SyncCacheViewAuthenticPixels(destination->view,exception);
+    sync=SyncCacheViewAuthenticPixels(destination->view,destination->exception);
     if (sync == MagickFalse)
-      {
-        InheritException(destination->exception,GetCacheViewException(
-          destination->view));
-        status=MagickFalse;
-      }
+      status=MagickFalse;
     if (destination_image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickWand_SetWandViewIterator)
+        #pragma omp critical (MagickWand_SetWandViewIterator)
 #endif
         proceed=SetImageProgress(destination_image,destination->description,
           progress++,destination->extent.height);
@@ -1075,9 +1063,6 @@ MagickExport void SetWandViewThreads(WandView *image_view,
 WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
   WandView *destination,TransferWandViewMethod transfer,void *context)
 {
-  ExceptionInfo
-    *exception;
-
   Image
     *destination_image,
     *source_image;
@@ -1097,13 +1082,14 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
     return(MagickFalse);
   source_image=source->wand->images;
   destination_image=destination->wand->images;
-  if (SetImageStorageClass(destination_image,DirectClass) == MagickFalse)
+  status=SetImageStorageClass(destination_image,DirectClass,
+    destination->exception);
+  if (status == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
   progress=0;
-  exception=destination->exception;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,1) shared(progress,status) num_threads(source->number_threads)
+  #pragma omp parallel for schedule(static) shared(progress,status) num_threads(source->number_threads)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
@@ -1137,7 +1123,8 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
       pixels+=GetPixelChannels(source->image);
     }
     destination_pixels=GetCacheViewAuthenticPixels(destination->view,
-      destination->extent.x,y,destination->extent.width,1,exception);
+      destination->extent.x,y,destination->extent.width,1,
+      destination->exception);
     if (destination_pixels == (Quantum *) NULL)
       {
         status=MagickFalse;
@@ -1152,27 +1139,24 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
     if (transfer(source,destination,y,id,context) == MagickFalse)
       status=MagickFalse;
     destination_pixels=GetCacheViewAuthenticPixels(destination->view,
-      destination->extent.x,y,destination->extent.width,1,exception);
+      destination->extent.x,y,destination->extent.width,1,
+      destination->exception);
     for (x=0; x < (ssize_t) destination->extent.width; x++)
     {
       PixelGetQuantumPixel(destination->image,destination->pixel_wands[id][x],
         destination_pixels);
       destination_pixels+=GetPixelChannels(destination->image);
     }
-    sync=SyncCacheViewAuthenticPixels(destination->view,exception);
+    sync=SyncCacheViewAuthenticPixels(destination->view,destination->exception);
     if (sync == MagickFalse)
-      {
-        InheritException(destination->exception,GetCacheViewException(
-          source->view));
-        status=MagickFalse;
-      }
+      status=MagickFalse;
     if (source_image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickWand_TransferWandViewIterator)
+        #pragma omp critical (MagickWand_TransferWandViewIterator)
 #endif
         proceed=SetImageProgress(source_image,source->description,progress++,
           source->extent.height);
@@ -1229,9 +1213,6 @@ WandExport MagickBooleanType TransferWandViewIterator(WandView *source,
 WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
   UpdateWandViewMethod update,void *context)
 {
-  ExceptionInfo
-    *exception;
-
   Image
     *source_image;
 
@@ -1249,18 +1230,21 @@ WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
   if (update == (UpdateWandViewMethod) NULL)
     return(MagickFalse);
   source_image=source->wand->images;
-  if (SetImageStorageClass(source_image,DirectClass) == MagickFalse)
+  status=SetImageStorageClass(source_image,DirectClass,source->exception);
+  if (status == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
   progress=0;
-  exception=source->exception;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,1) shared(progress,status) num_threads(source->number_threads)
+  #pragma omp parallel for schedule(static) shared(progress,status) num_threads(source->number_threads)
 #endif
   for (y=source->extent.y; y < (ssize_t) source->extent.height; y++)
   {
     const int
       id = GetOpenMPThreadId();
+
+    MagickBooleanType
+      sync;
 
     register ssize_t
       x;
@@ -1271,11 +1255,9 @@ WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
     if (status == MagickFalse)
       continue;
     pixels=GetCacheViewAuthenticPixels(source->view,source->extent.x,y,
-      source->extent.width,1,exception);
+      source->extent.width,1,source->exception);
     if (pixels == (Quantum *) NULL)
       {
-        InheritException(source->exception,GetCacheViewException(
-          source->view));
         status=MagickFalse;
         continue;
       }
@@ -1291,18 +1273,16 @@ WandExport MagickBooleanType UpdateWandViewIterator(WandView *source,
       PixelGetQuantumPixel(source->image,source->pixel_wands[id][x],pixels);
       pixels+=GetPixelChannels(source->image);
     }
-    if (SyncCacheViewAuthenticPixels(source->view,exception) == MagickFalse)
-      {
-        InheritException(source->exception,GetCacheViewException(source->view));
-        status=MagickFalse;
-      }
+    sync=SyncCacheViewAuthenticPixels(source->view,source->exception);
+    if (sync == MagickFalse)
+      status=MagickFalse;
     if (source_image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickWand_UpdateWandViewIterator)
+        #pragma omp critical (MagickWand_UpdateWandViewIterator)
 #endif
         proceed=SetImageProgress(source_image,source->description,progress++,
           source->extent.height);

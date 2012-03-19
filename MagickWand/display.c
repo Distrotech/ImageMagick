@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -45,7 +45,9 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
 #include "MagickCore/display-private.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/xwindow-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -502,6 +504,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 
         Image
           *display_image,
+          *image_list,
           *images;
 
         /*
@@ -526,10 +529,11 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
         iterations=0;
         if (i == (ssize_t) (argc-1))
           iterations=image->iterations;
-        display_image=CloneImageList(image,exception);
-        if (display_image == (Image *) NULL)
+        image_list=CloneImageList(image,exception);
+        if (image_list == (Image *) NULL)
           ThrowDisplayException(ResourceLimitError,"MemoryAllocationFailed",
             GetExceptionMessage(errno));
+        display_image=image_list;
         do
         {
           /*
@@ -542,7 +546,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
                 Display image to a specified X window.
               */
               status=XDisplayBackgroundImage(display,&resource_info,
-                display_image);
+                display_image,exception);
               if (status != MagickFalse)
                 {
                   state|=RetainColorsState;
@@ -561,7 +565,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
               if (resource_info.delay != 1)
                 display_image->delay=resource_info.delay;
               nexus=XDisplayImage(display,&resource_info,argv,argc,
-                &display_image,&state);
+                &display_image,&state,exception);
               status&=nexus != (Image *) NULL;
               if (nexus == (Image *) NULL)
                 break;
@@ -579,7 +583,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
                     break;
                   }
                 next=XDisplayImage(display,&resource_info,argv,argc,&nexus,
-                  &state);
+                  &state,exception);
                 if ((next == (Image *) NULL) &&
                     (GetNextImageInList(nexus) != (Image *) NULL))
                   {
@@ -601,9 +605,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
               */
               (void) CopyMagickString(display_image->filename,
                 resource_info.write_filename,MaxTextExtent);
-              (void) SetImageInfo(image_info,1,&display_image->exception);
-              status&=WriteImage(image_info,display_image);
-              GetImageException(display_image,exception);
+              (void) SetImageInfo(image_info,1,exception);
+              status&=WriteImage(image_info,display_image,exception);
             }
           /*
             Proceed to next/previous image.
@@ -627,6 +630,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           Free image resources.
         */
         display_image=DestroyImageList(display_image);
+        if (image_list != display_image)
+          image_list=DestroyImageList(image_list);
         if ((state & FormerImageState) == 0)
           {
             last_image=(size_t) image_number;
@@ -667,6 +672,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           state|=ExitState;
         if (LocaleCompare(filename,"-") == 0)
           state|=ExitState;
+        RemoveAllImageStack();
         continue;
       }
     pend=image != (Image *) NULL ? MagickTrue : MagickFalse;
@@ -1312,7 +1318,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowDisplayException(OptionError,"MissingArgument",option);
-            value=InterpretLocaleValue(argv[i],&p);
+            value=StringToDouble(argv[i],&p);
             (void) value;
             if ((p == argv[i]) && (LocaleCompare("unlimited",argv[i]) != 0))
               ThrowDisplayInvalidArgumentException(option,argv[i]);
@@ -1848,7 +1854,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowDisplayException(OptionError,"MissingArgument",option);
-            if (InterpretLocaleValue(argv[i],(char **) NULL) != 0)
+            if (StringToDouble(argv[i],(char **) NULL) != 0)
               resource_info.window_group=argv[i];
             break;
           }

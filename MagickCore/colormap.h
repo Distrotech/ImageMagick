@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ extern "C" {
 #endif
 
 extern MagickExport MagickBooleanType
-  AcquireImageColormap(Image *,const size_t),
-  CycleColormapImage(Image *,const ssize_t),
-  SortColormapByIntensity(Image *);
+  AcquireImageColormap(Image *,const size_t,ExceptionInfo *),
+  CycleColormapImage(Image *,const ssize_t,ExceptionInfo *),
+  SortColormapByIntensity(Image *,ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

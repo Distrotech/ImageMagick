@@ -16,7 +16,7 @@
 %                              December 2001                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -53,12 +53,14 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/random_.h"
+#include "MagickCore/random-private.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/signature-private.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/thread_.h"
 #include "MagickCore/thread-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 /*
   Define declarations.
 */
@@ -454,7 +456,7 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
 #endif
     if (file != -1)
       (void) close(file);
-    (void) remove(filename);
+    (void) remove_utf8(filename);
     SetStringInfoLength(chaos,strlen(filename));
     SetStringInfoDatum(chaos,(unsigned char *) filename);
     ConcatenateStringInfo(entropy,chaos);
@@ -490,6 +492,7 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
     */
     SetStringInfoLength(chaos,MaxEntropyExtent);
     status=NTGatherRandomData(MaxEntropyExtent,GetStringInfoDatum(chaos));
+    (void) status;
     ConcatenateStringInfo(entropy,chaos);
   }
 #else
@@ -527,7 +530,7 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
     filename=AcquireString("/dev/urandom");
     device=StringToStringInfo(filename);
     device=DestroyStringInfo(device);
-    file=open(filename,O_RDONLY | O_BINARY);
+    file=open_utf8(filename,O_RDONLY | O_BINARY,0);
     filename=DestroyString(filename);
     if (file != -1)
       {
@@ -545,14 +548,14 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
         filename=AcquireString("/dev/random");
         device=StringToStringInfo(filename);
         device=DestroyStringInfo(device);
-        file=open(filename,O_RDONLY | O_BINARY);
+        file=open_utf8(filename,O_RDONLY | O_BINARY,0);
         filename=DestroyString(filename);
         if (file == -1)
           {
             filename=AcquireString("/dev/srandom");
             device=StringToStringInfo(filename);
             device=DestroyStringInfo(device);
-            file=open(filename,O_RDONLY | O_BINARY);
+            file=open_utf8(filename,O_RDONLY | O_BINARY,0);
           }
         if (file != -1)
           {
@@ -702,7 +705,7 @@ MagickExport double GetRandomValue(RandomInfo *random_info)
 %      MagickBooleanType RandomComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType RandomComponentGenesis(void)
+MagickPrivate MagickBooleanType RandomComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&random_semaphore);
   return(MagickTrue);
@@ -726,7 +729,7 @@ MagickExport MagickBooleanType RandomComponentGenesis(void)
 %      RandomComponentTerminus(void)
 %
 */
-MagickExport void RandomComponentTerminus(void)
+MagickPrivate void RandomComponentTerminus(void)
 {
   if (random_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&random_semaphore);

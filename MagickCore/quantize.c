@@ -17,7 +17,7 @@
 %                              July 1992                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -216,14 +216,14 @@
 /*
   Typdef declarations.
 */
-typedef struct _RealPixelPacket
+typedef struct _RealPixelInfo
 {
   MagickRealType
     red,
     green,
     blue,
     alpha;
-} RealPixelPacket;
+} RealPixelInfo;
 
 typedef struct _NodeInfo
 {
@@ -234,7 +234,7 @@ typedef struct _NodeInfo
   MagickSizeType
     number_unique;
 
-  RealPixelPacket
+  RealPixelInfo
     total_color;
 
   MagickRealType
@@ -270,7 +270,7 @@ typedef struct _CubeInfo
   MagickSizeType
     transparent_pixels;
 
-  RealPixelPacket
+  RealPixelInfo
     target;
 
   MagickRealType
@@ -292,7 +292,7 @@ typedef struct _CubeInfo
   ssize_t
     *cache;
 
-  RealPixelPacket
+  RealPixelInfo
     error[ErrorQueueLength];
 
   MagickRealType
@@ -328,10 +328,10 @@ static NodeInfo
   *GetNodeInfo(CubeInfo *,const size_t,const size_t,NodeInfo *);
 
 static MagickBooleanType
-  AssignImageColors(Image *,CubeInfo *),
+  AssignImageColors(Image *,CubeInfo *,ExceptionInfo *),
   ClassifyImageColors(CubeInfo *,const Image *,ExceptionInfo *),
-  DitherImage(Image *,CubeInfo *),
-  SetGrayscaleImage(Image *);
+  DitherImage(Image *,CubeInfo *,ExceptionInfo *),
+  SetGrayscaleImage(Image *,ExceptionInfo *);
 
 static size_t
   DefineImageColormap(Image *,CubeInfo *,NodeInfo *);
@@ -430,8 +430,7 @@ MagickExport QuantizeInfo *AcquireQuantizeInfo(const ImageInfo *image_info)
 */
 
 static inline void AssociateAlphaPixel(const Image *image,
-  const CubeInfo *cube_info,const Quantum *pixel,
-  RealPixelPacket *alpha_pixel)
+  const CubeInfo *cube_info,const Quantum *pixel,RealPixelInfo *alpha_pixel)
 {
   MagickRealType
     alpha;
@@ -452,9 +451,9 @@ static inline void AssociateAlphaPixel(const Image *image,
   alpha_pixel->alpha=(MagickRealType) GetPixelAlpha(image,pixel);
 }
 
-static inline void AssociateAlphaPixelPacket(const Image *image,
-  const CubeInfo *cube_info,const PixelPacket *pixel,
-  RealPixelPacket *alpha_pixel)
+static inline void AssociateAlphaPixelInfo(const Image *image,
+  const CubeInfo *cube_info,const PixelInfo *pixel,
+  RealPixelInfo *alpha_pixel)
 {
   MagickRealType
     alpha;
@@ -485,7 +484,7 @@ static inline Quantum ClampToUnsignedQuantum(const MagickRealType value)
 }
 
 static inline size_t ColorToNodeId(const CubeInfo *cube_info,
-  const RealPixelPacket *pixel,size_t index)
+  const RealPixelInfo *pixel,size_t index)
 {
   size_t
     id;
@@ -498,7 +497,8 @@ static inline size_t ColorToNodeId(const CubeInfo *cube_info,
   return(id);
 }
 
-static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
+static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info,
+  ExceptionInfo *exception)
 {
 #define AssignImageTag  "Assign/Image"
 
@@ -511,13 +511,13 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
   if ((cube_info->quantize_info->colorspace != UndefinedColorspace) &&
       (cube_info->quantize_info->colorspace != CMYKColorspace))
     (void) TransformImageColorspace((Image *) image,
-      cube_info->quantize_info->colorspace);
+      cube_info->quantize_info->colorspace,exception);
   else
     if ((image->colorspace != GRAYColorspace) &&
         (IsRGBColorspace(image->colorspace) == MagickFalse) &&
         (image->colorspace != CMYColorspace))
-      (void) TransformImageColorspace((Image *) image,RGBColorspace);
-  if (AcquireImageColormap(image,cube_info->colors) == MagickFalse)
+      (void) TransformImageColorspace((Image *) image,RGBColorspace,exception);
+  if (AcquireImageColormap(image,cube_info->colors,exception) == MagickFalse)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
   image->colors=0;
@@ -529,7 +529,7 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
   */
   if ((cube_info->quantize_info->dither != MagickFalse) &&
       (cube_info->quantize_info->dither_method != NoDitherMethod))
-    (void) DitherImage(image,cube_info);
+    (void) DitherImage(image,cube_info,exception);
   else
     {
       CacheView
@@ -542,10 +542,9 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
         status;
 
       status=MagickTrue;
-      exception=(&image->exception);
       image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(dynamic,4) shared(status)
+      #pragma omp parallel for schedule(static,4) shared(status)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -565,7 +564,7 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
           continue;
         q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,
           exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
             continue;
@@ -573,7 +572,7 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
         cube=(*cube_info);
         for (x=0; x < (ssize_t) image->columns; x+=count)
         {
-          RealPixelPacket
+          RealPixelInfo
             pixel;
 
           register const NodeInfo
@@ -591,10 +590,10 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
           */
           for (count=1; (x+count) < (ssize_t) image->columns; count++)
           {
-            PixelPacket
+            PixelInfo
               packet;
 
-            GetPixelPacket(image,q+count*GetPixelChannels(image),&packet);
+            GetPixelInfoPixel(image,q+count*GetPixelChannels(image),&packet);
             if (IsPixelEquivalent(image,q,&packet) == MagickFalse)
               break;
           }
@@ -621,11 +620,15 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
               SetPixelIndex(image,(Quantum) index,q);
             if (cube.quantize_info->measure_error == MagickFalse)
               {
-                SetPixelRed(image,image->colormap[index].red,q);
-                SetPixelGreen(image,image->colormap[index].green,q);
-                SetPixelBlue(image,image->colormap[index].blue,q);
+                SetPixelRed(image,ClampToQuantum(
+                  image->colormap[index].red),q);
+                SetPixelGreen(image,ClampToQuantum(
+                  image->colormap[index].green),q);
+                SetPixelBlue(image,ClampToQuantum(
+                  image->colormap[index].blue),q);
                 if (cube.associate_alpha != MagickFalse)
-                  SetPixelAlpha(image,image->colormap[index].alpha,q);
+                  SetPixelAlpha(image,ClampToQuantum(
+                    image->colormap[index].alpha),q);
               }
             q+=GetPixelChannels(image);
           }
@@ -649,14 +652,14 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
       image_view=DestroyCacheView(image_view);
     }
   if (cube_info->quantize_info->measure_error != MagickFalse)
-    (void) GetImageQuantizeError(image);
+    (void) GetImageQuantizeError(image,exception);
   if ((cube_info->quantize_info->number_colors == 2) &&
       (cube_info->quantize_info->colorspace == GRAYColorspace))
     {
-      Quantum
+      double
         intensity;
 
-      register PixelPacket
+      register PixelInfo
         *restrict q;
 
       register ssize_t
@@ -668,7 +671,7 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
       q=image->colormap;
       for (i=0; i < (ssize_t) image->colors; i++)
       {
-        intensity=(Quantum) ((MagickRealType) GetPixelPacketIntensity(q) <
+        intensity=(double) ((MagickRealType) GetPixelInfoIntensity(q) <
           ((MagickRealType) QuantumRange/2.0) ? 0 : QuantumRange);
         q->red=intensity;
         q->green=intensity;
@@ -676,10 +679,10 @@ static MagickBooleanType AssignImageColors(Image *image,CubeInfo *cube_info)
         q++;
       }
     }
-  (void) SyncImage(image);
+  (void) SyncImage(image,exception);
   if ((cube_info->quantize_info->colorspace != UndefinedColorspace) &&
       (cube_info->quantize_info->colorspace != CMYKColorspace))
-    (void) TransformImageColorspace((Image *) image,RGBColorspace);
+    (void) TransformImageColorspace((Image *) image,RGBColorspace,exception);
   return(MagickTrue);
 }
 
@@ -775,7 +778,7 @@ static MagickBooleanType ClassifyImageColors(CubeInfo *cube_info,
   NodeInfo
     *node_info;
 
-  RealPixelPacket
+  RealPixelInfo
     error,
     mid,
     midpoint,
@@ -797,12 +800,12 @@ static MagickBooleanType ClassifyImageColors(CubeInfo *cube_info,
   if ((cube_info->quantize_info->colorspace != UndefinedColorspace) &&
       (cube_info->quantize_info->colorspace != CMYKColorspace))
     (void) TransformImageColorspace((Image *) image,
-      cube_info->quantize_info->colorspace);
+      cube_info->quantize_info->colorspace,exception);
   else
     if ((image->colorspace != GRAYColorspace) &&
         (image->colorspace != CMYColorspace) &&
         (IsRGBColorspace(image->colorspace) == MagickFalse))
-      (void) TransformImageColorspace((Image *) image,RGBColorspace);
+      (void) TransformImageColorspace((Image *) image,RGBColorspace,exception);
   midpoint.red=(MagickRealType) QuantumRange/2.0;
   midpoint.green=(MagickRealType) QuantumRange/2.0;
   midpoint.blue=(MagickRealType) QuantumRange/2.0;
@@ -835,10 +838,10 @@ static MagickBooleanType ClassifyImageColors(CubeInfo *cube_info,
       */
       for (count=1; (x+(ssize_t) count) < (ssize_t) image->columns; count++)
       {
-        PixelPacket
+        PixelInfo
           packet;
 
-        GetPixelPacket(image,p+count*GetPixelChannels(image),&packet);
+        GetPixelInfoPixel(image,p+count*GetPixelChannels(image),&packet);
         if (IsPixelEquivalent(image,p,&packet) == MagickFalse)
           break;
       }
@@ -930,10 +933,10 @@ static MagickBooleanType ClassifyImageColors(CubeInfo *cube_info,
       */
       for (count=1; (x+(ssize_t) count) < (ssize_t) image->columns; count++)
       {
-        PixelPacket
+        PixelInfo
           packet;
 
-        GetPixelPacket(image,p+count*GetPixelChannels(image),&packet);
+        GetPixelInfoPixel(image,p+count*GetPixelChannels(image),&packet);
         if (IsPixelEquivalent(image,p,&packet) == MagickFalse)
           break;
       }
@@ -997,7 +1000,7 @@ static MagickBooleanType ClassifyImageColors(CubeInfo *cube_info,
   image_view=DestroyCacheView(image_view);
   if ((cube_info->quantize_info->colorspace != UndefinedColorspace) &&
       (cube_info->quantize_info->colorspace != CMYKColorspace))
-    (void) TransformImageColorspace((Image *) image,RGBColorspace);
+    (void) TransformImageColorspace((Image *) image,RGBColorspace,exception);
   return(MagickTrue);
 }
 
@@ -1102,10 +1105,10 @@ static void ClosestColor(const Image *image,CubeInfo *cube_info,
         beta,
         distance;
 
-      register PixelPacket
+      register PixelInfo
         *restrict p;
 
-      register RealPixelPacket
+      register RealPixelInfo
         *restrict q;
 
       /*
@@ -1161,14 +1164,18 @@ static void ClosestColor(const Image *image,CubeInfo *cube_info,
 %
 %  The format of the CompressImageColormap method is:
 %
-%      MagickBooleanType CompressImageColormap(Image *image)
+%      MagickBooleanType CompressImageColormap(Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType CompressImageColormap(Image *image)
+MagickExport MagickBooleanType CompressImageColormap(Image *image,
+  ExceptionInfo *exception)
 {
   QuantizeInfo
     quantize_info;
@@ -1177,12 +1184,12 @@ MagickExport MagickBooleanType CompressImageColormap(Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (IsPaletteImage(image,&image->exception) == MagickFalse)
+  if (IsPaletteImage(image,exception) == MagickFalse)
     return(MagickFalse);
   GetQuantizeInfo(&quantize_info);
   quantize_info.number_colors=image->colors;
   quantize_info.tree_depth=MaxTreeDepth;
-  return(QuantizeImage(&quantize_info,image));
+  return(QuantizeImage(&quantize_info,image,exception));
 }
 
 /*
@@ -1237,7 +1244,7 @@ static size_t DefineImageColormap(Image *image,CubeInfo *cube_info,
       register MagickRealType
         alpha;
 
-      register PixelPacket
+      register PixelInfo
         *restrict q;
 
       /*
@@ -1248,12 +1255,12 @@ static size_t DefineImageColormap(Image *image,CubeInfo *cube_info,
       alpha=1.0/(fabs(alpha) <= MagickEpsilon ? 1.0 : alpha);
       if (cube_info->associate_alpha == MagickFalse)
         {
-          q->red=ClampToQuantum((MagickRealType)
+          q->red=(double) ClampToQuantum((MagickRealType)
             (alpha*QuantumRange*node_info->total_color.red));
-          q->green=ClampToQuantum((MagickRealType)
+          q->green=(double) ClampToQuantum((MagickRealType)
             (alpha*QuantumRange*node_info->total_color.green));
-          q->blue=ClampToQuantum((MagickRealType)
-            (alpha*QuantumRange*node_info->total_color.blue));
+          q->blue=(double) ClampToQuantum((MagickRealType)
+            (alpha*(double) QuantumRange*node_info->total_color.blue));
           q->alpha=OpaqueAlpha;
         }
       else
@@ -1263,14 +1270,14 @@ static size_t DefineImageColormap(Image *image,CubeInfo *cube_info,
 
           opacity=(MagickRealType) (alpha*QuantumRange*
             node_info->total_color.alpha);
-          q->alpha=ClampToQuantum(opacity);
+          q->alpha=(double) ClampToQuantum(opacity);
           if (q->alpha == OpaqueAlpha)
             {
-              q->red=ClampToQuantum((MagickRealType)
+              q->red=(double) ClampToQuantum((MagickRealType)
                 (alpha*QuantumRange*node_info->total_color.red));
-              q->green=ClampToQuantum((MagickRealType)
+              q->green=(double) ClampToQuantum((MagickRealType)
                 (alpha*QuantumRange*node_info->total_color.green));
-              q->blue=ClampToQuantum((MagickRealType)
+              q->blue=(double) ClampToQuantum((MagickRealType)
                 (alpha*QuantumRange*node_info->total_color.blue));
             }
           else
@@ -1280,11 +1287,11 @@ static size_t DefineImageColormap(Image *image,CubeInfo *cube_info,
 
               gamma=(MagickRealType) (QuantumScale*q->alpha);
               gamma=1.0/(fabs(gamma) <= MagickEpsilon ? 1.0 : gamma);
-              q->red=ClampToQuantum((MagickRealType)
+              q->red=(double) ClampToQuantum((MagickRealType)
                 (alpha*gamma*QuantumRange*node_info->total_color.red));
-              q->green=ClampToQuantum((MagickRealType)
+              q->green=(double) ClampToQuantum((MagickRealType)
                 (alpha*gamma*QuantumRange*node_info->total_color.green));
-              q->blue=ClampToQuantum((MagickRealType)
+              q->blue=(double) ClampToQuantum((MagickRealType)
                 (alpha*gamma*QuantumRange*node_info->total_color.blue));
               if (node_info->number_unique > cube_info->transparent_pixels)
                 {
@@ -1394,7 +1401,8 @@ MagickExport QuantizeInfo *DestroyQuantizeInfo(QuantizeInfo *quantize_info)
 %
 %  The format of the DitherImage method is:
 %
-%      MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info)
+%      MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -1402,24 +1410,26 @@ MagickExport QuantizeInfo *DestroyQuantizeInfo(QuantizeInfo *quantize_info)
 %
 %    o cube_info: A pointer to the Cube structure.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 
-static RealPixelPacket **DestroyPixelThreadSet(RealPixelPacket **pixels)
+static RealPixelInfo **DestroyPixelThreadSet(RealPixelInfo **pixels)
 {
   register ssize_t
     i;
 
-  assert(pixels != (RealPixelPacket **) NULL);
+  assert(pixels != (RealPixelInfo **) NULL);
   for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
-    if (pixels[i] != (RealPixelPacket *) NULL)
-      pixels[i]=(RealPixelPacket *) RelinquishMagickMemory(pixels[i]);
-  pixels=(RealPixelPacket **) RelinquishMagickMemory(pixels);
+    if (pixels[i] != (RealPixelInfo *) NULL)
+      pixels[i]=(RealPixelInfo *) RelinquishMagickMemory(pixels[i]);
+  pixels=(RealPixelInfo **) RelinquishMagickMemory(pixels);
   return(pixels);
 }
 
-static RealPixelPacket **AcquirePixelThreadSet(const size_t count)
+static RealPixelInfo **AcquirePixelThreadSet(const size_t count)
 {
-  RealPixelPacket
+  RealPixelInfo
     **pixels;
 
   register ssize_t
@@ -1429,23 +1439,23 @@ static RealPixelPacket **AcquirePixelThreadSet(const size_t count)
     number_threads;
 
   number_threads=GetOpenMPMaximumThreads();
-  pixels=(RealPixelPacket **) AcquireQuantumMemory(number_threads,
+  pixels=(RealPixelInfo **) AcquireQuantumMemory(number_threads,
     sizeof(*pixels));
-  if (pixels == (RealPixelPacket **) NULL)
-    return((RealPixelPacket **) NULL);
+  if (pixels == (RealPixelInfo **) NULL)
+    return((RealPixelInfo **) NULL);
   (void) ResetMagickMemory(pixels,0,number_threads*sizeof(*pixels));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
-    pixels[i]=(RealPixelPacket *) AcquireQuantumMemory(count,
+    pixels[i]=(RealPixelInfo *) AcquireQuantumMemory(count,
       2*sizeof(**pixels));
-    if (pixels[i] == (RealPixelPacket *) NULL)
+    if (pixels[i] == (RealPixelInfo *) NULL)
       return(DestroyPixelThreadSet(pixels));
   }
   return(pixels);
 }
 
 static inline ssize_t CacheOffset(CubeInfo *cube_info,
-  const RealPixelPacket *pixel)
+  const RealPixelInfo *pixel)
 {
 #define RedShift(pixel) (((pixel) >> CacheShift) << (0*(8-CacheShift)))
 #define GreenShift(pixel) (((pixel) >> CacheShift) << (1*(8-CacheShift)))
@@ -1465,20 +1475,18 @@ static inline ssize_t CacheOffset(CubeInfo *cube_info,
   return(offset);
 }
 
-static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
+static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info,
+  ExceptionInfo *exception)
 {
 #define DitherImageTag  "Dither/Image"
 
   CacheView
     *image_view;
 
-  ExceptionInfo
-    *exception;
-
   MagickBooleanType
     status;
 
-  RealPixelPacket
+  RealPixelInfo
     **pixels;
 
   ssize_t
@@ -1488,9 +1496,8 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
     Distribute quantization error using Floyd-Steinberg.
   */
   pixels=AcquirePixelThreadSet(image->columns);
-  if (pixels == (RealPixelPacket **) NULL)
+  if (pixels == (RealPixelInfo **) NULL)
     return(MagickFalse);
-  exception=(&image->exception);
   status=MagickTrue;
   image_view=AcquireCacheView(image);
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -1501,7 +1508,7 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
     CubeInfo
       cube;
 
-    RealPixelPacket
+    RealPixelInfo
       *current,
       *previous;
 
@@ -1520,7 +1527,7 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -1532,7 +1539,7 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
     v=(ssize_t) ((y & 0x01) != 0 ? -1 : 1);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      RealPixelPacket
+      RealPixelInfo
         color,
         pixel;
 
@@ -1619,18 +1626,18 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
         SetPixelIndex(image,(Quantum) index,q);
       if (cube.quantize_info->measure_error == MagickFalse)
         {
-          SetPixelRed(image,image->colormap[index].red,q);
-          SetPixelGreen(image,image->colormap[index].green,q);
-          SetPixelBlue(image,image->colormap[index].blue,q);
+          SetPixelRed(image,ClampToQuantum(image->colormap[index].red),q);
+          SetPixelGreen(image,ClampToQuantum(image->colormap[index].green),q);
+          SetPixelBlue(image,ClampToQuantum(image->colormap[index].blue),q);
           if (cube.associate_alpha != MagickFalse)
-            SetPixelAlpha(image,image->colormap[index].alpha,q);
+            SetPixelAlpha(image,ClampToQuantum(image->colormap[index].alpha),q);
         }
       if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
         status=MagickFalse;
       /*
         Store the error.
       */
-      AssociateAlphaPixelPacket(image,&cube,image->colormap+index,&color);
+      AssociateAlphaPixelInfo(image,&cube,image->colormap+index,&color);
       current[u].red=pixel.red-color.red;
       current[u].green=pixel.green-color.green;
       current[u].blue=pixel.blue-color.blue;
@@ -1658,40 +1665,53 @@ static MagickBooleanType FloydSteinbergDither(Image *image,CubeInfo *cube_info)
 }
 
 static MagickBooleanType
-  RiemersmaDither(Image *,CacheView *,CubeInfo *,const unsigned int);
+  RiemersmaDither(Image *,CacheView *,CubeInfo *,const unsigned int,
+    ExceptionInfo *exception);
 
 static void Riemersma(Image *image,CacheView *image_view,CubeInfo *cube_info,
-  const size_t level,const unsigned int direction)
+  const size_t level,const unsigned int direction,ExceptionInfo *exception)
 {
   if (level == 1)
     switch (direction)
     {
       case WestGravity:
       {
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
         break;
       }
       case EastGravity:
       {
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
         break;
       }
       case NorthGravity:
       {
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
         break;
       }
       case SouthGravity:
       {
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
         break;
       }
       default:
@@ -1702,46 +1722,74 @@ static void Riemersma(Image *image,CacheView *image_view,CubeInfo *cube_info,
     {
       case WestGravity:
       {
-        Riemersma(image,image_view,cube_info,level-1,NorthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
-        Riemersma(image,image_view,cube_info,level-1,WestGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
-        Riemersma(image,image_view,cube_info,level-1,WestGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
-        Riemersma(image,image_view,cube_info,level-1,SouthGravity);
+        Riemersma(image,image_view,cube_info,level-1,NorthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,WestGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,WestGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,SouthGravity,
+          exception);
         break;
       }
       case EastGravity:
       {
-        Riemersma(image,image_view,cube_info,level-1,SouthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
-        Riemersma(image,image_view,cube_info,level-1,EastGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
-        Riemersma(image,image_view,cube_info,level-1,EastGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
-        Riemersma(image,image_view,cube_info,level-1,NorthGravity);
+        Riemersma(image,image_view,cube_info,level-1,SouthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,EastGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,EastGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,NorthGravity,
+          exception);
         break;
       }
       case NorthGravity:
       {
-        Riemersma(image,image_view,cube_info,level-1,WestGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
-        Riemersma(image,image_view,cube_info,level-1,NorthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,EastGravity);
-        Riemersma(image,image_view,cube_info,level-1,NorthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
-        Riemersma(image,image_view,cube_info,level-1,EastGravity);
+        Riemersma(image,image_view,cube_info,level-1,WestGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,NorthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,EastGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,NorthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,EastGravity,
+          exception);
         break;
       }
       case SouthGravity:
       {
-        Riemersma(image,image_view,cube_info,level-1,EastGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity);
-        Riemersma(image,image_view,cube_info,level-1,SouthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,WestGravity);
-        Riemersma(image,image_view,cube_info,level-1,SouthGravity);
-        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity);
-        Riemersma(image,image_view,cube_info,level-1,WestGravity);
+        Riemersma(image,image_view,cube_info,level-1,EastGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,NorthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,SouthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,WestGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,SouthGravity,
+          exception);
+        (void) RiemersmaDither(image,image_view,cube_info,SouthGravity,
+          exception);
+        Riemersma(image,image_view,cube_info,level-1,WestGravity,
+          exception);
         break;
       }
       default:
@@ -1750,14 +1798,14 @@ static void Riemersma(Image *image,CacheView *image_view,CubeInfo *cube_info,
 }
 
 static MagickBooleanType RiemersmaDither(Image *image,CacheView *image_view,
-  CubeInfo *cube_info,const unsigned int direction)
+  CubeInfo *cube_info,const unsigned int direction,ExceptionInfo *exception)
 {
 #define DitherImageTag  "Dither/Image"
 
   MagickBooleanType
     proceed;
 
-  RealPixelPacket
+  RealPixelInfo
     color,
     pixel;
 
@@ -1771,9 +1819,6 @@ static MagickBooleanType RiemersmaDither(Image *image,CacheView *image_view,
   if ((p->x >= 0) && (p->x < (ssize_t) image->columns) &&
       (p->y >= 0) && (p->y < (ssize_t) image->rows))
     {
-      ExceptionInfo
-        *exception;
-
       register Quantum
         *restrict q;
 
@@ -1783,9 +1828,8 @@ static MagickBooleanType RiemersmaDither(Image *image,CacheView *image_view,
       /*
         Distribute error.
       */
-      exception=(&image->exception);
       q=GetCacheViewAuthenticPixels(image_view,p->x,p->y,1,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         return(MagickFalse);
       AssociateAlphaPixel(image,cube_info,q,&pixel);
       for (i=0; i < ErrorQueueLength; i++)
@@ -1839,11 +1883,11 @@ static MagickBooleanType RiemersmaDither(Image *image,CacheView *image_view,
         SetPixelIndex(image,(Quantum) index,q);
       if (cube_info->quantize_info->measure_error == MagickFalse)
         {
-          SetPixelRed(image,image->colormap[index].red,q);
-          SetPixelGreen(image,image->colormap[index].green,q);
-          SetPixelBlue(image,image->colormap[index].blue,q);
+          SetPixelRed(image,ClampToQuantum(image->colormap[index].red),q);
+          SetPixelGreen(image,ClampToQuantum(image->colormap[index].green),q);
+          SetPixelBlue(image,ClampToQuantum(image->colormap[index].blue),q);
           if (cube_info->associate_alpha != MagickFalse)
-            SetPixelAlpha(image,image->colormap[index].alpha,q);
+            SetPixelAlpha(image,ClampToQuantum(image->colormap[index].alpha),q);
         }
       if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
         return(MagickFalse);
@@ -1852,7 +1896,7 @@ static MagickBooleanType RiemersmaDither(Image *image,CacheView *image_view,
       */
       (void) CopyMagickMemory(p->error,p->error+1,(ErrorQueueLength-1)*
         sizeof(p->error[0]));
-      AssociateAlphaPixelPacket(image,cube_info,image->colormap+index,&color);
+      AssociateAlphaPixelInfo(image,cube_info,image->colormap+index,&color);
       p->error[ErrorQueueLength-1].red=pixel.red-color.red;
       p->error[ErrorQueueLength-1].green=pixel.green-color.green;
       p->error[ErrorQueueLength-1].blue=pixel.blue-color.blue;
@@ -1887,7 +1931,8 @@ static inline ssize_t MagickMin(const ssize_t x,const ssize_t y)
   return(y);
 }
 
-static MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info)
+static MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
@@ -1902,7 +1947,7 @@ static MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info)
     depth;
 
   if (cube_info->quantize_info->dither_method != RiemersmaDitherMethod)
-    return(FloydSteinbergDither(image,cube_info));
+    return(FloydSteinbergDither(image,cube_info,exception));
   /*
     Distribute quantization error along a Hilbert curve.
   */
@@ -1919,8 +1964,8 @@ static MagickBooleanType DitherImage(Image *image,CubeInfo *cube_info)
   cube_info->span=(MagickSizeType) image->columns*image->rows;
   image_view=AcquireCacheView(image);
   if (depth > 1)
-    Riemersma(image,image_view,cube_info,depth-1,NorthGravity);
-  status=RiemersmaDither(image,image_view,cube_info,ForgetGravity);
+    Riemersma(image,image_view,cube_info,depth-1,NorthGravity,exception);
+  status=RiemersmaDither(image,image_view,cube_info,ForgetGravity,exception);
   image_view=DestroyCacheView(image_view);
   return(status);
 }
@@ -2132,20 +2177,21 @@ static NodeInfo *GetNodeInfo(CubeInfo *cube_info,const size_t id,
 %
 %  The format of the GetImageQuantizeError method is:
 %
-%      MagickBooleanType GetImageQuantizeError(Image *image)
+%      MagickBooleanType GetImageQuantizeError(Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-MagickExport MagickBooleanType GetImageQuantizeError(Image *image)
+MagickExport MagickBooleanType GetImageQuantizeError(Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickRealType
     alpha,
@@ -2166,7 +2212,7 @@ MagickExport MagickBooleanType GetImageQuantizeError(Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  image->total_colors=GetNumberColors(image,(FILE *) NULL,&image->exception);
+  image->total_colors=GetNumberColors(image,(FILE *) NULL,exception);
   (void) ResetMagickMemory(&image->error,0,sizeof(image->error));
   if (image->storage_class == DirectClass)
     return(MagickTrue);
@@ -2176,7 +2222,6 @@ MagickExport MagickBooleanType GetImageQuantizeError(Image *image)
   maximum_error=0.0;
   mean_error_per_pixel=0.0;
   mean_error=0.0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2266,7 +2311,7 @@ MagickExport void GetQuantizeInfo(QuantizeInfo *quantize_info)
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%     P o s t e r i z e I m a g e C h a n n e l                               %
+%     P o s t e r i z e I m a g e                                             %
 %                                                                             %
 %                                                                             %
 %                                                                             %
@@ -2278,7 +2323,7 @@ MagickExport void GetQuantizeInfo(QuantizeInfo *quantize_info)
 %  The format of the PosterizeImage method is:
 %
 %      MagickBooleanType PosterizeImage(Image *image,const size_t levels,
-%        const MagickBooleanType dither)
+%        const MagickBooleanType dither,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2289,6 +2334,8 @@ MagickExport void GetQuantizeInfo(QuantizeInfo *quantize_info)
 %
 %    o dither: Set this integer value to something other than zero to dither
 %      the mapped image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -2303,7 +2350,7 @@ static inline ssize_t MagickRound(MagickRealType x)
 }
 
 MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
-  const MagickBooleanType dither)
+  const MagickBooleanType dither,ExceptionInfo *exception)
 {
 #define PosterizeImageTag  "Posterize/Image"
 #define PosterizePixel(pixel) (Quantum) (QuantumRange*(MagickRound( \
@@ -2311,9 +2358,6 @@ MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
 
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -2336,7 +2380,7 @@ MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->storage_class == PseudoClass)
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+    #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
     for (i=0; i < (ssize_t) image->colors; i++)
     {
@@ -2344,23 +2388,26 @@ MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
         Posterize colormap.
       */
       if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-        image->colormap[i].red=PosterizePixel(image->colormap[i].red);
+        image->colormap[i].red=(double)
+          PosterizePixel(image->colormap[i].red);
       if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-        image->colormap[i].green=PosterizePixel(image->colormap[i].green);
+        image->colormap[i].green=(double)
+          PosterizePixel(image->colormap[i].green);
       if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-        image->colormap[i].blue=PosterizePixel(image->colormap[i].blue);
+        image->colormap[i].blue=(double)
+          PosterizePixel(image->colormap[i].blue);
       if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-        image->colormap[i].alpha=PosterizePixel(image->colormap[i].alpha);
+        image->colormap[i].alpha=(double)
+          PosterizePixel(image->colormap[i].alpha);
     }
   /*
     Posterize image.
   */
   status=MagickTrue;
   progress=0;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2373,7 +2420,7 @@ MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -2416,7 +2463,7 @@ MagickExport MagickBooleanType PosterizeImage(Image *image,const size_t levels,
     levels,MaxColormapSize+1);
   quantize_info->dither=dither;
   quantize_info->tree_depth=MaxTreeDepth;
-  status=QuantizeImage(quantize_info,image);
+  status=QuantizeImage(quantize_info,image,exception);
   quantize_info=DestroyQuantizeInfo(quantize_info);
   return(status);
 }
@@ -2595,7 +2642,7 @@ static void PruneToCubeDepth(const Image *image,CubeInfo *cube_info,
 %  The format of the QuantizeImage method is:
 %
 %      MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2603,9 +2650,74 @@ static void PruneToCubeDepth(const Image *image,CubeInfo *cube_info,
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
+
+static MagickBooleanType DirectToColormapImage(Image *image,
+  ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  register ssize_t
+    i;
+
+  size_t
+    number_colors;
+
+  ssize_t
+    y;
+
+  status=MagickTrue;
+  number_colors=(size_t) (image->columns*image->rows);
+  if (AcquireImageColormap(image,number_colors,exception) == MagickFalse)
+    ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
+      image->filename);
+  if (image->colors != number_colors)
+    return(MagickFalse);
+  i=0;
+  image_view=AcquireCacheView(image);
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    MagickBooleanType
+      proceed;
+
+    register Quantum
+      *restrict q;
+
+    register ssize_t
+      x;
+
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      break;
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      image->colormap[i].red=(double) GetPixelRed(image,q);
+      image->colormap[i].green=(double) GetPixelGreen(image,q);
+      image->colormap[i].blue=(double) GetPixelBlue(image,q);
+      image->colormap[i].alpha=(double) GetPixelAlpha(image,q);
+      SetPixelIndex(image,(Quantum) i,q);
+      i++;
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      break;
+    proceed=SetImageProgress(image,AssignImageTag,(MagickOffsetType) y,
+      image->rows);
+    if (proceed == MagickFalse)
+      status=MagickFalse;
+  }
+  image_view=DestroyCacheView(image_view);
+  return(status);
+}
+
 MagickExport MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   CubeInfo
     *cube_info;
@@ -2628,9 +2740,11 @@ MagickExport MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
     maximum_colors=MaxColormapSize;
   if (maximum_colors > MaxColormapSize)
     maximum_colors=MaxColormapSize;
-  if ((IsImageGray(image,&image->exception) != MagickFalse) &&
+  if ((image->columns*image->rows) <= maximum_colors)
+    (void) DirectToColormapImage(image,exception);
+  if ((IsImageGray(image,exception) != MagickFalse) &&
       (image->matte == MagickFalse))
-    (void) SetGrayscaleImage(image);
+    (void) SetGrayscaleImage(image,exception);
   if ((image->storage_class == PseudoClass) &&
       (image->colors <= maximum_colors))
     return(MagickTrue);
@@ -2658,14 +2772,14 @@ MagickExport MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
   if (cube_info == (CubeInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
-  status=ClassifyImageColors(cube_info,image,&image->exception);
+  status=ClassifyImageColors(cube_info,image,exception);
   if (status != MagickFalse)
     {
       /*
         Reduce the number of colors in the image.
       */
       ReduceImageColors(image,cube_info);
-      status=AssignImageColors(image,cube_info);
+      status=AssignImageColors(image,cube_info,exception);
     }
   DestroyCubeInfo(cube_info);
   return(status);
@@ -2690,7 +2804,7 @@ MagickExport MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
 %  The format of the QuantizeImages method is:
 %
 %      MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
-%        Image *images)
+%        Image *images,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2698,9 +2812,11 @@ MagickExport MagickBooleanType QuantizeImage(const QuantizeInfo *quantize_info,
 %
 %    o images: Specifies a pointer to a list of Image structures.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
-  Image *images)
+  Image *images,ExceptionInfo *exception)
 {
   CubeInfo
     *cube_info;
@@ -2734,7 +2850,7 @@ MagickExport MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
       /*
         Handle a single image with QuantizeImage.
       */
-      status=QuantizeImage(quantize_info,images);
+      status=QuantizeImage(quantize_info,images,exception);
       return(status);
     }
   status=MagickFalse;
@@ -2764,7 +2880,7 @@ MagickExport MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
   cube_info=GetCubeInfo(quantize_info,depth,maximum_colors);
   if (cube_info == (CubeInfo *) NULL)
     {
-      (void) ThrowMagickException(&images->exception,GetMagickModule(),
+      (void) ThrowMagickException(exception,GetMagickModule(),
         ResourceLimitError,"MemoryAllocationFailed","`%s'",images->filename);
       return(MagickFalse);
     }
@@ -2774,7 +2890,7 @@ MagickExport MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
   {
     progress_monitor=SetImageProgressMonitor(image,(MagickProgressMonitor) NULL,
       image->client_data);
-    status=ClassifyImageColors(cube_info,image,&image->exception);
+    status=ClassifyImageColors(cube_info,image,exception);
     if (status == MagickFalse)
       break;
     (void) SetImageProgressMonitor(image,progress_monitor,image->client_data);
@@ -2795,7 +2911,7 @@ MagickExport MagickBooleanType QuantizeImages(const QuantizeInfo *quantize_info,
       {
         progress_monitor=SetImageProgressMonitor(image,(MagickProgressMonitor)
           NULL,image->client_data);
-        status=AssignImageColors(image,cube_info);
+        status=AssignImageColors(image,cube_info,exception);
         if (status == MagickFalse)
           break;
         (void) SetImageProgressMonitor(image,progress_monitor,
@@ -2961,13 +3077,13 @@ static void ReduceImageColors(const Image *image,CubeInfo *cube_info)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  RemapImage() replaces the colors of an image with the closest color from
-%  a reference image.
+%  RemapImage() replaces the colors of an image with a dither of the colors
+%  provided.
 %
 %  The format of the RemapImage method is:
 %
 %      MagickBooleanType RemapImage(const QuantizeInfo *quantize_info,
-%        Image *image,const Image *remap_image)
+%        Image *image,const Image *remap_image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2977,9 +3093,11 @@ static void ReduceImageColors(const Image *image,CubeInfo *cube_info)
 %
 %    o remap_image: the reference image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType RemapImage(const QuantizeInfo *quantize_info,
-  Image *image,const Image *remap_image)
+  Image *image,const Image *remap_image,ExceptionInfo *exception)
 {
   CubeInfo
     *cube_info;
@@ -3001,14 +3119,14 @@ MagickExport MagickBooleanType RemapImage(const QuantizeInfo *quantize_info,
   if (cube_info == (CubeInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
-  status=ClassifyImageColors(cube_info,remap_image,&image->exception);
+  status=ClassifyImageColors(cube_info,remap_image,exception);
   if (status != MagickFalse)
     {
       /*
         Classify image colors from the reference image.
       */
       cube_info->quantize_info->number_colors=cube_info->colors;
-      status=AssignImageColors(image,cube_info);
+      status=AssignImageColors(image,cube_info,exception);
     }
   DestroyCubeInfo(cube_info);
   return(status);
@@ -3031,7 +3149,7 @@ MagickExport MagickBooleanType RemapImage(const QuantizeInfo *quantize_info,
 %  The format of the RemapImage method is:
 %
 %      MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
-%        Image *images,Image *remap_image)
+%        Image *images,Image *remap_image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -3041,9 +3159,11 @@ MagickExport MagickBooleanType RemapImage(const QuantizeInfo *quantize_info,
 %
 %    o remap_image: the reference image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
-  Image *images,const Image *remap_image)
+  Image *images,const Image *remap_image,ExceptionInfo *exception)
 {
   CubeInfo
     *cube_info;
@@ -3064,7 +3184,7 @@ MagickExport MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
       /*
         Create a global colormap for an image sequence.
       */
-      status=QuantizeImages(quantize_info,images);
+      status=QuantizeImages(quantize_info,images,exception);
       return(status);
     }
   /*
@@ -3075,7 +3195,7 @@ MagickExport MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
   if (cube_info == (CubeInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
-  status=ClassifyImageColors(cube_info,remap_image,&image->exception);
+  status=ClassifyImageColors(cube_info,remap_image,exception);
   if (status != MagickFalse)
     {
       /*
@@ -3085,7 +3205,7 @@ MagickExport MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
       image=images;
       for ( ; image != (Image *) NULL; image=GetNextImageInList(image))
       {
-        status=AssignImageColors(image,cube_info);
+        status=AssignImageColors(image,cube_info,exception);
         if (status == MagickFalse)
           break;
       }
@@ -3109,11 +3229,13 @@ MagickExport MagickBooleanType RemapImages(const QuantizeInfo *quantize_info,
 %
 %  The format of the SetGrayscaleImage method is:
 %
-%      MagickBooleanType SetGrayscaleImage(Image *image)
+%      MagickBooleanType SetGrayscaleImage(Image *image,ExceptionInfo *exeption)
 %
 %  A description of each parameter follows:
 %
 %    o image: The image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -3123,17 +3245,17 @@ extern "C" {
 
 static int IntensityCompare(const void *x,const void *y)
 {
-  PixelPacket
+  PixelInfo
     *color_1,
     *color_2;
 
   ssize_t
     intensity;
 
-  color_1=(PixelPacket *) x;
-  color_2=(PixelPacket *) y;
-  intensity=GetPixelPacketIntensity(color_1)-(ssize_t)
-    GetPixelPacketIntensity(color_2);
+  color_1=(PixelInfo *) x;
+  color_2=(PixelInfo *) y;
+  intensity=GetPixelInfoIntensity(color_1)-(ssize_t)
+    GetPixelInfoIntensity(color_2);
   return((int) intensity);
 }
 
@@ -3141,18 +3263,16 @@ static int IntensityCompare(const void *x,const void *y)
 }
 #endif
 
-static MagickBooleanType SetGrayscaleImage(Image *image)
+static MagickBooleanType SetGrayscaleImage(Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
 
-  ExceptionInfo
-    *exception;
-
   MagickBooleanType
     status;
 
-  PixelPacket
+  PixelInfo
     *colormap;
 
   register ssize_t
@@ -3166,7 +3286,7 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->type != GrayscaleType)
-    (void) TransformImageColorspace(image,GRAYColorspace);
+    (void) TransformImageColorspace(image,GRAYColorspace,exception);
   colormap_index=(ssize_t *) AcquireQuantumMemory(MaxMap+1,
     sizeof(*colormap_index));
   if (colormap_index == (ssize_t *) NULL)
@@ -3174,20 +3294,16 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
       image->filename);
   if (image->storage_class != PseudoClass)
     {
-      ExceptionInfo
-        *exception;
-
       for (i=0; i <= (ssize_t) MaxMap; i++)
         colormap_index[i]=(-1);
-      if (AcquireImageColormap(image,MaxMap+1) == MagickFalse)
+      if (AcquireImageColormap(image,MaxMap+1,exception) == MagickFalse)
         ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
           image->filename);
       image->colors=0;
       status=MagickTrue;
-      exception=(&image->exception);
       image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(dynamic,4) shared(status)
+      #pragma omp parallel for schedule(static,4) shared(status)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -3201,7 +3317,7 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
           continue;
         q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,
           exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
             continue;
@@ -3220,9 +3336,12 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
               if (colormap_index[intensity] < 0)
                 {
                   colormap_index[intensity]=(ssize_t) image->colors;
-                  image->colormap[image->colors].red=GetPixelRed(image,q);
-                  image->colormap[image->colors].green=GetPixelGreen(image,q);
-                  image->colormap[image->colors].blue=GetPixelBlue(image,q);
+                  image->colormap[image->colors].red=(double)
+                    GetPixelRed(image,q);
+                  image->colormap[image->colors].green=(double)
+                    GetPixelGreen(image,q);
+                  image->colormap[image->colors].blue=(double)
+                    GetPixelBlue(image,q);
                   image->colors++;
                }
             }
@@ -3236,19 +3355,19 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
       image_view=DestroyCacheView(image_view);
     }
   for (i=0; i < (ssize_t) image->colors; i++)
-    image->colormap[i].alpha=(unsigned short) i;
-  qsort((void *) image->colormap,image->colors,sizeof(PixelPacket),
+    image->colormap[i].alpha=(double) i;
+  qsort((void *) image->colormap,image->colors,sizeof(PixelInfo),
     IntensityCompare);
-  colormap=(PixelPacket *) AcquireQuantumMemory(image->colors,
+  colormap=(PixelInfo *) AcquireQuantumMemory(image->colors,
     sizeof(*colormap));
-  if (colormap == (PixelPacket *) NULL)
+  if (colormap == (PixelInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
   j=0;
   colormap[j]=image->colormap[0];
   for (i=0; i < (ssize_t) image->colors; i++)
   {
-    if (IsPixelPacketEquivalent(&colormap[j],&image->colormap[i]) == MagickFalse)
+    if (IsPixelInfoEquivalent(&colormap[j],&image->colormap[i]) == MagickFalse)
       {
         j++;
         colormap[j]=image->colormap[i];
@@ -3256,13 +3375,12 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
     colormap_index[(ssize_t) image->colormap[i].alpha]=j;
   }
   image->colors=(size_t) (j+1);
-  image->colormap=(PixelPacket *) RelinquishMagickMemory(image->colormap);
+  image->colormap=(PixelInfo *) RelinquishMagickMemory(image->colormap);
   image->colormap=colormap;
   status=MagickTrue;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3275,7 +3393,7 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -3292,7 +3410,7 @@ static MagickBooleanType SetGrayscaleImage(Image *image)
   image_view=DestroyCacheView(image_view);
   colormap_index=(ssize_t *) RelinquishMagickMemory(colormap_index);
   image->type=GrayscaleType;
-  if (IsImageMonochrome(image,&image->exception) != MagickFalse)
+  if (IsImageMonochrome(image,exception) != MagickFalse)
     image->type=BilevelType;
   return(status);
 }

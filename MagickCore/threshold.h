@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -34,9 +34,9 @@ extern MagickExport ThresholdMap
   *GetThresholdMap(const char *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
-  BilevelImage(Image *,const double),
+  BilevelImage(Image *,const double,ExceptionInfo *),
   BlackThresholdImage(Image *,const char *,ExceptionInfo *),
-  ClampImage(Image *),
+  ClampImage(Image *,ExceptionInfo *),
   ListThresholdMaps(FILE *,ExceptionInfo *),
   OrderedPosterizeImage(Image *,const char *,ExceptionInfo *),
   RandomThresholdImage(Image *,const char *,ExceptionInfo *),

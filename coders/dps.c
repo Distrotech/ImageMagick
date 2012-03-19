@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -179,7 +179,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Open image file.
   */
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     return((Image *) NULL);
@@ -218,8 +218,8 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   screen=ScreenOfDisplay(display,visual_info->screen);
   pixels_per_point=XDPSPixelsPerPoint(screen);
-  if ((image->x_resolution != 0.0) && (image->y_resolution != 0.0))
-    pixels_per_point=MagickMin(image->x_resolution,image->y_resolution)/
+  if ((image->resolution.x != 0.0) && (image->resolution.y != 0.0))
+    pixels_per_point=MagickMin(image->resolution.x,image->resolution.y)/
       DefaultResolution;
   status=XDPSCreatePixmapForEPSF((DPSContext) NULL,screen,
     GetBlobFileHandle(image),visual_info->depth,pixels_per_point,&pixmap,
@@ -374,7 +374,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         for (y=0; y < (ssize_t) image->rows; y++)
         {
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
@@ -396,7 +396,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         for (y=0; y < (ssize_t) image->rows; y++)
         {
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
@@ -424,7 +424,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
         Create colormap.
       */
-      if (AcquireImageColormap(image,(size_t) visual_info->colormap_size) == MagickFalse)
+      if (AcquireImageColormap(image,(size_t) visual_info->colormap_size,exception) == MagickFalse)
         {
           image=DestroyImage(image);
           colors=(XColor *) RelinquishMagickMemory(colors);
@@ -447,7 +447,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
       for (y=0; y < (ssize_t) image->rows; y++)
       {
         q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
@@ -465,7 +465,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   colors=(XColor *) RelinquishMagickMemory(colors);
   XDestroyImage(dps_image);
   if (image->storage_class == PseudoClass)
-    (void) SyncImage(image);
+    (void) SyncImage(image,exception);
   /*
     Rasterize matte image.
   */
@@ -494,7 +494,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
               for (y=0; y < (ssize_t) image->rows; y++)
               {
                 q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-                if (q == (const Quantum *) NULL)
+                if (q == (Quantum *) NULL)
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {

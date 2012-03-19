@@ -17,7 +17,7 @@
 %                               January 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -65,7 +65,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteOTBImage(const ImageInfo *,Image *);
+  WriteOTBImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -131,7 +131,7 @@ static Image *ReadOTBImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -157,7 +157,7 @@ static Image *ReadOTBImage(const ImageInfo *image_info,ExceptionInfo *exception)
   depth=(unsigned char) ReadBlobByte(image);
   if (depth != 1)
     ThrowReaderException(CoderError,"OnlyLevelZerofilesSupported");
-  if (AcquireImageColormap(image,2) == MagickFalse)
+  if (AcquireImageColormap(image,2,exception) == MagickFalse)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   if (image_info->ping != MagickFalse)
     {
@@ -170,7 +170,7 @@ static Image *ReadOTBImage(const ImageInfo *image_info,ExceptionInfo *exception)
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     bit=0;
     byte=0;
@@ -198,7 +198,7 @@ static Image *ReadOTBImage(const ImageInfo *image_info,ExceptionInfo *exception)
           break;
       }
   }
-  (void) SyncImage(image);
+  (void) SyncImage(image,exception);
   if (EOFBlob(image) != MagickFalse)
     ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
       image->filename);
@@ -284,7 +284,8 @@ ModuleExport void UnregisterOTBImage(void)
 %
 %  The format of the WriteOTBImage method is:
 %
-%      MagickBooleanType WriteOTBImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteOTBImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -292,9 +293,11 @@ ModuleExport void UnregisterOTBImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
 %
 */
-static MagickBooleanType WriteOTBImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteOTBImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
 #define SetBit(a,i,set) \
   a=(unsigned char) ((set) ? (a) | (1L << (i)) : (a) & ~(1L << (i)))
@@ -325,15 +328,17 @@ static MagickBooleanType WriteOTBImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Convert image to a bi-level image.
   */
-  (void) SetImageType(image,BilevelType);
+  (void) SetImageType(image,BilevelType,exception);
   info=0;
   if ((image->columns >= 256) || (image->rows >= 256))
     SetBit(info,4,1);
@@ -351,7 +356,7 @@ static MagickBooleanType WriteOTBImage(const ImageInfo *image_info,Image *image)
   (void) WriteBlobByte(image,1);  /* depth */
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+    p=GetVirtualPixels(image,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
       break;
     bit=0;

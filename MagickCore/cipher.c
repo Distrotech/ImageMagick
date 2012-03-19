@@ -16,7 +16,7 @@
 %                               March  2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -337,7 +337,7 @@ static void FinalizeRoundKey(const unsigned int *ciphertext,
   {
     value=ciphertext[i] ^ key[i];
     for (j=0; j < 4; j++)
-      *p++=(value >> (8*j)) & 0xff;
+      *p++=(unsigned char) ((value >> (8*j)) & 0xff);
   }
   /*
     Reset registers.
@@ -651,7 +651,7 @@ MagickExport MagickBooleanType PasskeyDecipherImage(Image *image,
       *restrict q;
 
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     length=ExportQuantumPixels(image,image_view,quantum_info,quantum_type,
       pixels,exception);
@@ -799,7 +799,7 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
   assert(exception->signature == MagickSignature);
   if (passkey == (const StringInfo *) NULL)
     return(MagickTrue);
-  if (SetImageStorageClass(image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   quantum_info=AcquireQuantumInfo((const ImageInfo *) NULL,image);
   if (quantum_info == (QuantumInfo *) NULL)
@@ -837,9 +837,9 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
   (void) CopyMagickMemory(input_block,digest,MagickMin(AESBlocksize,
     GetSignatureDigestsize(signature_info))*sizeof(*input_block));
   signature=StringInfoToHexString(GetSignatureDigest(signature_info));
-  (void) SetImageProperty(image,"cipher:type","AES");
-  (void) SetImageProperty(image,"cipher:mode","CFB");
-  (void) SetImageProperty(image,"cipher:nonce",signature);
+  (void) SetImageProperty(image,"cipher:type","AES",exception);
+  (void) SetImageProperty(image,"cipher:mode","CFB",exception);
+  (void) SetImageProperty(image,"cipher:nonce",signature,exception);
   signature=DestroyString(signature);
   signature_info=DestroySignatureInfo(signature_info);
   /*
@@ -857,7 +857,7 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
       *restrict q;
 
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     length=ExportQuantumPixels(image,image_view,quantum_info,quantum_type,
       pixels,exception);

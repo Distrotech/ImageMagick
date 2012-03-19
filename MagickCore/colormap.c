@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -87,13 +87,15 @@
 %  The format of the AcquireImageColormap method is:
 %
 %      MagickBooleanType AcquireImageColormap(Image *image,
-%        const size_t colors)
+%        const size_t colors,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image.
 %
 %    o colors: the number of colors in the image colormap.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -105,16 +107,8 @@ static inline size_t MagickMax(const size_t x,
   return(y);
 }
 
-static inline size_t MagickMin(const size_t x,
-  const size_t y)
-{
-  if (x < y)
-    return(x);
-  return(y);
-}
-
 MagickExport MagickBooleanType AcquireImageColormap(Image *image,
-  const size_t colors)
+  const size_t colors,ExceptionInfo *exception)
 {
   register ssize_t
     i;
@@ -131,27 +125,27 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   image->colors=colors;
   length=(size_t) colors;
-  if (image->colormap == (PixelPacket *) NULL)
-    image->colormap=(PixelPacket *) AcquireQuantumMemory(length,
+  if (image->colormap == (PixelInfo *) NULL)
+    image->colormap=(PixelInfo *) AcquireQuantumMemory(length,
       sizeof(*image->colormap));
   else
-    image->colormap=(PixelPacket *) ResizeQuantumMemory(image->colormap,length,
+    image->colormap=(PixelInfo *) ResizeQuantumMemory(image->colormap,length,
       sizeof(*image->colormap));
-  if (image->colormap == (PixelPacket *) NULL)
+  if (image->colormap == (PixelInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
   for (i=0; i < (ssize_t) image->colors; i++)
   {
-    size_t
+    double
       pixel;
 
-    pixel=(size_t) (i*(QuantumRange/MagickMax(colors-1,1)));
-    image->colormap[i].red=(Quantum) pixel;
-    image->colormap[i].green=(Quantum) pixel;
-    image->colormap[i].blue=(Quantum) pixel;
+    pixel=(double) (i*(QuantumRange/MagickMax(colors-1,1)));
+    image->colormap[i].red=pixel;
+    image->colormap[i].green=pixel;
+    image->colormap[i].blue=pixel;
     image->colormap[i].alpha=OpaqueAlpha;
   }
-  return(SetImageStorageClass(image,PseudoClass));
+  return(SetImageStorageClass(image,PseudoClass,exception));
 }
 
 /*
@@ -169,9 +163,13 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
 %  positions.  If you cycle the colormap a number of times you can produce
 %  a psychodelic effect.
 %
+%  WARNING: this assumes an images colormap is in a well know and defined
+%  order. Currently Imagemagick has no way of setting that order.
+%
 %  The format of the CycleColormapImage method is:
 %
-%      MagickBooleanType CycleColormapImage(Image *image,const ssize_t displace)
+%      MagickBooleanType CycleColormapImage(Image *image,const ssize_t displace,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -179,15 +177,14 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
 %
 %    o displace:  displace the colormap this amount.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType CycleColormapImage(Image *image,
-  const ssize_t displace)
+  const ssize_t displace,ExceptionInfo *exception)
 {
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -200,12 +197,11 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->storage_class == DirectClass)
-    (void) SetImageType(image,PaletteType);
+    (void) SetImageType(image,PaletteType,exception);
   status=MagickTrue;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(dynamic,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -221,7 +217,7 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
     if (status == MagickFalse)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
         continue;
@@ -232,7 +228,7 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
       if (index < 0)
         index+=(ssize_t) image->colors;
       SetPixelIndex(image,(Quantum) index,q);
-      SetPixelPacket(image,image->colormap+(ssize_t) index,q);
+      SetPixelInfoPixel(image,image->colormap+(ssize_t) index,q);
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -258,11 +254,14 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
 %
 %  The format of the SortColormapByIntensity method is:
 %
-%      MagickBooleanType SortColormapByIntensity(Image *image)
+%      MagickBooleanType SortColormapByIntensity(Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: A pointer to an Image structure.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -272,17 +271,17 @@ extern "C" {
 
 static int IntensityCompare(const void *x,const void *y)
 {
-  const PixelPacket
+  const PixelInfo
     *color_1,
     *color_2;
 
   int
     intensity;
 
-  color_1=(const PixelPacket *) x;
-  color_2=(const PixelPacket *) y;
-  intensity=(int) GetPixelPacketIntensity(color_2)-(int)
-    GetPixelPacketIntensity(color_1);
+  color_1=(const PixelInfo *) x;
+  color_2=(const PixelInfo *) y;
+  intensity=(int) GetPixelInfoIntensity(color_2)-(int)
+    GetPixelInfoIntensity(color_1);
   return(intensity);
 }
 
@@ -290,13 +289,11 @@ static int IntensityCompare(const void *x,const void *y)
 }
 #endif
 
-MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
+MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
+  ExceptionInfo *exception)
 {
   CacheView
     *image_view;
-
-  ExceptionInfo
-    *exception;
 
   MagickBooleanType
     status;
@@ -328,10 +325,10 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
     Assign index values to colormap entries.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (i=0; i < (ssize_t) image->colors; i++)
-    image->colormap[i].alpha=(Quantum) i;
+    image->colormap[i].alpha=(double) i;
   /*
     Sort image colormap by decreasing color popularity.
   */
@@ -341,12 +338,11 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
     Update image colormap indexes to sorted colormap order.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (i=0; i < (ssize_t) image->colors; i++)
     pixels[(ssize_t) image->colormap[i].alpha]=(unsigned short) i;
   status=MagickTrue;
-  exception=(&image->exception);
   image_view=AcquireCacheView(image);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -360,16 +356,16 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image)
       *restrict q;
 
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
-        continue;
+        break;
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       index=(Quantum) pixels[(ssize_t) GetPixelIndex(image,q)];
       SetPixelIndex(image,index,q);
-      SetPixelPacket(image,image->colormap+(ssize_t) index,q);
+      SetPixelInfoPixel(image,image->colormap+(ssize_t) index,q);
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)

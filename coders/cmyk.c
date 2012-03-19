@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -66,7 +66,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteCMYKImage(const ImageInfo *,Image *);
+  WriteCMYKImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -137,7 +137,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   image->colorspace=CMYKColorspace;
@@ -158,7 +158,8 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
   */
   canvas_image=CloneImage(image,image->extract_info.width,1,MagickFalse,
     exception);
-  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod);
+  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod,
+    exception);
   quantum_info=AcquireQuantumInfo(image_info,canvas_image);
   if (quantum_info == (QuantumInfo *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -228,7 +229,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,quantum_type,pixels,exception);
@@ -242,7 +243,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=QueueAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -312,7 +313,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             quantum_type=quantum_types[i];
             q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
               exception);
-            if (q == (const Quantum *) NULL)
+            if (q == (Quantum *) NULL)
               break;
             length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
               quantum_info,quantum_type,pixels,exception);
@@ -326,7 +327,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
                 q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                   image->columns,1,exception);
                 if ((p == (const Quantum *) NULL) ||
-                    (q == (const Quantum *) NULL))
+                    (q == (Quantum *) NULL))
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
@@ -407,7 +408,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,CyanQuantum,pixels,exception);
@@ -421,7 +422,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -459,7 +460,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,MagentaQuantum,pixels,exception);
@@ -473,7 +474,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -511,7 +512,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,YellowQuantum,pixels,exception);
@@ -525,7 +526,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -563,7 +564,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,BlackQuantum,pixels,exception);
@@ -577,7 +578,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -617,7 +618,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
                 }
               q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
                 exception);
-              if (q == (const Quantum *) NULL)
+              if (q == (Quantum *) NULL)
                 break;
               length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
                 quantum_info,AlphaQuantum,pixels,exception);
@@ -632,7 +633,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
                   q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                     image->columns,1,exception);
                   if ((p == (const Quantum *) NULL) ||
-                      (q == (const Quantum *) NULL))
+                      (q == (Quantum *) NULL))
                     break;
                   for (x=0; x < (ssize_t) image->columns; x++)
                   {
@@ -705,7 +706,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,CyanQuantum,pixels,exception);
@@ -719,7 +720,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -776,7 +777,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,MagentaQuantum,pixels,exception);
@@ -790,7 +791,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -847,7 +848,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,YellowQuantum,pixels,exception);
@@ -861,7 +862,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -918,7 +919,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
             }
           q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
             quantum_info,BlackQuantum,pixels,exception);
@@ -932,7 +933,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
               if ((p == (const Quantum *) NULL) ||
-                  (q == (const Quantum *) NULL))
+                  (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -991,7 +992,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
                 }
               q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,
                 exception);
-              if (q == (const Quantum *) NULL)
+              if (q == (Quantum *) NULL)
                 break;
               length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,
                 quantum_info,YellowQuantum,pixels,exception);
@@ -1005,7 +1006,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
                   q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                     image->columns,1,exception);
                   if ((p == (const Quantum *) NULL) ||
-                      (q == (const Quantum *) NULL))
+                      (q == (Quantum *) NULL))
                     break;
                   for (x=0; x < (ssize_t) image->columns; x++)
                   {
@@ -1046,7 +1047,7 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -1061,7 +1062,6 @@ static Image *ReadCMYKImage(const ImageInfo *image_info,
     scene++;
   } while (count == (ssize_t) length);
   quantum_info=DestroyQuantumInfo(quantum_info);
-  InheritException(&image->exception,&canvas_image->exception);
   canvas_image=DestroyImage(canvas_image);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -1158,7 +1158,7 @@ ModuleExport void UnregisterCMYKImage(void)
 %  The format of the WriteCMYKImage method is:
 %
 %      MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -1166,9 +1166,11 @@ ModuleExport void UnregisterCMYKImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   MagickBooleanType
     status;
@@ -1182,12 +1184,12 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
   QuantumType
     quantum_type;
 
+  size_t
+    length;
+
   ssize_t
     count,
     y;
-
-  size_t
-    length;
 
   unsigned char
     *pixels;
@@ -1206,15 +1208,9 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
       /*
         Open output image file.
       */
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
-    }
-  quantum_type=CMYKQuantum;
-  if (LocaleCompare(image_info->magick,"CMYKA") == 0)
-    {
-      quantum_type=CMYKAQuantum;
-      image->matte=MagickTrue;
     }
   scene=0;
   do
@@ -1223,10 +1219,14 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
       Convert MIFF to CMYK raster pixels.
     */
     if (image->colorspace != CMYKColorspace)
-      (void) TransformImageColorspace(image,CMYKColorspace);
-    if ((LocaleCompare(image_info->magick,"CMYKA") == 0) &&
-        (image->matte == MagickFalse))
-      (void) SetImageAlphaChannel(image,OpaqueAlphaChannel);
+      (void) TransformImageColorspace(image,CMYKColorspace,exception);
+    quantum_type=CMYKQuantum;
+    if (LocaleCompare(image_info->magick,"CMYKA") == 0)
+      {
+        quantum_type=CMYKAQuantum;
+        if (image->matte == MagickFalse)
+          (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      }
     quantum_info=AcquireQuantumInfo(image_info,image);
     if (quantum_info == (QuantumInfo *) NULL)
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
@@ -1244,11 +1244,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            quantum_type,pixels,&image->exception);
+            quantum_type,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1272,33 +1272,33 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            CyanQuantum,pixels,&image->exception);
+            CyanQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            MagentaQuantum,pixels,&image->exception);
+            MagentaQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            YellowQuantum,pixels,&image->exception);
+            YellowQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            BlackQuantum,pixels,&image->exception);
+            BlackQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
           if (quantum_type == CMYKAQuantum)
             {
               length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-                AlphaQuantum,pixels,&image->exception);
+                AlphaQuantum,pixels,exception);
               count=WriteBlob(image,length,pixels);
               if (count != (ssize_t) length)
                 break;
@@ -1323,11 +1323,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            CyanQuantum,pixels,&image->exception);
+            CyanQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1343,11 +1343,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            MagentaQuantum,pixels,&image->exception);
+            MagentaQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1363,11 +1363,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            YellowQuantum,pixels,&image->exception);
+            YellowQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1383,11 +1383,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            BlackQuantum,pixels,&image->exception);
+            BlackQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1405,11 +1405,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
               register const Quantum
                 *restrict p;
 
-              p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+              p=GetVirtualPixels(image,0,y,image->columns,1,exception);
               if (p == (const Quantum *) NULL)
                 break;
               length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-                AlphaQuantum,pixels,&image->exception);
+                AlphaQuantum,pixels,exception);
               count=WriteBlob(image,length,pixels);
               if (count != (ssize_t) length)
               break;
@@ -1439,7 +1439,7 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
         */
         AppendImageFormat("C",image->filename);
         status=OpenBlob(image_info,image,scene == 0 ? WriteBinaryBlobMode :
-          AppendBinaryBlobMode,&image->exception);
+          AppendBinaryBlobMode,exception);
         if (status == MagickFalse)
           return(status);
         for (y=0; y < (ssize_t) image->rows; y++)
@@ -1447,11 +1447,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            CyanQuantum,pixels,&image->exception);
+            CyanQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1465,7 +1465,7 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
         (void) CloseBlob(image);
         AppendImageFormat("M",image->filename);
         status=OpenBlob(image_info,image,scene == 0 ? WriteBinaryBlobMode :
-          AppendBinaryBlobMode,&image->exception);
+          AppendBinaryBlobMode,exception);
         if (status == MagickFalse)
           return(status);
         for (y=0; y < (ssize_t) image->rows; y++)
@@ -1473,11 +1473,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            MagentaQuantum,pixels,&image->exception);
+            MagentaQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1491,7 +1491,7 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
         (void) CloseBlob(image);
         AppendImageFormat("Y",image->filename);
         status=OpenBlob(image_info,image,scene == 0 ? WriteBinaryBlobMode :
-          AppendBinaryBlobMode,&image->exception);
+          AppendBinaryBlobMode,exception);
         if (status == MagickFalse)
           return(status);
         for (y=0; y < (ssize_t) image->rows; y++)
@@ -1499,11 +1499,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            YellowQuantum,pixels,&image->exception);
+            YellowQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1517,7 +1517,7 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
         (void) CloseBlob(image);
         AppendImageFormat("K",image->filename);
         status=OpenBlob(image_info,image,scene == 0 ? WriteBinaryBlobMode :
-          AppendBinaryBlobMode,&image->exception);
+          AppendBinaryBlobMode,exception);
         if (status == MagickFalse)
           return(status);
         for (y=0; y < (ssize_t) image->rows; y++)
@@ -1525,11 +1525,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
           register const Quantum
             *restrict p;
 
-          p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+          p=GetVirtualPixels(image,0,y,image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-            BlackQuantum,pixels,&image->exception);
+            BlackQuantum,pixels,exception);
           count=WriteBlob(image,length,pixels);
           if (count != (ssize_t) length)
             break;
@@ -1545,7 +1545,7 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
             (void) CloseBlob(image);
             AppendImageFormat("A",image->filename);
             status=OpenBlob(image_info,image,scene == 0 ? WriteBinaryBlobMode :
-              AppendBinaryBlobMode,&image->exception);
+              AppendBinaryBlobMode,exception);
             if (status == MagickFalse)
               return(status);
             for (y=0; y < (ssize_t) image->rows; y++)
@@ -1553,12 +1553,11 @@ static MagickBooleanType WriteCMYKImage(const ImageInfo *image_info,
               register const Quantum
                 *restrict p;
 
-              p=GetVirtualPixels(image,0,y,image->columns,1,
-                &image->exception);
+              p=GetVirtualPixels(image,0,y,image->columns,1,exception);
               if (p == (const Quantum *) NULL)
                 break;
               length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-                AlphaQuantum,pixels,&image->exception);
+                AlphaQuantum,pixels,exception);
               count=WriteBlob(image,length,pixels);
               if (count != (ssize_t) length)
                 break;

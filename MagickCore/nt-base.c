@@ -17,7 +17,7 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,11 +41,13 @@
 #include "MagickCore/studio.h"
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
 #include "MagickCore/client.h"
+#include "MagickCore/exception-private.h"
 #include "MagickCore/locale_.h"
 #include "MagickCore/log.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/resource_.h"
+#include "MagickCore/resource-private.h"
 #include "MagickCore/timer.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/utility.h"
@@ -53,7 +55,7 @@
 #if defined(MAGICKCORE_LTDL_DELEGATE)
 #  include "ltdl.h"
 #endif
-#include "MagickCore/nt-base.h"
+#include "MagickCore/nt-base-private.h"
 #if defined(MAGICKCORE_CIPHER_SUPPORT)
 #include <ntsecapi.h>
 #include <wincrypt.h>
@@ -332,6 +334,65 @@ MagickExport int IsWindows95()
       (version_info.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS))
     return(1);
   return(0);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   N T A r g v T o U T F 8                                                   %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  NTArgvToUTF8() converts the wide command line arguments to UTF-8 to ensure
+%  compatibility with Linux.
+%
+%  The format of the NTArgvToUTF8 method is:
+%
+%      char **NTArgvToUTF8(const int argc,wchar_t **argv)
+%
+%  A description of each parameter follows:
+%
+%    o argc: the number of command line arguments.
+%
+%    o argv:  the  wide-character command line arguments.
+%
+*/
+MagickExport char **NTArgvToUTF8(const int argc,wchar_t **argv)
+{
+  char
+    **utf8;
+
+  ssize_t
+    i;
+
+  utf8=(char **) AcquireQuantumMemory(argc,sizeof(*utf8));
+  if (utf8 == (char **) NULL)
+    ThrowFatalException(ResourceLimitFatalError,"UnableToConvertStringToARGV");
+  for (i=0; i < (ssize_t) argc; i++)
+  {
+    ssize_t
+      count;
+
+    count=WideCharToMultiByte(CP_UTF8,0,argv[i],-1,NULL,0,NULL,NULL);
+    if (count < 0)
+      count=0;
+    utf8[i]=(char *) AcquireQuantumMemory(count+1,sizeof(**utf8));
+    if (utf8[i] == (char *) NULL)
+      {
+        for (i--; i >= 0; i--)
+          utf8[i]=DestroyString(utf8[i]);
+        utf8=(char **) RelinquishMagickMemory(utf8);
+        ThrowFatalException(ResourceLimitFatalError,
+          "UnableToConvertStringToARGV");
+      }
+    count=WideCharToMultiByte(CP_UTF8,0,argv[i],-1,utf8[i],count,NULL,NULL);
+    utf8[i][count]=0;
+  }
+  return(utf8);
 }
 
 /*
@@ -826,7 +887,7 @@ MagickExport MagickBooleanType NTGetModulePath(const char *module,char *path)
 %
 */
 
-static int NTGetRegistryValue(HKEY root,const char *key,const char *name,
+static int NTGetRegistryValue(HKEY root,const char *key,DWORD flags,const char *name,
   char *value,int *length)
 {
   BYTE
@@ -846,7 +907,7 @@ static int NTGetRegistryValue(HKEY root,const char *key,const char *name,
   /*
     Get a registry value: key = root\\key, named value = name.
   */
-  if (RegOpenKeyExA(root,key,0,KEY_READ,&hkey) != ERROR_SUCCESS)
+  if (RegOpenKeyExA(root,key,0,KEY_READ | flags,&hkey) != ERROR_SUCCESS)
     return(1);  /* no match */
   p=(BYTE *) value;
   type=REG_SZ;
@@ -868,7 +929,7 @@ static int NTGetRegistryValue(HKEY root,const char *key,const char *name,
   return(1);  /* not found */
 }
 
-static int NTLocateGhostscript(const char **product_family,int *major_version,
+static int NTLocateGhostscript(DWORD flags,const char **product_family,int *major_version,
   int *minor_version)
 {
   int
@@ -907,10 +968,7 @@ static int NTLocateGhostscript(const char **product_family,int *major_version,
 
     (void) FormatLocaleString(key,MaxTextExtent,"SOFTWARE\\%s",products[i]);
     root=HKEY_LOCAL_MACHINE;
-    mode=KEY_READ;
-#if defined(KEY_WOW64_32KEY)
-    mode|=KEY_WOW64_32KEY;
-#endif
+    mode=KEY_READ | flags;
     if (RegOpenKeyExA(root,key,0,mode,&hkey) == ERROR_SUCCESS)
       {
         DWORD
@@ -955,7 +1013,17 @@ static int NTLocateGhostscript(const char **product_family,int *major_version,
   return(status);
 }
 
-static int NTGhostscriptGetString(const char *name,char *value,
+static BOOL NTIs64BitPlatform()
+{
+#if defined(_WIN64)
+  return(TRUE);
+#else
+  BOOL is64=FALSE;
+  return(IsWow64Process(GetCurrentProcess(), &is64) && is64);
+#endif
+}
+
+static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,char *value,
   const size_t length)
 {
   char
@@ -968,7 +1036,11 @@ static int NTGhostscriptGetString(const char *name,char *value,
   static const char
     *product_family = (const char *) NULL;
 
+  static BOOL
+    is_64_bit_version = FALSE;
+
   static int
+    flags=0,
     major_version=0,
     minor_version=0;
 
@@ -989,9 +1061,27 @@ static int NTGhostscriptGetString(const char *name,char *value,
   /*
     Get a string from the installed Ghostscript.
   */
+  if (is_64_bit!=NULL)
+    *is_64_bit=FALSE;
   *value='\0';
   if (product_family == NULL)
-    (void) NTLocateGhostscript(&product_family,&major_version,&minor_version);
+  {
+    flags=NTIs64BitPlatform() ? KEY_WOW64_64KEY : 0;
+    (void) NTLocateGhostscript(flags,&product_family,&major_version,&minor_version);
+    if (product_family == NULL)
+    {
+      if (flags!=0)
+      {
+        /* We are running on a 64 bit platform - check for a 32 bit Ghostscript, too */
+        flags=KEY_WOW64_32KEY;
+        (void) NTLocateGhostscript(flags,&product_family,&major_version,&minor_version);
+  	  }
+    }
+    else
+      is_64_bit_version=NTIs64BitPlatform();
+  }
+  if (is_64_bit!=NULL)
+    *is_64_bit=is_64_bit_version;
   if (product_family == NULL)
     return(FALSE);
   (void) FormatLocaleString(key,MaxTextExtent,"SOFTWARE\\%s\\%d.%02d",
@@ -999,7 +1089,7 @@ static int NTGhostscriptGetString(const char *name,char *value,
   for (i=0; i < (ssize_t) (sizeof(hkeys)/sizeof(hkeys[0])); i++)
   {
     extent=(int) length;
-    if (NTGetRegistryValue(hkeys[i].hkey,key,name,value,&extent) == 0)
+    if (NTGetRegistryValue(hkeys[i].hkey,key,flags,name,value,&extent) == 0)
       {
         (void) LogMagickEvent(ConfigureEvent,GetMagickModule(),
           "registry: \"%s\\%s\\%s\"=\"%s\"",hkeys[i].name,key,name,value);
@@ -1016,10 +1106,21 @@ MagickExport int NTGhostscriptDLL(char *path,int length)
   static char
     dll[MaxTextExtent] = { "" };
 
+  static BOOL
+    is_64_bit_version;
+
   *path='\0';
   if ((*dll == '\0') &&
-      (NTGhostscriptGetString("GS_DLL",dll,sizeof(dll)) == FALSE))
+      (NTGhostscriptGetString("GS_DLL",&is_64_bit_version,dll,sizeof(dll)) == FALSE))
     return(FALSE);
+
+#if defined(_WIN64)
+  if (!is_64_bit_version)
+    return(FALSE);
+#else
+  if (is_64_bit_version)
+    return(FALSE);
+#endif
   (void) CopyMagickString(path,dll,length);
   return(TRUE);
 }
@@ -1086,16 +1187,19 @@ MagickExport int NTGhostscriptEXE(char *path,int length)
   static char
     program[MaxTextExtent] = { "" };
 
+  static BOOL
+    is_64_bit_version = FALSE;
+
   (void) CopyMagickString(path,"gswin32c.exe",length);
   if ((*program == '\0') &&
-      (NTGhostscriptGetString("GS_DLL",program,sizeof(program)) == FALSE))
+      (NTGhostscriptGetString("GS_DLL",&is_64_bit_version,program,sizeof(program)) == FALSE))
     return(FALSE);
   p=strrchr(program,'\\');
   if (p != (char *) NULL)
     {
       p++;
       *p='\0';
-      (void) ConcatenateMagickString(program,"gswin32c.exe",sizeof(program));
+      (void) ConcatenateMagickString(program,is_64_bit_version ? "gswin64c.exe" : "gswin32c.exe",sizeof(program));
     }
   (void) CopyMagickString(path,program,length);
   return(TRUE);
@@ -1137,7 +1241,7 @@ MagickExport int NTGhostscriptFonts(char *path,int length)
     *q;
 
   *path='\0';
-  if (NTGhostscriptGetString("GS_LIB",buffer,MaxTextExtent) == FALSE)
+  if (NTGhostscriptGetString("GS_LIB",NULL,buffer,MaxTextExtent) == FALSE)
     return(FALSE);
   for (p=buffer-1; p != (char *) NULL; p=strchr(p+1,DirectoryListSeparator))
   {
@@ -1561,7 +1665,8 @@ MagickExport struct dirent *NTReadDirectory(DIR *entry)
 %  may coexist.
 %
 %  Values are stored in the registry under a base path path similar to
-%  "HKEY_LOCAL_MACHINE/SOFTWARE\ImageMagick\5.5.7\Q:16". The provided subkey
+%  "HKEY_LOCAL_MACHINE/SOFTWARE\ImageMagick\6.7.4\Q:16" or
+%  "HKEY_CURRENT_USER/SOFTWARE\ImageMagick\6.7.4\Q:16". The provided subkey
 %  is appended to this base path to form the full key.
 %
 %  The format of the NTRegistryKeyLookup method is:
@@ -1601,6 +1706,9 @@ MagickExport unsigned char *NTRegistryKeyLookup(const char *subkey)
   (void) LogMagickEvent(ConfigureEvent,GetMagickModule(),"%s",package_key);
   registry_key=(HKEY) INVALID_HANDLE_VALUE;
   status=RegOpenKeyExA(HKEY_LOCAL_MACHINE,package_key,0,KEY_READ,&registry_key);
+  if (status != ERROR_SUCCESS)
+    status=RegOpenKeyExA(HKEY_CURRENT_USER,package_key,0,KEY_READ,
+      &registry_key);
   if (status != ERROR_SUCCESS)
     {
       registry_key=(HKEY) INVALID_HANDLE_VALUE;
@@ -1917,19 +2025,19 @@ MagickExport int NTSystemCommand(const char *command)
   (void) CopyMagickString(local_command,command,MaxTextExtent);
   background_process=command[strlen(command)-1] == '&' ? MagickTrue :
     MagickFalse;
-  if (background_process)
+  if (background_process != MagickFalse)
     local_command[strlen(command)-1]='\0';
   if (command[strlen(command)-1] == '|')
      local_command[strlen(command)-1]='\0';
    else
      startup_info.wShowWindow=SW_SHOWDEFAULT;
-  status=CreateProcess((LPCTSTR) NULL,local_command,
-    (LPSECURITY_ATTRIBUTES) NULL,(LPSECURITY_ATTRIBUTES) NULL,(BOOL) FALSE,
-    (DWORD) NORMAL_PRIORITY_CLASS,(LPVOID) NULL,(LPCSTR) NULL,&startup_info,
+  status=CreateProcess((LPCTSTR) NULL,local_command,(LPSECURITY_ATTRIBUTES)
+    NULL,(LPSECURITY_ATTRIBUTES) NULL,(BOOL) FALSE,(DWORD)
+    NORMAL_PRIORITY_CLASS,(LPVOID) NULL,(LPCSTR) NULL,&startup_info,
     &process_info);
   if (status == 0)
     return(-1);
-  if (background_process)
+  if (background_process != MagickFalse)
     return(status == 0);
   status=WaitForSingleObject(process_info.hProcess,INFINITE);
   if (status != WAIT_OBJECT_0)

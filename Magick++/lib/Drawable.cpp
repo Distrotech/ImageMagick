@@ -18,34 +18,34 @@
 
 using namespace std;
 
-MagickDLLDecl int Magick::operator == ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator == ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   return ( ( left_.x() == right_.x() ) && ( left_.y() == right_.y() ) );
 }
-MagickDLLDecl int Magick::operator != ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator != ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   return ( ! (left_ == right_) );
 }
-MagickDLLDecl int Magick::operator >  ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator >  ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   return ( !( left_ < right_ ) && ( left_ != right_ ) );
 }
-MagickDLLDecl int Magick::operator <  ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator <  ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   // Based on distance from origin
   return  ( (sqrt(left_.x()*left_.x() + left_.y()*left_.y())) <
             (sqrt(right_.x()*right_.x() + right_.y()*right_.y())) );
 }
-MagickDLLDecl int Magick::operator >= ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator >= ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <= ( const Magick::Coordinate& left_,
+MagickPPExport int Magick::operator <= ( const Magick::Coordinate& left_,
                                         const Magick::Coordinate& right_ )
 {
   return ( ( left_ < right_ ) || ( left_ == right_ ) );
@@ -100,32 +100,32 @@ void Magick::Drawable::operator()( MagickCore::DrawingWand * context_ ) const
     dp->operator()( context_ );
 }
 
-MagickDLLDecl int Magick::operator == ( const Magick::Drawable& /*left_*/,
+MagickPPExport int Magick::operator == ( const Magick::Drawable& /*left_*/,
                                         const Magick::Drawable& /*right_*/ )
 {
   return ( 1 );
 }
-MagickDLLDecl int Magick::operator != ( const Magick::Drawable& /*left_*/,
+MagickPPExport int Magick::operator != ( const Magick::Drawable& /*left_*/,
                                         const Magick::Drawable& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator > ( const Magick::Drawable& /*left_*/,
+MagickPPExport int Magick::operator > ( const Magick::Drawable& /*left_*/,
                                        const Magick::Drawable& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator <  ( const Magick::Drawable& /*left_*/,
+MagickPPExport int Magick::operator <  ( const Magick::Drawable& /*left_*/,
                                         const Magick::Drawable& /*right_*/ )
 {
   return  ( 0 );
 }
-MagickDLLDecl int Magick::operator >= ( const Magick::Drawable& left_,
+MagickPPExport int Magick::operator >= ( const Magick::Drawable& left_,
                                         const Magick::Drawable& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <= ( const Magick::Drawable& left_,
+MagickPPExport int Magick::operator <= ( const Magick::Drawable& left_,
                                         const Magick::Drawable& right_ )
 {
   return ( ( left_ < right_ ) || ( left_ == right_ ) );
@@ -180,32 +180,32 @@ void Magick::VPath::operator()( MagickCore::DrawingWand * context_ ) const
     dp->operator()( context_ );
 }
 
-MagickDLLDecl int Magick::operator == ( const Magick::VPath& /*left_*/,
+MagickPPExport int Magick::operator == ( const Magick::VPath& /*left_*/,
                                         const Magick::VPath& /*right_*/ )
 {
   return ( 1 );
 }
-MagickDLLDecl int Magick::operator != ( const Magick::VPath& /*left_*/,
+MagickPPExport int Magick::operator != ( const Magick::VPath& /*left_*/,
                                         const Magick::VPath& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator > ( const Magick::VPath& /*left_*/,
+MagickPPExport int Magick::operator > ( const Magick::VPath& /*left_*/,
                                        const Magick::VPath& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator <  ( const Magick::VPath& /*left_*/,
+MagickPPExport int Magick::operator <  ( const Magick::VPath& /*left_*/,
                                         const Magick::VPath& /*right_*/ )
 {
   return  ( 0 );
 }
-MagickDLLDecl int Magick::operator >= ( const Magick::VPath& left_,
+MagickPPExport int Magick::operator >= ( const Magick::VPath& left_,
                                         const Magick::VPath& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <= ( const Magick::VPath& left_,
+MagickPPExport int Magick::operator <= ( const Magick::VPath& left_,
                                         const Magick::VPath& right_ )
 {
   return ( ( left_ < right_ ) || ( left_ == right_ ) );
@@ -583,9 +583,9 @@ Magick::DrawableFillColor::~DrawableFillColor( void )
 void Magick::DrawableFillColor::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  PixelPacket color = static_cast<PixelPacket>(_color);
+  PixelInfo color = static_cast<PixelInfo>(_color);
   PixelWand *pixel_wand=NewPixelWand();
-  PixelSetQuantumPacket(pixel_wand,&color);
+  PixelSetPixelColor(pixel_wand,&color);
   DrawSetFillColor(context_,pixel_wand);
   pixel_wand=DestroyPixelWand(pixel_wand);
 }
@@ -609,17 +609,17 @@ Magick::DrawableBase* Magick::DrawableFillRule::copy() const
 }
 
 // Specify drawing fill alpha
-Magick::DrawableFillOpacity::~DrawableFillOpacity ( void )
+Magick::DrawableFillAlpha::~DrawableFillAlpha ( void )
 {
 }
-void Magick::DrawableFillOpacity::operator()
+void Magick::DrawableFillAlpha::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  DrawSetFillOpacity( context_, _alpha );
+  DrawSetFillAlpha( context_, _alpha );
 }
-Magick::DrawableBase* Magick::DrawableFillOpacity::copy() const
+Magick::DrawableBase* Magick::DrawableFillAlpha::copy() const
 {
-  return new DrawableFillOpacity(*this);
+  return new DrawableFillAlpha(*this);
 }
 
 // Specify text font
@@ -1210,9 +1210,9 @@ Magick::DrawableStrokeColor::~DrawableStrokeColor ( void )
 void Magick::DrawableStrokeColor::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  PixelPacket color = static_cast<PixelPacket>(_color);
+  PixelInfo color = static_cast<PixelInfo>(_color);
   PixelWand *pixel_wand=NewPixelWand();
-  PixelSetQuantumPacket(pixel_wand,&color);
+  PixelSetPixelColor(pixel_wand,&color);
   DrawSetStrokeColor(context_,pixel_wand);
   pixel_wand=DestroyPixelWand(pixel_wand);
 }
@@ -1222,17 +1222,17 @@ Magick::DrawableBase* Magick::DrawableStrokeColor::copy() const
 }
 
 // Stroke alpha
-Magick::DrawableStrokeOpacity::~DrawableStrokeOpacity ( void )
+Magick::DrawableStrokeAlpha::~DrawableStrokeAlpha ( void )
 {
 }
-void Magick::DrawableStrokeOpacity::operator()
+void Magick::DrawableStrokeAlpha::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  DrawSetStrokeOpacity( context_, _alpha );
+  DrawSetStrokeAlpha( context_, _alpha );
 }
-Magick::DrawableBase* Magick::DrawableStrokeOpacity::copy() const
+Magick::DrawableBase* Magick::DrawableStrokeAlpha::copy() const
 {
-  return new DrawableStrokeOpacity(*this);
+  return new DrawableStrokeAlpha(*this);
 }
 
 // Stroke width
@@ -1356,9 +1356,9 @@ Magick::DrawableTextUnderColor::~DrawableTextUnderColor ( void )
 void Magick::DrawableTextUnderColor::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  PixelPacket color = static_cast<PixelPacket>(_color);
+  PixelInfo color = static_cast<PixelInfo>(_color);
   PixelWand *pixel_wand=NewPixelWand();
-  PixelSetQuantumPacket(pixel_wand,&color);
+  PixelSetPixelColor(pixel_wand,&color);
   DrawSetTextUnderColor(context_,pixel_wand);
   pixel_wand=DestroyPixelWand(pixel_wand);
 }
@@ -1402,32 +1402,32 @@ Magick::DrawableBase* Magick::DrawableViewbox::copy() const
 //
 // PathArcArgs
 //
-MagickDLLDecl int Magick::operator == ( const Magick::PathArcArgs& /*left_*/,
+MagickPPExport int Magick::operator == ( const Magick::PathArcArgs& /*left_*/,
                                         const Magick::PathArcArgs& /*right_*/ )
 {
   return ( 1 );
 }
-MagickDLLDecl int Magick::operator != ( const Magick::PathArcArgs& /*left_*/,
+MagickPPExport int Magick::operator != ( const Magick::PathArcArgs& /*left_*/,
                                         const Magick::PathArcArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator > ( const Magick::PathArcArgs& /*left_*/,
+MagickPPExport int Magick::operator > ( const Magick::PathArcArgs& /*left_*/,
                                        const Magick::PathArcArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator <  ( const Magick::PathArcArgs& /*left_*/,
+MagickPPExport int Magick::operator <  ( const Magick::PathArcArgs& /*left_*/,
                                         const Magick::PathArcArgs& /*right_*/ )
 {
   return  ( false );
 }
-MagickDLLDecl int Magick::operator >= ( const Magick::PathArcArgs& left_,
+MagickPPExport int Magick::operator >= ( const Magick::PathArcArgs& left_,
                                         const Magick::PathArcArgs& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <= ( const Magick::PathArcArgs& left_,
+MagickPPExport int Magick::operator <= ( const Magick::PathArcArgs& left_,
                                         const Magick::PathArcArgs& right_ )
 {
   return ( ( left_ < right_ ) || ( left_ == right_ ) );
@@ -1553,32 +1553,32 @@ Magick::VPathBase* Magick::PathClosePath::copy() const
 //
 // Path Curveto (Cubic Bezier)
 //
-MagickDLLDecl int Magick::operator == ( const Magick::PathCurvetoArgs& /*left_*/,
+MagickPPExport int Magick::operator == ( const Magick::PathCurvetoArgs& /*left_*/,
                                         const Magick::PathCurvetoArgs& /*right_*/ )
 {
   return ( 1 );
 }
-MagickDLLDecl int Magick::operator != ( const Magick::PathCurvetoArgs& /*left_*/,
+MagickPPExport int Magick::operator != ( const Magick::PathCurvetoArgs& /*left_*/,
                                         const Magick::PathCurvetoArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator > ( const Magick::PathCurvetoArgs& /*left_*/,
+MagickPPExport int Magick::operator > ( const Magick::PathCurvetoArgs& /*left_*/,
                                        const Magick::PathCurvetoArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator <  ( const Magick::PathCurvetoArgs& /*left_*/,
+MagickPPExport int Magick::operator <  ( const Magick::PathCurvetoArgs& /*left_*/,
                                         const Magick::PathCurvetoArgs& /*right_*/ )
 {
   return  ( false );
 }
-MagickDLLDecl int Magick::operator >= ( const Magick::PathCurvetoArgs& left_,
+MagickPPExport int Magick::operator >= ( const Magick::PathCurvetoArgs& left_,
                                         const Magick::PathCurvetoArgs& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <= ( const Magick::PathCurvetoArgs& left_,
+MagickPPExport int Magick::operator <= ( const Magick::PathCurvetoArgs& left_,
                                         const Magick::PathCurvetoArgs& right_ )
 {
   return ( ( left_ < right_ ) || ( left_ == right_ ) );
@@ -1758,37 +1758,37 @@ Magick::VPathBase* Magick::PathSmoothCurvetoRel::copy() const
 //
 // Quadratic Curveto (Quadratic Bezier)
 //
-MagickDLLDecl int Magick::operator ==
+MagickPPExport int Magick::operator ==
 ( const Magick::PathQuadraticCurvetoArgs& /*left_*/,
   const Magick::PathQuadraticCurvetoArgs& /*right_*/ )
 {
   return ( 1 );
 }
-MagickDLLDecl int Magick::operator !=
+MagickPPExport int Magick::operator !=
 ( const Magick::PathQuadraticCurvetoArgs& /*left_*/,
   const Magick::PathQuadraticCurvetoArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator >
+MagickPPExport int Magick::operator >
 ( const Magick::PathQuadraticCurvetoArgs& /*left_*/,
   const Magick::PathQuadraticCurvetoArgs& /*right_*/ )
 {
   return ( 0 );
 }
-MagickDLLDecl int Magick::operator < 
+MagickPPExport int Magick::operator < 
 ( const Magick::PathQuadraticCurvetoArgs& /*left_*/,
   const Magick::PathQuadraticCurvetoArgs& /*right_*/ )
 {
   return  ( 0 );
 }
-MagickDLLDecl int Magick::operator >=
+MagickPPExport int Magick::operator >=
 ( const Magick::PathQuadraticCurvetoArgs& left_,
   const Magick::PathQuadraticCurvetoArgs& right_ )
 {
   return ( ( left_ > right_ ) || ( left_ == right_ ) );
 }
-MagickDLLDecl int Magick::operator <=
+MagickPPExport int Magick::operator <=
 ( const Magick::PathQuadraticCurvetoArgs& left_,
   const Magick::PathQuadraticCurvetoArgs& right_ )
 {

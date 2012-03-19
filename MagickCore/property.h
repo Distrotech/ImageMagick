@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -24,20 +24,21 @@ extern "C" {
 
 extern MagickExport char
   *GetNextImageProperty(const Image *),
-  *InterpretImageProperties(const ImageInfo *,Image *,const char *),
+  *InterpretImageProperties(const ImageInfo *,Image *,const char *,
+    ExceptionInfo *),
   *RemoveImageProperty(Image *,const char *);
 
 extern MagickExport const char
-  *GetImageProperty(const Image *,const char *),
-  *GetMagickProperty(const ImageInfo *,Image *,const char *);
+  *GetImageProperty(const Image *,const char *,ExceptionInfo *),
+  *GetMagickProperty(const ImageInfo *,Image *,const char *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
   CloneImageProperties(Image *,const Image *),
-  DefineImageProperty(Image *,const char *),
+  DefineImageProperty(Image *,const char *,ExceptionInfo *),
   DeleteImageProperty(Image *,const char *),
   FormatImageProperty(Image *,const char *,const char *,...)
-    magick_attribute((format (printf,3,4))),
-  SetImageProperty(Image *,const char *,const char *);
+    magick_attribute((__format__ (__printf__,3,4))),
+  SetImageProperty(Image *,const char *,const char *,ExceptionInfo *);
 
 extern MagickExport void
   DestroyImageProperties(Image *),

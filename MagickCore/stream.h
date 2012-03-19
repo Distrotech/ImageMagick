@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -22,14 +22,27 @@
 extern "C" {
 #endif
 
+typedef struct _StreamInfo
+  StreamInfo;
+
 typedef size_t
   (*StreamHandler)(const Image *,const void *,const size_t);
 
 extern MagickExport Image
-  *ReadStream(const ImageInfo *,StreamHandler,ExceptionInfo *);
+  *ReadStream(const ImageInfo *,StreamHandler,ExceptionInfo *),
+  *StreamImage(const ImageInfo *,StreamInfo *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
-  WriteStream(const ImageInfo *,Image *,StreamHandler);
+  OpenStream(const ImageInfo *,StreamInfo *,const char *,ExceptionInfo *),
+  WriteStream(const ImageInfo *,Image *,StreamHandler,ExceptionInfo *);
+
+extern MagickExport StreamInfo
+  *AcquireStreamInfo(const ImageInfo *,ExceptionInfo *),
+  *DestroyStreamInfo(StreamInfo *);
+
+extern MagickExport void
+  SetStreamInfoMap(StreamInfo *,const char *),
+  SetStreamInfoStorageType(StreamInfo *,const StorageType);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

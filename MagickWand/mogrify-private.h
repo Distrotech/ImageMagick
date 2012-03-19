@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ extern "C" {
 
 #define AppendImageStack(images) \
 { \
-  (void) SyncImagesSettings(image_info,images); \
+  (void) SyncImagesSettings(image_info,images,exception); \
   AppendImageToList(&image_stack[k].image,images); \
   image=image_stack[k].image; \
 }
@@ -40,10 +40,7 @@ extern "C" {
 { \
   FireImageStack(MagickTrue,advance,MagickTrue); \
   if (image != (Image *) NULL) \
-    { \
-      InheritException(exception,&(image)->exception); \
-      (void) SyncImagesSettings(image_info,image); \
-    } \
+    (void) SyncImagesSettings(image_info,image,exception); \
 }
 #define FireImageStack(postfix,advance,fire) \
   if ((j <= i) && (i < (ssize_t) argc)) \

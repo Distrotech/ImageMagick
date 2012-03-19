@@ -24,34 +24,34 @@ namespace Magick
   class Options;
   class ImageRef;
 
-  extern MagickDLLDecl const char *borderGeometryDefault;
-  extern MagickDLLDecl const char *frameGeometryDefault;
-  extern MagickDLLDecl const char *raiseGeometryDefault;
+  extern MagickPPExport const char *borderGeometryDefault;
+  extern MagickPPExport const char *frameGeometryDefault;
+  extern MagickPPExport const char *raiseGeometryDefault;
 
   // Compare two Image objects regardless of LHS/RHS
   // Image sizes and signatures are used as basis of comparison
-  int MagickDLLDecl operator == ( const Magick::Image& left_,
+  int MagickPPExport operator == ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
-  int MagickDLLDecl operator != ( const Magick::Image& left_,
+  int MagickPPExport operator != ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
-  int MagickDLLDecl operator >  ( const Magick::Image& left_,
+  int MagickPPExport operator >  ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
-  int MagickDLLDecl operator <  ( const Magick::Image& left_,
+  int MagickPPExport operator <  ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
-  int MagickDLLDecl operator >= ( const Magick::Image& left_,
+  int MagickPPExport operator >= ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
-  int MagickDLLDecl operator <= ( const Magick::Image& left_,
+  int MagickPPExport operator <= ( const Magick::Image& left_,
                                   const Magick::Image& right_ );
 
   // C library initialization routine
-  void MagickDLLDecl InitializeMagick(const char *path_);
+  void MagickPPExport InitializeMagick(const char *path_);
 
   //
   // Image is the representation of an image.  In reality, it actually
   // a handle object which contains a pointer to a shared reference
   // object (ImageRef). As such, this object is extremely space efficient.
   //
-  class MagickDLLDecl Image
+  class Image
   {
   public:
     // Construct from image file or image specification
@@ -283,7 +283,8 @@ namespace Magick
     void            draw ( const std::list<Magick::Drawable> &drawable_ );
     
     // Edge image (hilight edges in image)
-    void            edge ( const double radius_ = 0.0 );
+    void            edge ( const double radius_ = 0.0,
+                           const double sigma_ = 1.0);
     
     // Emboss image (hilight edges with 3D effect)
     // The radius_ parameter specifies the radius of the Gaussian, in
@@ -332,7 +333,7 @@ namespace Magick
 
     // Floodfill pixels matching color (within fuzz factor) of target
     // pixel(x,y) with replacement alpha value using method.
-    void            floodFillOpacity ( const ::ssize_t x_,
+    void            floodFillAlpha ( const ::ssize_t x_,
                                        const ::ssize_t y_,
                                        const unsigned int alpha_,
                                        const PaintMethod method_ );
@@ -462,7 +463,7 @@ namespace Magick
     void            normalize ( void );
     
     // Oilpaint image (image looks like oil painting)
-    void            oilPaint ( const double radius_ = 3.0 );
+    void            oilPaint ( const double radius_ = 0.0, const double sigma = 1.0 );
 
     // Set or attenuate the alpha channel in the image. If the image
     // pixels are opaque then they are set to the specified alpha
@@ -606,6 +607,12 @@ namespace Magick
           const double elevation_ = 30,
           const bool   colorShading_ = false );
     
+    // Simulate an image shadow
+    void            shadow ( const double percent_opacity_ = 80.0,
+                             const double sigma_ = 0.5,
+                             const ssize_t x_ = 5,
+                             const ssize_t y_ = 5 );
+
     // Sharpen pixels in image
     // The radius_ parameter specifies the radius of the Gaussian, in
     // pixels, not counting the center pixel.  The sigma_ parameter

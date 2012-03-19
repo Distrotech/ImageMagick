@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -111,21 +111,21 @@ static Image *ReadTILEImage(const ImageInfo *image_info,
   read_info=DestroyImageInfo(read_info);
   if (tile_image == (Image *) NULL)
     return((Image *) NULL);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   if (*image_info->filename == '\0')
     ThrowReaderException(OptionError,"MustSpecifyAnImageName");
   image->matte=tile_image->matte;
   if (image->matte != MagickFalse)
-    (void) SetImageBackgroundColor(image);
+    (void) SetImageBackgroundColor(image,exception);
   (void) CopyMagickString(image->filename,image_info->filename,MaxTextExtent);
   if (LocaleCompare(tile_image->magick,"PATTERN") == 0)
     {
       tile_image->tile_offset.x=0;
       tile_image->tile_offset.y=0;
     }
-  (void) TextureImage(image,tile_image);
+  (void) TextureImage(image,tile_image,exception);
   tile_image=DestroyImage(tile_image);
   return(GetFirstImageInList(image));
 }

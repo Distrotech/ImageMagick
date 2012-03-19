@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -62,7 +62,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteMATTEImage(const ImageInfo *,Image *);
+  WriteMATTEImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -136,13 +136,13 @@ ModuleExport void UnregisterMATTEImage(void)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  Function WriteMATTEImage() writes an image of matte bytes to a file.  It
-%  consists of data from the matte component of the image [0..255].
+%  WriteMATTEImage() writes an image of matte bytes to a file.  It consists of
+%  data from the matte component of the image [0..255].
 %
 %  The format of the WriteMATTEImage method is:
 %
 %      MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -150,13 +150,12 @@ ModuleExport void UnregisterMATTEImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   Image
     *matte_image;
 
@@ -177,16 +176,14 @@ static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
 
   if (image->matte == MagickFalse)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAAlphaChannel");
-  matte_image=CloneImage(image,image->columns,image->rows,MagickTrue,
-    &image->exception);
+  matte_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
   if (matte_image == (Image *) NULL)
     return(MagickFalse);
-  (void) SetImageType(matte_image,TrueColorMatteType);
+  (void) SetImageType(matte_image,TrueColorMatteType,exception);
   matte_image->matte=MagickFalse;
   /*
     Convert image to matte pixels.
   */
-  exception=(&image->exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);
@@ -211,7 +208,7 @@ static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
   }
   (void) FormatLocaleString(matte_image->filename,MaxTextExtent,
     "MIFF:%s",image->filename);
-  status=WriteImage(image_info,matte_image);
+  status=WriteImage(image_info,matte_image,exception);
   matte_image=DestroyImage(matte_image);
   return(status);
 }

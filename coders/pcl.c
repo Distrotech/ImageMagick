@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -78,7 +78,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WritePCLImage(const ImageInfo *,Image *);
+  WritePCLImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -157,6 +157,9 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
     options[MaxTextExtent],
     input_filename[MaxTextExtent];
 
+  const char
+    *option;
+
   const DelegateInfo
     *delegate_info;
 
@@ -204,7 +207,7 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Open image file.
   */
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -224,7 +227,7 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   delta.x=DefaultResolution;
   delta.y=DefaultResolution;
-  if ((image->x_resolution == 0.0) || (image->y_resolution == 0.0))
+  if ((image->resolution.x == 0.0) || (image->resolution.y == 0.0))
     {
       GeometryInfo
         geometry_info;
@@ -233,10 +236,10 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
         flags;
 
       flags=ParseGeometry(PSDensityGeometry,&geometry_info);
-      image->x_resolution=geometry_info.rho;
-      image->y_resolution=geometry_info.sigma;
+      image->resolution.x=geometry_info.rho;
+      image->resolution.y=geometry_info.sigma;
       if ((flags & SigmaValue) == 0)
-        image->y_resolution=image->x_resolution;
+        image->resolution.y=image->resolution.x;
     }
   /*
     Determine page geometry from the PCL media box.
@@ -325,9 +328,9 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (image_info->page != (char *) NULL)
     (void) ParseAbsoluteGeometry(image_info->page,&page);
   (void) FormatLocaleString(density,MaxTextExtent,"%gx%g",
-    image->x_resolution,image->y_resolution);
-  page.width=(size_t) floor(page.width*image->x_resolution/delta.x+0.5);
-  page.height=(size_t) floor(page.height*image->y_resolution/delta.y+
+    image->resolution.x,image->resolution.y);
+  page.width=(size_t) floor(page.width*image->resolution.x/delta.x+0.5);
+  page.height=(size_t) floor(page.height*image->resolution.y/delta.y+
     0.5);
   (void) FormatLocaleString(options,MaxTextExtent,"-g%.20gx%.20g ",(double)
      page.width,(double) page.height);
@@ -347,9 +350,10 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (read_info->scenes != (char *) NULL)
         *read_info->scenes='\0';
     }
-  if (read_info->authenticate != (char *) NULL)
+  option=GetImageOption(read_info,"authenticate");
+  if (option != (const char *) NULL)
     (void) FormatLocaleString(options+strlen(options),MaxTextExtent,
-      " -sPCLPassword=%s",read_info->authenticate);
+      " -sPCLPassword=%s",option);
   (void) CopyMagickString(filename,read_info->filename,MaxTextExtent);
   (void) AcquireUniqueFilename(read_info->filename);
   (void) FormatLocaleString(command,MaxTextExtent,
@@ -370,7 +374,7 @@ static Image *ReadPCLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       Image
         *cmyk_image;
 
-      cmyk_image=ConsolidateCMYKImages(image,&image->exception);
+      cmyk_image=ConsolidateCMYKImages(image,exception);
       if (cmyk_image != (Image *) NULL)
         {
           image=DestroyImageList(image);
@@ -469,13 +473,16 @@ ModuleExport void UnregisterPCLImage(void)
 %
 %  The format of the WritePCLImage method is:
 %
-%      MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WritePCLImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
 %    o image_info: the image info.
 %
 %    o image:  The image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -651,7 +658,8 @@ static size_t PCLPackbitsCompressImage(const size_t length,
   return((size_t) (q-compress_pixels));
 }
 
-static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   char
     buffer[MaxTextExtent];
@@ -695,7 +703,9 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   density=75;
@@ -712,7 +722,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
   do
   {
     if (IsRGBColorspace(image->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image,RGBColorspace);
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
     /*
       Initialize the printer.
     */
@@ -725,7 +735,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
       density);
     (void) WriteBlobString(image,buffer);
     (void) WriteBlobString(image,"\033&l0E");  /* top margin 0 */
-    if (IsImageMonochrome(image,&image->exception) != MagickFalse)
+    if (IsImageMonochrome(image,exception) != MagickFalse)
       {
         /*
           Monochrome image: use default printer monochrome setup.
@@ -842,7 +852,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image)
     }
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       q=pixels;

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -67,7 +67,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteYUVImage(const ImageInfo *,Image *);
+  WriteYUVImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -141,7 +141,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   quantum=image->depth <= 8 ? 1 : 2;
@@ -231,7 +231,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
             count=ReadBlob(image,(size_t) (2*quantum*image->columns),scanline);
           p=scanline;
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           chroma_pixels=QueueAuthenticPixels(chroma_image,0,y,
             chroma_image->columns,1,exception);
@@ -285,7 +285,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
             count=ReadBlob(image,(size_t) quantum*image->columns,scanline);
           p=scanline;
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
@@ -333,7 +333,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
           p=scanline;
           q=QueueAuthenticPixels(chroma_image,0,y,chroma_image->columns,1,
             exception);
-          if (q == (const Quantum *) NULL)
+          if (q == (Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) chroma_image->columns; x++)
           {
@@ -369,7 +369,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         p=scanline;
         q=GetAuthenticPixels(chroma_image,0,y,chroma_image->columns,1,
           exception);
-        if (q == (const Quantum *) NULL)
+        if (q == (Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) chroma_image->columns; x++)
         {
@@ -399,8 +399,8 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
     {
       q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
       chroma_pixels=GetVirtualPixels(resize_image,0,y,resize_image->columns,1,
-        &resize_image->exception);
-      if ((q == (const Quantum *) NULL) ||
+        exception);
+      if ((q == (Quantum *) NULL) ||
           (chroma_pixels == (const Quantum *) NULL))
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
@@ -439,7 +439,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -537,7 +537,8 @@ ModuleExport void UnregisterYUVImage(void)
 %
 %  The format of the WriteYUVImage method is:
 %
-%      MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteYUVImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -545,8 +546,11 @@ ModuleExport void UnregisterYUVImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   Image
     *chroma_image,
@@ -584,7 +588,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  quantum=image->depth <= 8 ? 1 : 2;
+  quantum=(size_t) (image->depth <= 8 ? 1 : 2);
   interlace=image->interlace;
   horizontal_factor=2;
   vertical_factor=2;
@@ -617,14 +621,14 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
       /*
         Open output image file.
       */
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
     }
   else
     {
       AppendImageFormat("Y",image->filename);
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
     }
@@ -634,22 +638,27 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
     /*
       Sample image to an even width and height, if necessary.
     */
-    image->depth=quantum == 1 ? 8 : 16;
+    image->depth=(size_t) (quantum == 1 ? 8 : 16);
     width=image->columns+(image->columns & (horizontal_factor-1));
     height=image->rows+(image->rows & (vertical_factor-1));
-    yuv_image=ResizeImage(image,width,height,TriangleFilter,1.0,
-      &image->exception);
+    yuv_image=ResizeImage(image,width,height,TriangleFilter,1.0,exception);
     if (yuv_image == (Image *) NULL)
-      ThrowWriterException(ResourceLimitError,image->exception.reason);
-    (void) TransformImageColorspace(yuv_image,YCbCrColorspace);
+      {
+        (void) CloseBlob(image);
+        return(MagickFalse);
+      }
+    (void) TransformImageColorspace(yuv_image,YCbCrColorspace,exception);
     /*
       Downsample image.
     */
     chroma_image=ResizeImage(image,width/horizontal_factor,
-      height/vertical_factor,TriangleFilter,1.0,&image->exception);
+      height/vertical_factor,TriangleFilter,1.0,exception);
     if (chroma_image == (Image *) NULL)
-      ThrowWriterException(ResourceLimitError,image->exception.reason);
-    (void) TransformImageColorspace(chroma_image,YCbCrColorspace);
+      {
+        (void) CloseBlob(image);
+        return(MagickFalse);
+      }
+    (void) TransformImageColorspace(chroma_image,YCbCrColorspace,exception);
     if (interlace == NoInterlace)
       {
         /*
@@ -657,12 +666,11 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
         */
         for (y=0; y < (ssize_t) yuv_image->rows; y++)
         {
-          p=GetVirtualPixels(yuv_image,0,y,yuv_image->columns,1,
-            &yuv_image->exception);
+          p=GetVirtualPixels(yuv_image,0,y,yuv_image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           s=GetVirtualPixels(chroma_image,0,y,chroma_image->columns,1,
-            &chroma_image->exception);
+            exception);
           if (s == (const Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) yuv_image->columns; x++)
@@ -712,8 +720,7 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
         */
         for (y=0; y < (ssize_t) yuv_image->rows; y++)
         {
-          p=GetVirtualPixels(yuv_image,0,y,yuv_image->columns,1,
-            &yuv_image->exception);
+          p=GetVirtualPixels(yuv_image,0,y,yuv_image->columns,1,exception);
           if (p == (const Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) yuv_image->columns; x++)
@@ -748,15 +755,14 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
           {
             (void) CloseBlob(image);
             AppendImageFormat("U",image->filename);
-            status=OpenBlob(image_info,image,WriteBinaryBlobMode,
-              &image->exception);
+            status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
             if (status == MagickFalse)
               return(status);
           }
         for (y=0; y < (ssize_t) chroma_image->rows; y++)
         {
           p=GetVirtualPixels(chroma_image,0,y,chroma_image->columns,1,
-            &chroma_image->exception);
+            exception);
           if (p == (const Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) chroma_image->columns; x++)
@@ -783,15 +789,14 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image)
           {
             (void) CloseBlob(image);
             AppendImageFormat("V",image->filename);
-            status=OpenBlob(image_info,image,WriteBinaryBlobMode,
-              &image->exception);
+            status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
             if (status == MagickFalse)
               return(status);
           }
         for (y=0; y < (ssize_t) chroma_image->rows; y++)
         {
           p=GetVirtualPixels(chroma_image,0,y,chroma_image->columns,1,
-            &chroma_image->exception);
+            exception);
           if (p == (const Quantum *) NULL)
             break;
           for (x=0; x < (ssize_t) chroma_image->columns; x++)

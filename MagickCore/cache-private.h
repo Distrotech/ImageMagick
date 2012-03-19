@@ -1,12 +1,12 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
-  
+
   You may not use this file except in compliance with the License.
   obtain a copy of the License at
-  
+
     http://www.imagemagick.org/script/license.php
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,9 +41,9 @@ typedef void
 
 typedef MagickBooleanType
   (*GetOneAuthenticPixelFromHandler)(Image *,const ssize_t,const ssize_t,
-    PixelPacket *,ExceptionInfo *),
+    Quantum *,ExceptionInfo *),
   (*GetOneVirtualPixelFromHandler)(const Image *,const VirtualPixelMethod,
-    const ssize_t,const ssize_t,PixelPacket *,ExceptionInfo *),
+    const ssize_t,const ssize_t,Quantum *,ExceptionInfo *),
   (*SyncAuthenticPixelsHandler)(Image *,ExceptionInfo *);
 
 typedef const Quantum
@@ -118,9 +118,20 @@ typedef struct _CacheInfo
   ColorspaceType
     colorspace;
 
+  MagickBooleanType
+    matte,
+    mask;
+
+  size_t
+    columns,
+    rows;
+
   size_t
     metacontent_extent,
     number_channels;
+
+  PixelChannelMap
+    channel_map[MaxPixelChannels];
 
   CacheType
     type;
@@ -130,10 +141,6 @@ typedef struct _CacheInfo
 
   MagickBooleanType
     mapped;
-
-  size_t
-    columns,
-    rows;
 
   MagickOffsetType
     offset;
@@ -192,59 +199,66 @@ typedef struct _CacheInfo
     signature;
 } CacheInfo;
 
-extern MagickExport Cache
+extern MagickPrivate Cache
   AcquirePixelCache(const size_t),
   ClonePixelCache(const Cache),
   DestroyPixelCache(Cache),
   ReferencePixelCache(Cache);
 
-extern MagickExport CacheType
+extern MagickPrivate CacheType
   GetPixelCacheType(const Image *);
 
-extern MagickExport ClassType
+extern MagickPrivate ClassType
   GetPixelCacheStorageClass(const Cache);
 
-extern MagickExport ColorspaceType
+extern MagickPrivate ColorspaceType
   GetPixelCacheColorspace(const Cache);
 
-
-extern MagickExport const Quantum
+extern MagickPrivate const Quantum
   *GetVirtualPixelsFromNexus(const Image *,const VirtualPixelMethod,
     const ssize_t,const ssize_t,const size_t,const size_t,NexusInfo *,
-    ExceptionInfo *),
+    ExceptionInfo *) magick_hot_spot,
   *GetVirtualPixelsNexus(const Cache,NexusInfo *);
 
-extern MagickExport const void
+extern MagickPrivate const void
+  *AcquirePixelCachePixels(const Image *,MagickSizeType *,ExceptionInfo *),
   *GetVirtualMetacontentFromNexus(const Cache,NexusInfo *);
 
-extern MagickExport MagickBooleanType
-  SyncAuthenticPixelCacheNexus(Image *,NexusInfo *,ExceptionInfo *);
+extern MagickPrivate MagickBooleanType
+  CacheComponentGenesis(void),
+  SyncAuthenticPixelCacheNexus(Image *,NexusInfo *,ExceptionInfo *) magick_hot_spot,
+  SyncImagePixelCache(Image *,ExceptionInfo *);
 
-extern MagickExport MagickSizeType
+extern MagickPrivate MagickSizeType
   GetPixelCacheNexusExtent(const Cache,NexusInfo *);
 
-extern MagickExport NexusInfo
+extern MagickPrivate NexusInfo
   **AcquirePixelCacheNexus(const size_t),
   **DestroyPixelCacheNexus(NexusInfo **,const size_t);
 
-extern MagickExport Quantum
+extern MagickPrivate Quantum
   *GetAuthenticPixelCacheNexus(Image *,const ssize_t,const ssize_t,
-    const size_t,const size_t,NexusInfo *,ExceptionInfo *),
+    const size_t,const size_t,NexusInfo *,ExceptionInfo *) magick_hot_spot,
   *GetPixelCacheNexusPixels(const Cache,NexusInfo *),
-  *QueueAuthenticNexus(Image *,const ssize_t,const ssize_t,const size_t,
-    const size_t,NexusInfo *,ExceptionInfo *);
+  *QueueAuthenticPixelCacheNexus(Image *,const ssize_t,const ssize_t,
+    const size_t,const size_t,const MagickBooleanType,NexusInfo *,
+    ExceptionInfo *) magick_hot_spot;
 
-extern MagickExport size_t
+extern MagickPrivate size_t
   GetPixelCacheChannels(const Cache);
 
-extern MagickExport void
+extern MagickPrivate VirtualPixelMethod
+  GetPixelCacheVirtualMethod(const Image *),
+  SetPixelCacheVirtualMethod(Image *,const VirtualPixelMethod,ExceptionInfo *);
+
+extern MagickPrivate void
+  CacheComponentTerminus(void),
   ClonePixelCacheMethods(Cache,const Cache),
+  *GetPixelCacheNexusMetacontent(const Cache,NexusInfo *) magick_hot_spot,
+  *GetPixelCachePixels(Image *,MagickSizeType *,ExceptionInfo *),
   GetPixelCacheTileSize(const Image *,size_t *,size_t *),
   GetPixelCacheMethods(CacheMethods *),
   SetPixelCacheMethods(Cache,CacheMethods *);
-
-extern MagickExport void
-  *GetPixelCacheNexusMetacontent(const Cache,NexusInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

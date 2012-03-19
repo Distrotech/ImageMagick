@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@ extern MagickExport MagickBooleanType
   AcquireMagickResource(const ResourceType,const MagickSizeType),
   ListMagickResourceInfo(FILE *,ExceptionInfo *),
   RelinquishUniqueFileResource(const char *),
-  ResourceComponentGenesis(void),
   SetMagickResourceLimit(const ResourceType,const MagickSizeType);
 
 extern MagickExport MagickSizeType
@@ -52,9 +51,7 @@ extern MagickExport MagickSizeType
   GetMagickResourceLimit(const ResourceType);
 
 extern MagickExport void
-  AsynchronousResourceComponentTerminus(void),
-  RelinquishMagickResource(const ResourceType,const MagickSizeType),
-  ResourceComponentTerminus(void);
+  RelinquishMagickResource(const ResourceType,const MagickSizeType);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

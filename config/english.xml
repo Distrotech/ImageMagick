@@ -592,6 +592,9 @@
         <message name="CompositeImageRequired">
           composite image required
         </message>
+        <message name="DeprecatedOption">
+          option is deprecated
+        </message>
         <message name="DivideByZero">
           divide by zero
         </message>
@@ -603,6 +606,9 @@
         </message>
         <message name="GeometryDoesNotContainImage">
           geometry does not contain image
+        </message>
+        <message name="InvalidUseOfOption">
+          invalif use of option
         </message>
         <message name="ImagesAreNotTheSameSize">
           images are not the same size
@@ -626,9 +632,10 @@
           map image required
         </message>
         <message name="MissingArgument">
-          option requires an argument
+          missing required argument
         </message>
         <message name="MissingAnImageFilename">
+        <!-- FUTURE: Depreciate using MissingOutputFilename -->
           missing an image filename
         </message>
         <message name="MissingExpression">
@@ -636,6 +643,9 @@
         </message>
         <message name="MissingNullSeparator">
           missing Null Image List Separator
+        </message>
+        <message name="MissingOutputFilename">
+          missing output filename
         </message>
         <message name="MustSpecifyAnImageName">
           must specify an image name
@@ -651,6 +661,9 @@
         </message>
         <message name="NoImagesDefined">
           no images defined
+        </message>
+        <message name="NoImagesForFinalWrite">
+          pas d'images pour écriture finales
         </message>
         <message name="NoImageVectorGraphics">
           no image vector graphics
@@ -707,7 +720,7 @@
           unrecognized color
         </message>
         <message name="UnrecognizedColorspace">
-          unrecognized image colorspace
+          unrecognized colorspace
         </message>
         <message name="UnrecognizedComposeOperator">
           unrecognized compose operator
@@ -845,6 +858,15 @@
         </message>
         <message name="MissingAnImageFilename">
           missing an image filename
+        </message>
+        <message name="ScriptIsBinary">
+          script is binary
+        </message>
+        <message name="ScriptTokenMemoryFailed">
+          script token too big
+        </message>
+        <message name="ScriptUnbalancedQuotes">
+          script token with unbalanced quotes
         </message>
         <message name="UnrecognizedColormapType">
           unrecognized colormap type

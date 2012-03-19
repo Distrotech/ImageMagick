@@ -17,7 +17,7 @@
 %                                July 1993                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -51,6 +51,7 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 /*
   Forward declarations.
@@ -223,6 +224,42 @@ MagickExport void CatchException(ExceptionInfo *exception)
   }
   UnlockSemaphoreInfo(exception->semaphore);
   ClearMagickException(exception);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   C l o n e E x c e p t i o n I n f o                                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  CloneExceptionInfo() clones the ExceptionInfo structure.
+%
+%  The format of the CloneExceptionInfo method is:
+%
+%      ExceptionInfo *CloneException(ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o exception: the exception info.
+%
+*/
+MagickExport ExceptionInfo *CloneExceptionInfo(ExceptionInfo *exception)
+{
+  ExceptionInfo
+    *clone_exception;
+
+  clone_exception=(ExceptionInfo *) AcquireMagickMemory(sizeof(*exception));
+  if (clone_exception == (ExceptionInfo *) NULL)
+    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  GetExceptionInfo(clone_exception);
+  InheritException(clone_exception,exception);
+  exception->relinquish=MagickTrue;
+  return(exception);
 }
 
 /*
@@ -457,7 +494,12 @@ MagickExport char *GetExceptionMessage(const int error)
 
   *exception='\0';
 #if defined(MAGICKCORE_HAVE_STRERROR_R)
+#if !defined(MAGICKCORE_STRERROR_R_CHAR_P)
   (void) strerror_r(error,exception,sizeof(exception));
+#else
+  (void) CopyMagickString(exception,strerror_r(error,exception,
+    sizeof(exception)),sizeof(exception));
+#endif
 #else
   (void) CopyMagickString(exception,strerror(error),sizeof(exception));
 #endif
@@ -936,10 +978,10 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
 %
 */
 
-MagickExport MagickBooleanType ThrowMagickExceptionList(
-  ExceptionInfo *exception,const char *module,const char *function,
-  const size_t line,const ExceptionType severity,const char *tag,
-  const char *format,va_list operands)
+static MagickBooleanType ThrowMagickExceptionList(ExceptionInfo *exception,
+  const char *module,const char *function,const size_t line,
+  const ExceptionType severity,const char *tag,const char *format,
+  va_list operands)
 {
   char
     message[MaxTextExtent],

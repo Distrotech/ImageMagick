@@ -17,7 +17,7 @@
 %                                 August 1996                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -44,6 +44,7 @@
 #include "MagickCore/color-private.h"
 #include "MagickCore/draw.h"
 #include "MagickCore/gem.h"
+#include "MagickCore/gem-private.h"
 #include "MagickCore/image.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/log.h"
@@ -73,7 +74,7 @@
 %  The format of the ConvertHSBToRGBImage method is:
 %
 %      void ConvertHSBToRGB(const double hue,const double saturation,
-%        const double brightness,Quantum *red,Quantum *green,Quantum *blue)
+%        const double brightness,double *red,double *green,double *blue)
 %
 %  A description of each parameter follows:
 %
@@ -83,8 +84,8 @@
 %    o red, green, blue: A pointer to a pixel component of type Quantum.
 %
 */
-MagickExport void ConvertHSBToRGB(const double hue,const double saturation,
-  const double brightness,Quantum *red,Quantum *green,Quantum *blue)
+MagickPrivate void ConvertHSBToRGB(const double hue,const double saturation,
+  const double brightness,double *red,double *green,double *blue)
 {
   MagickRealType
     f,
@@ -96,12 +97,12 @@ MagickExport void ConvertHSBToRGB(const double hue,const double saturation,
   /*
     Convert HSB to RGB colorspace.
   */
-  assert(red != (Quantum *) NULL);
-  assert(green != (Quantum *) NULL);
-  assert(blue != (Quantum *) NULL);
+  assert(red != (double *) NULL);
+  assert(green != (double *) NULL);
+  assert(blue != (double *) NULL);
   if (saturation == 0.0)
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
       *green=(*red);
       *blue=(*red);
       return;
@@ -116,44 +117,44 @@ MagickExport void ConvertHSBToRGB(const double hue,const double saturation,
     case 0:
     default:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*brightness);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*t);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*p);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*t);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
       break;
     }
     case 1:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*q);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*brightness);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*p);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*q);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
       break;
     }
     case 2:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*p);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*brightness);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*t);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*t);
       break;
     }
     case 3:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*p);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*q);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*q);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
       break;
     }
     case 4:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*t);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*p);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*t);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
       break;
     }
     case 5:
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*brightness);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*p);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*q);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*brightness);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*p);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*q);
       break;
     }
   }
@@ -176,7 +177,7 @@ MagickExport void ConvertHSBToRGB(const double hue,const double saturation,
 %  The format of the ConvertHSLToRGBImage method is:
 %
 %      void ConvertHSLToRGB(const double hue,const double saturation,
-%        const double lightness,Quantum *red,Quantum *green,Quantum *blue)
+%        const double lightness,double *red,double *green,double *blue)
 %
 %  A description of each parameter follows:
 %
@@ -204,7 +205,7 @@ static inline MagickRealType ConvertHueToRGB(MagickRealType m1,
 }
 
 MagickExport void ConvertHSLToRGB(const double hue,const double saturation,
-  const double lightness,Quantum *red,Quantum *green,Quantum *blue)
+  const double lightness,double *red,double *green,double *blue)
 {
   MagickRealType
     b,
@@ -216,12 +217,12 @@ MagickExport void ConvertHSLToRGB(const double hue,const double saturation,
   /*
     Convert HSL to RGB colorspace.
   */
-  assert(red != (Quantum *) NULL);
-  assert(green != (Quantum *) NULL);
-  assert(blue != (Quantum *) NULL);
+  assert(red != (double *) NULL);
+  assert(green != (double *) NULL);
+  assert(blue != (double *) NULL);
   if (saturation == 0)
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*lightness);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*lightness);
       *green=(*red);
       *blue=(*red);
       return;
@@ -234,9 +235,9 @@ MagickExport void ConvertHSLToRGB(const double hue,const double saturation,
   r=ConvertHueToRGB(m1,m2,hue+1.0/3.0);
   g=ConvertHueToRGB(m1,m2,hue);
   b=ConvertHueToRGB(m1,m2,hue-1.0/3.0);
-  *red=ClampToQuantum((MagickRealType) QuantumRange*r);
-  *green=ClampToQuantum((MagickRealType) QuantumRange*g);
-  *blue=ClampToQuantum((MagickRealType) QuantumRange*b);
+  *red=(double) ClampToQuantum((MagickRealType) QuantumRange*r);
+  *green=(double) ClampToQuantum((MagickRealType) QuantumRange*g);
+  *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*b);
 }
 
 /*
@@ -256,7 +257,7 @@ MagickExport void ConvertHSLToRGB(const double hue,const double saturation,
 %  The format of the ConvertHWBToRGBImage method is:
 %
 %      void ConvertHWBToRGB(const double hue,const double whiteness,
-%        const double blackness,Quantum *red,Quantum *green,Quantum *blue)
+%        const double blackness,double *red,double *green,double *blue)
 %
 %  A description of each parameter follows:
 %
@@ -266,8 +267,8 @@ MagickExport void ConvertHSLToRGB(const double hue,const double saturation,
 %    o red, green, blue: A pointer to a pixel component of type Quantum.
 %
 */
-MagickExport void ConvertHWBToRGB(const double hue,const double whiteness,
-  const double blackness,Quantum *red,Quantum *green,Quantum *blue)
+MagickPrivate void ConvertHWBToRGB(const double hue,const double whiteness,
+  const double blackness,double *red,double *green,double *blue)
 {
   MagickRealType
     b,
@@ -283,15 +284,15 @@ MagickExport void ConvertHWBToRGB(const double hue,const double whiteness,
   /*
     Convert HWB to RGB colorspace.
   */
-  assert(red != (Quantum *) NULL);
-  assert(green != (Quantum *) NULL);
-  assert(blue != (Quantum *) NULL);
+  assert(red != (double *) NULL);
+  assert(green != (double *) NULL);
+  assert(blue != (double *) NULL);
   v=1.0-blackness;
   if (hue == 0.0)
     {
-      *red=ClampToQuantum((MagickRealType) QuantumRange*v);
-      *green=ClampToQuantum((MagickRealType) QuantumRange*v);
-      *blue=ClampToQuantum((MagickRealType) QuantumRange*v);
+      *red=(double) ClampToQuantum((MagickRealType) QuantumRange*v);
+      *green=(double) ClampToQuantum((MagickRealType) QuantumRange*v);
+      *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*v);
       return;
     }
   i=(ssize_t) floor(6.0*hue);
@@ -310,9 +311,9 @@ MagickExport void ConvertHWBToRGB(const double hue,const double whiteness,
     case 4: r=n; g=whiteness; b=v; break;
     case 5: r=v; g=whiteness; b=n; break;
   }
-  *red=ClampToQuantum((MagickRealType) QuantumRange*r);
-  *green=ClampToQuantum((MagickRealType) QuantumRange*g);
-  *blue=ClampToQuantum((MagickRealType) QuantumRange*b);
+  *red=(double) ClampToQuantum((MagickRealType) QuantumRange*r);
+  *green=(double) ClampToQuantum((MagickRealType) QuantumRange*g);
+  *blue=(double) ClampToQuantum((MagickRealType) QuantumRange*b);
 }
 
 /*
@@ -331,8 +332,8 @@ MagickExport void ConvertHWBToRGB(const double hue,const double whiteness,
 %
 %  The format of the ConvertRGBToHSB method is:
 %
-%      void ConvertRGBToHSB(const Quantum red,const Quantum green,
-%        const Quantum blue,double *hue,double *saturation,double *brightness)
+%      void ConvertRGBToHSB(const double red,const double green,
+%        const double blue,double *hue,double *saturation,double *brightness)
 %
 %  A description of each parameter follows:
 %
@@ -343,8 +344,8 @@ MagickExport void ConvertHWBToRGB(const double hue,const double whiteness,
 %      component of the HSB color space.
 %
 */
-MagickExport void ConvertRGBToHSB(const Quantum red,const Quantum green,
-  const Quantum blue,double *hue,double *saturation,double *brightness)
+MagickPrivate void ConvertRGBToHSB(const double red,const double green,
+  const double blue,double *hue,double *saturation,double *brightness)
 {
   MagickRealType
     delta,
@@ -401,8 +402,8 @@ MagickExport void ConvertRGBToHSB(const Quantum red,const Quantum green,
 %
 %  The format of the ConvertRGBToHSL method is:
 %
-%      void ConvertRGBToHSL(const Quantum red,const Quantum green,
-%        const Quantum blue,double *hue,double *saturation,double *lightness)
+%      void ConvertRGBToHSL(const double red,const double green,
+%        const double blue,double *hue,double *saturation,double *lightness)
 %
 %  A description of each parameter follows:
 %
@@ -428,8 +429,8 @@ static inline double MagickMin(const double x,const double y)
   return(y);
 }
 
-MagickExport void ConvertRGBToHSL(const Quantum red,const Quantum green,
-  const Quantum blue,double *hue,double *saturation,double *lightness)
+MagickExport void ConvertRGBToHSL(const double red,const double green,
+  const double blue,double *hue,double *saturation,double *lightness)
 {
   MagickRealType
     b,
@@ -494,8 +495,8 @@ MagickExport void ConvertRGBToHSL(const Quantum red,const Quantum green,
 %
 %  The format of the ConvertRGBToHWB method is:
 %
-%      void ConvertRGBToHWB(const Quantum red,const Quantum green,
-%        const Quantum blue,double *hue,double *whiteness,double *blackness)
+%      void ConvertRGBToHWB(const double red,const double green,
+%        const double blue,double *hue,double *whiteness,double *blackness)
 %
 %  A description of each parameter follows:
 %
@@ -506,8 +507,8 @@ MagickExport void ConvertRGBToHSL(const Quantum red,const Quantum green,
 %      component of the HWB color space.
 %
 */
-MagickExport void ConvertRGBToHWB(const Quantum red,const Quantum green,
-  const Quantum blue,double *hue,double *whiteness,double *blackness)
+MagickPrivate void ConvertRGBToHWB(const double red,const double green,
+  const double blue,double *hue,double *whiteness,double *blackness)
 {
   long
     i;
@@ -590,8 +591,7 @@ MagickExport double ExpandAffine(const AffineMatrix *affine)
 %  The format of the GenerateDifferentialNoise method is:
 %
 %      double GenerateDifferentialNoise(RandomInfo *random_info,
-%        const Quantum pixel,const NoiseType noise_type,
-%        const MagickRealType attenuate)
+%        const Quantum pixel,const NoiseType noise_type,const double attenuate)
 %
 %  A description of each parameter follows:
 %
@@ -604,17 +604,16 @@ MagickExport double ExpandAffine(const AffineMatrix *affine)
 %    o attenuate:  attenuate the noise.
 %
 */
-MagickExport double GenerateDifferentialNoise(RandomInfo *random_info,
-  const Quantum pixel,const NoiseType noise_type,const MagickRealType attenuate)
+MagickPrivate double GenerateDifferentialNoise(RandomInfo *random_info,
+  const Quantum pixel,const NoiseType noise_type,const double attenuate)
 {
-#define NoiseEpsilon  (attenuate*1.0e-5)
-#define SigmaUniform  (attenuate*4.0)
-#define SigmaGaussian  (attenuate*4.0)
-#define SigmaImpulse  (attenuate*0.10)
-#define SigmaLaplacian (attenuate*10.0)
-#define SigmaMultiplicativeGaussian  (attenuate*1.0)
-#define SigmaPoisson  (attenuate*0.05)
-#define TauGaussian  (attenuate*20.0)
+#define SigmaUniform  (attenuate*0.015625)
+#define SigmaGaussian  (attenuate*0.015625)
+#define SigmaImpulse  (attenuate*0.1)
+#define SigmaLaplacian (attenuate*0.0390625)
+#define SigmaMultiplicativeGaussian  (attenuate*0.5)
+#define SigmaPoisson  (attenuate*12.5)
+#define TauGaussian  (attenuate*0.078125)
 
   double
     alpha,
@@ -628,8 +627,7 @@ MagickExport double GenerateDifferentialNoise(RandomInfo *random_info,
     case UniformNoise:
     default:
     {
-      noise=(double) pixel+ScaleCharToQuantum((unsigned char)
-        (SigmaUniform*(alpha)));
+      noise=(double) (pixel+QuantumRange*SigmaUniform*(alpha-0.5));
       break;
     }
     case GaussianNoise:
@@ -644,49 +642,47 @@ MagickExport double GenerateDifferentialNoise(RandomInfo *random_info,
       gamma=sqrt(-2.0*log(alpha));
       sigma=gamma*cos((double) (2.0*MagickPI*beta));
       tau=gamma*sin((double) (2.0*MagickPI*beta));
-      noise=(double) pixel+sqrt((double) pixel)*SigmaGaussian*sigma+
-        TauGaussian*tau;
-      break;
-    }
-    case MultiplicativeGaussianNoise:
-    {
-      if (alpha <= NoiseEpsilon)
-        sigma=(double) QuantumRange;
-      else
-        sigma=sqrt(-2.0*log(alpha));
-      beta=GetPseudoRandomValue(random_info);
-      noise=(double) pixel+pixel*SigmaMultiplicativeGaussian*sigma/2.0*
-        cos((double) (2.0*MagickPI*beta));
+      noise=(double) (pixel+sqrt((double) pixel)*SigmaGaussian*sigma+
+        QuantumRange*TauGaussian*tau);
       break;
     }
     case ImpulseNoise:
     {
       if (alpha < (SigmaImpulse/2.0))
         noise=0.0;
-       else
-         if (alpha >= (1.0-(SigmaImpulse/2.0)))
-           noise=(double) QuantumRange;
-         else
-           noise=(double) pixel;
+      else
+        if (alpha >= (1.0-(SigmaImpulse/2.0)))
+          noise=(double) QuantumRange;
+        else
+          noise=(double) pixel;
       break;
     }
     case LaplacianNoise:
     {
       if (alpha <= 0.5)
         {
-          if (alpha <= NoiseEpsilon)
-            noise=(double) pixel-(double) QuantumRange;
+          if (alpha <= MagickEpsilon)
+            noise=(double) (pixel-QuantumRange);
           else
-            noise=(double) pixel+ScaleCharToQuantum((unsigned char)
-              (SigmaLaplacian*log((2.0*alpha))+0.5));
+            noise=(double) (pixel+QuantumRange*SigmaLaplacian*
+              log(2.0*alpha)+0.5);
           break;
         }
       beta=1.0-alpha;
-      if (beta <= (0.5*NoiseEpsilon))
+      if (beta <= (0.5*MagickEpsilon))
         noise=(double) (pixel+QuantumRange);
       else
-        noise=(double) pixel-ScaleCharToQuantum((unsigned char)
-          (SigmaLaplacian*log((2.0*beta))+0.5));
+        noise=(double) (pixel-QuantumRange*SigmaLaplacian*log(2.0*beta)+0.5);
+      break;
+    }
+    case MultiplicativeGaussianNoise:
+    {
+      sigma=1.0;
+      if (alpha > MagickEpsilon)
+        sigma=sqrt(-2.0*log(alpha));
+      beta=GetPseudoRandomValue(random_info);
+      noise=(double) (pixel+pixel*SigmaMultiplicativeGaussian*sigma*
+        cos((double) (2.0*MagickPI*beta))/2.0);
       break;
     }
     case PoissonNoise:
@@ -697,18 +693,18 @@ MagickExport double GenerateDifferentialNoise(RandomInfo *random_info,
       register ssize_t
         i;
 
-      poisson=exp(-SigmaPoisson*ScaleQuantumToChar(pixel));
+      poisson=exp(-SigmaPoisson*QuantumScale*pixel);
       for (i=0; alpha > poisson; i++)
       {
         beta=GetPseudoRandomValue(random_info);
         alpha*=beta;
       }
-      noise=(double) ScaleCharToQuantum((unsigned char) (i/SigmaPoisson));
+      noise=(double) (QuantumRange*i/SigmaPoisson);
       break;
     }
     case RandomNoise:
     {
-      noise=(double) QuantumRange*alpha;
+      noise=(double) (QuantumRange*alpha);
       break;
     }
   }
@@ -746,7 +742,7 @@ MagickExport double GenerateDifferentialNoise(RandomInfo *random_info,
 %    o sigma: the standard deviation of the Gaussian, in pixels.
 %
 */
-MagickExport size_t GetOptimalKernelWidth1D(const double radius,
+MagickPrivate size_t GetOptimalKernelWidth1D(const double radius,
   const double sigma)
 {
   double
@@ -787,7 +783,7 @@ MagickExport size_t GetOptimalKernelWidth1D(const double radius,
   return((size_t) (width-2));
 }
 
-MagickExport size_t GetOptimalKernelWidth2D(const double radius,
+MagickPrivate size_t GetOptimalKernelWidth2D(const double radius,
   const double sigma)
 {
   double
@@ -828,7 +824,7 @@ MagickExport size_t GetOptimalKernelWidth2D(const double radius,
   return((size_t) (width-2));
 }
 
-MagickExport size_t  GetOptimalKernelWidth(const double radius,
+MagickPrivate size_t  GetOptimalKernelWidth(const double radius,
   const double sigma)
 {
   return(GetOptimalKernelWidth1D(radius,sigma));

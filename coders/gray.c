@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -67,7 +67,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteGRAYImage(const ImageInfo *,Image *);
+  WriteGRAYImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -135,7 +135,7 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -150,9 +150,11 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
   /*
     Create virtual canvas to support cropping (i.e. image.gray[100x100+10+20]).
   */
+  image->colorspace=GRAYColorspace;
   canvas_image=CloneImage(image,image->extract_info.width,1,MagickFalse,
     exception);
-  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod);
+  (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod,
+    exception);
   quantum_type=GrayQuantum;
   quantum_info=AcquireQuantumInfo(image_info,canvas_image);
   if (quantum_info == (QuantumInfo *) NULL)
@@ -207,7 +209,7 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
           break;
         }
       q=GetAuthenticPixels(canvas_image,0,0,canvas_image->columns,1,exception);
-      if (q == (const Quantum *) NULL)
+      if (q == (Quantum *) NULL)
         break;
       length=ImportQuantumPixels(canvas_image,(CacheView *) NULL,quantum_info,
         quantum_type,pixels,exception);
@@ -221,13 +223,11 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
           q=QueueAuthenticPixels(image,0,y-image->extract_info.y,image->columns,
             1,exception);
           if ((p == (const Quantum *) NULL) ||
-              (q == (const Quantum *) NULL))
+              (q == (Quantum *) NULL))
             break;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
-            SetPixelRed(image,GetPixelRed(canvas_image,p),q);
-            SetPixelGreen(image,GetPixelGreen(canvas_image,p),q);
-            SetPixelBlue(image,GetPixelBlue(canvas_image,p),q);
+            SetPixelGray(image,GetPixelGray(canvas_image,p),q);
             p+=GetPixelChannels(canvas_image);
             q+=GetPixelChannels(image);
           }
@@ -255,7 +255,7 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
         /*
           Allocate next image structure.
         */
-        AcquireNextImage(image_info,image);
+        AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             image=DestroyImageList(image);
@@ -270,7 +270,6 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
     scene++;
   } while (count == (ssize_t) length);
   quantum_info=DestroyQuantumInfo(quantum_info);
-  InheritException(&image->exception,&canvas_image->exception);
   canvas_image=DestroyImage(canvas_image);
   (void) CloseBlob(image);
   return(GetFirstImageInList(image));
@@ -356,7 +355,7 @@ ModuleExport void UnregisterGRAYImage(void)
 %  The format of the WriteGRAYImage method is:
 %
 %      MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -364,9 +363,11 @@ ModuleExport void UnregisterGRAYImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   MagickBooleanType
     status;
@@ -399,7 +400,9 @@ static MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   scene=0;
@@ -409,7 +412,7 @@ static MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
       Write grayscale pixels.
     */
     if (IsRGBColorspace(image->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image,RGBColorspace);
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
     quantum_type=GrayQuantum;
     quantum_info=AcquireQuantumInfo(image_info,image);
     if (quantum_info == (QuantumInfo *) NULL)
@@ -420,11 +423,11 @@ static MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
       register const Quantum
         *restrict p;
 
-      p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
+      p=GetVirtualPixels(image,0,y,image->columns,1,exception);
       if (p == (const Quantum *) NULL)
         break;
       length=ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
-        quantum_type,pixels,&image->exception);
+        quantum_type,pixels,exception);
       count=WriteBlob(image,length,pixels);
       if (count != (ssize_t) length)
         break;

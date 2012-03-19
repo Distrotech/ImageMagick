@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -91,7 +91,7 @@ typedef struct _EPTInfo
   Forward declarations.
 */
 static MagickBooleanType
-  WriteEPTImage(const ImageInfo *,Image *);
+  WriteEPTImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -184,7 +184,7 @@ static Image *ReadEPTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -350,7 +350,8 @@ ModuleExport void UnregisterEPTImage(void)
 %
 %  The format of the WriteEPTImage method is:
 %
-%      MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteEPTImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -358,8 +359,11 @@ ModuleExport void UnregisterEPTImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
   char
      filename[MaxTextExtent];
@@ -385,10 +389,12 @@ static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  write_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+  write_image=CloneImage(image,0,0,MagickTrue,exception);
   if (write_image == (Image *) NULL)
     return(MagickFalse);
   write_info=CloneImageInfo(image_info);
@@ -400,12 +406,12 @@ static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
   (void) ResetMagickMemory(&ept_info,0,sizeof(ept_info));
   ept_info.magick=0xc6d3d0c5ul;
   ept_info.postscript=(unsigned char *) ImageToBlob(write_info,write_image,
-    &ept_info.postscript_length,&image->exception);
+    &ept_info.postscript_length,exception);
   write_image=DestroyImage(write_image);
   write_info=DestroyImageInfo(write_info);
   if (ept_info.postscript == (void *) NULL)
     return(MagickFalse);
-  write_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+  write_image=CloneImage(image,0,0,MagickTrue,exception);
   if (write_image == (Image *) NULL)
     return(MagickFalse);
   write_info=CloneImageInfo(image_info);
@@ -413,7 +419,7 @@ static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
   (void) FormatLocaleString(filename,MaxTextExtent,"tiff:%s",
     write_info->filename); 
   (void) CopyMagickString(write_info->filename,filename,MaxTextExtent);
-  (void) TransformImage(&write_image,(char *) NULL,"512x512>");
+  (void) TransformImage(&write_image,(char *) NULL,"512x512>",exception);
   if ((write_image->storage_class == DirectClass) ||
       (write_image->colors > 256))
     {
@@ -424,13 +430,13 @@ static MagickBooleanType WriteEPTImage(const ImageInfo *image_info,Image *image)
         EPT preview requires that the image is colormapped.
       */
       GetQuantizeInfo(&quantize_info);
-      quantize_info.dither=IsPaletteImage(write_image,&image->exception) ==
-        MagickFalse ? MagickTrue : MagickFalse;
-      (void) QuantizeImage(&quantize_info,write_image);
+      quantize_info.dither=IsPaletteImage(write_image,exception) == MagickFalse
+        ? MagickTrue : MagickFalse;
+      (void) QuantizeImage(&quantize_info,write_image,exception);
     }
   write_info->compression=NoCompression;
   ept_info.tiff=(unsigned char *) ImageToBlob(write_info,write_image,
-    &ept_info.tiff_length,&image->exception);
+    &ept_info.tiff_length,exception);
   write_image=DestroyImage(write_image);
   write_info=DestroyImageInfo(write_info);
   if (ept_info.tiff == (void *) NULL)

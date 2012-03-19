@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -61,7 +61,7 @@
   Forward declarations.
 */
 static MagickBooleanType
-  WriteTHUMBNAILImage(const ImageInfo *,Image *);
+  WriteTHUMBNAILImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -139,7 +139,7 @@ ModuleExport void UnregisterTHUMBNAILImage(void)
 %  The format of the WriteTHUMBNAILImage method is:
 %
 %      MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
@@ -147,9 +147,11 @@ ModuleExport void UnregisterTHUMBNAILImage(void)
 %
 %    o image:  The image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 static MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   const char
     *property;
@@ -181,11 +183,11 @@ static MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
   profile=GetImageProfile(image,"exif");
   if (profile == (const StringInfo *) NULL)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAThumbnail");
-  property=GetImageProperty(image,"exif:JPEGInterchangeFormat");
+  property=GetImageProperty(image,"exif:JPEGInterchangeFormat",exception);
   if (property == (const char *) NULL)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAThumbnail");
   offset=(ssize_t) StringToLong(property);
-  property=GetImageProperty(image,"exif:JPEGInterchangeFormatLength");
+  property=GetImageProperty(image,"exif:JPEGInterchangeFormatLength",exception);
   if (property == (const char *) NULL)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAThumbnail");
   length=(size_t) StringToLong(property);
@@ -199,19 +201,19 @@ static MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
       break;
   }
   thumbnail_image=BlobToImage(image_info,GetStringInfoDatum(profile)+offset+i-2,
-    length,&image->exception);
+    length,exception);
   if (thumbnail_image == (Image *) NULL)
     return(MagickFalse);
   (void) SetImageType(thumbnail_image,thumbnail_image->matte == MagickFalse ?
-    TrueColorType : TrueColorMatteType);
+    TrueColorType : TrueColorMatteType,exception);
   (void) CopyMagickString(thumbnail_image->filename,image->filename,
     MaxTextExtent);
   write_info=CloneImageInfo(image_info);
-  (void) SetImageInfo(write_info,1,&image->exception);
+  (void) SetImageInfo(write_info,1,exception);
   if (LocaleCompare(write_info->magick,"THUMBNAIL") == 0)
     (void) FormatLocaleString(thumbnail_image->filename,MaxTextExtent,
       "miff:%s",write_info->filename);
-  status=WriteImage(write_info,thumbnail_image);
+  status=WriteImage(write_info,thumbnail_image,exception);
   thumbnail_image=DestroyImage(thumbnail_image);
   write_info=DestroyImageInfo(write_info);
   return(status);

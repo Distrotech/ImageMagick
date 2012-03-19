@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -70,6 +70,7 @@
 #include "MagickCore/string-private.h"
 #include "MagickCore/thread-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
 #if defined(MAGICKCORE_LQR_DELEGATE)
 #include <lqr.h>
@@ -285,17 +286,15 @@ static MagickRealType Jinc(const MagickRealType x,
 }
 
 static MagickRealType Kaiser(const MagickRealType x,
-  const ResizeFilter *magick_unused(resize_filter))
+  const ResizeFilter *resize_filter)
 {
-#define Alpha  6.5
-#define I0A  (1.0/I0(Alpha))
-
   /*
-    Kaiser Windowing Function (bessel windowing): Alpha is a free value
-    from 5 to 8 (currently hardcoded to 6.5).  Future: make alpha the IOA
-    pre-calculation, an 'expert' setting.
+    Kaiser Windowing Function (bessel windowing)
+    Alpha (c[0]) is a free value from 5 to 8 (defaults to 6.5).
+    A scaling factor (c[1]) is not needed as filter is normalized
   */
-  return(I0A*I0(Alpha*sqrt((double) (1.0-x*x))));
+  return(resize_filter->coefficient[1]*
+              I0(resize_filter->coefficient[0]*sqrt((double) (1.0-x*x))));
 }
 
 static MagickRealType Lagrange(const MagickRealType x,
@@ -650,7 +649,7 @@ static MagickRealType Welsh(const MagickRealType x,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
+MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
   const FilterTypes filter,const MagickRealType blur,
   const MagickBooleanType cylindrical,ExceptionInfo *exception)
 {
@@ -664,7 +663,7 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
   MagickRealType
     B,
     C,
-    sigma;
+    value;
 
   register ResizeFilter
     *resize_filter;
@@ -733,10 +732,9 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
     MagickRealType
       (*function)(const MagickRealType,const ResizeFilter*),
       lobes,  /* Default lobes/support size of the weighting filter. */
-      scale,  /* Support when function used as a windowing function.  Typically
-                 equal to the location of the first zero crossing. */
-      B,
-      C;      /* BC-spline coefficients, ignored if not a CubicBC filter. */
+      scale, /* Support when function used as a windowing function
+                Typically equal to the location of the first zero crossing. */
+      B,C;   /* BC-spline coefficients, ignored if not a CubicBC filter. */
   } const filters[SentinelFilter] =
   {
     { Box,       0.5, 0.5, 0.0, 0.0 }, /* Undefined (default to Box)  */
@@ -766,8 +764,8 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
     { SincFast,  2.0, 1.0, 0.0, 0.0 }, /* Lanczos, 2-lobed            */
     { SincFast,  2.0, 1.0, 0.0, 0.0 }, /* Lanczos2, sharpened         */
     { CubicBC,   2.0, 1.1685777620836932, 0.37821575509399867,
-      0.31089212245300067 }
-                     /* Robidoux: Keys cubic close to Lanczos2D sharpened */
+                 0.31089212245300067 }
+                 /* Robidoux: Keys cubic close to Lanczos2D sharpened */
   };
   /*
     The known zero crossings of the Jinc() or more accurately the Jinc(x*PI)
@@ -820,19 +818,17 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
   filter_type=mapping[filter].filter;
   window_type=mapping[filter].window;
   resize_filter->blur = blur;   /* function argument blur factor */
-  sigma=0.5;    /* gaussian sigma of half a pixel by default */
+  /* Promote 1D Windowed Sinc Filters to a 2D Windowed Jinc filters */
   if ((cylindrical != MagickFalse) && (filter_type == SincFastFilter) &&
       (filter != SincFastFilter))
     filter_type=JincFilter;  /* 1D Windowed Sinc => 2D Windowed Jinc filters */
+  /* Expert filter setting override */
   artifact=GetImageArtifact(image,"filter:filter");
   if (artifact != (const char *) NULL)
     {
       ssize_t
         option;
 
-      /*
-        Expert filter setting override.
-      */
       option=ParseCommandOption(MagickFilterOptions,MagickFalse,artifact);
       if ((UndefinedFilter < option) && (option < SentinelFilter))
         {
@@ -842,12 +838,12 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
           filter_type=(FilterTypes) option;
           window_type=BoxFilter;
         }
+      /*
+        Filter override with a specific window function.
+      */
       artifact=GetImageArtifact(image,"filter:window");
       if (artifact != (const char *) NULL)
         {
-          /*
-            Filter override with a specific window function.
-          */
           option=ParseCommandOption(MagickFilterOptions,MagickFalse,artifact);
           if ((UndefinedFilter < option) && (option < SentinelFilter))
             window_type=(FilterTypes) option;
@@ -855,15 +851,15 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
     }
   else
     {
+      /*
+        Window specified, but no filter function?  Assume Sinc/Jinc.
+      */
       artifact=GetImageArtifact(image,"filter:window");
       if (artifact != (const char *) NULL)
         {
           ssize_t
             option;
 
-          /*
-            Window specified, but no filter function?  Assume Sinc/Jinc.
-          */
           option=ParseCommandOption(MagickFilterOptions,MagickFalse,artifact);
           if ((UndefinedFilter < option) && (option < SentinelFilter))
             {
@@ -929,65 +925,79 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
     default:
       break;
   }
+  /*
+    Expert Option Modifications.
+  */
+  /* User Gaussian Sigma Override - no support change */
+  value=0.5;    /* guassian sigma default, half pixel */
+  if ( GaussianFilter ) {
   artifact=GetImageArtifact(image,"filter:sigma");
   if (artifact != (const char *) NULL)
-    sigma=InterpretLocaleValue(artifact,(char **) NULL);  /* override sigma */
-  if (GaussianFilter != (FilterTypes) NULL)
-    {
-      /*
-        Define coefficents for Gaussian.
-      */
-      resize_filter->coefficient[0]=1.0/(2.0*sigma*sigma);
-      resize_filter->coefficient[1]=(MagickRealType) (1.0/(Magick2PI*sigma*
-        sigma)); /* normalization multiplier - unneeded for filters */
-    }
+      value=StringToDouble(artifact,(char **) NULL);
+    /* Define coefficents for Gaussian */
+    resize_filter->coefficient[0]=1.0/(2.0*value*value); /* X scaling */
+    resize_filter->coefficient[1]=(MagickRealType) (1.0/(Magick2PI*value*
+      value)); /* normalization */
+  }
+  /* User Kaiser Alpha Override - no support change */
+  if ( KaiserFilter ) {
+    value=6.5; /* default alpha value for Kaiser bessel windowing function */
+    artifact=GetImageArtifact(image,"filter:alpha");
+    if (artifact != (const char *) NULL)
+      value=StringToDouble(artifact,(char **) NULL);
+    /* Define coefficents for Kaiser Windowing Function */
+    resize_filter->coefficient[0]=value;         /* X scaling */
+    resize_filter->coefficient[1]=1.0/I0(value); /* normalization */
+  }
+
+  /* Blur Override */
   artifact=GetImageArtifact(image,"filter:blur");
   if (artifact != (const char *) NULL)
-    resize_filter->blur*=InterpretLocaleValue(artifact,
-      (char **) NULL);  /* override blur */
+    resize_filter->blur*=StringToDouble(artifact,(char **) NULL);
   if (resize_filter->blur < MagickEpsilon)
     resize_filter->blur=(MagickRealType) MagickEpsilon;
+
+  /* Support Overrides */
   artifact=GetImageArtifact(image,"filter:lobes");
   if (artifact != (const char *) NULL)
     {
-      /*
-        Override lobes.
-      */
-      ssize_t lobes=(ssize_t) StringToLong(artifact);
+      ssize_t
+        lobes;
+
+      lobes=(ssize_t) StringToLong(artifact);
       if (lobes < 1)
         lobes=1;
       resize_filter->support=(MagickRealType) lobes;
     }
+  /* Convert a Jinc function lobes value to a real support value */
   if (resize_filter->filter == Jinc)
     {
-      /*
-        Convert a Jinc function lobes value to a real support value.
-      */
       if (resize_filter->support > 16)
         resize_filter->support=jinc_zeros[15];  /* largest entry in table */
       else
         resize_filter->support=jinc_zeros[((long)resize_filter->support)-1];
     }
+  /* expert override of the support setting */
   artifact=GetImageArtifact(image,"filter:support");
   if (artifact != (const char *) NULL)
-    resize_filter->support=fabs(InterpretLocaleValue(artifact,
-      (char **) NULL)); /* override support */
+    resize_filter->support=fabs(StringToDouble(artifact,(char **) NULL));
   /*
-    Scale windowing function separately to the support 'clipping' window that
-    calling operator is planning to actually use (expert override).
+    Scale windowing function separately to the support 'clipping'
+    window that calling operator is planning to actually use. (Expert
+    override)
   */
   resize_filter->window_support=resize_filter->support; /* default */
   artifact=GetImageArtifact(image,"filter:win-support");
   if (artifact != (const char *) NULL)
-    resize_filter->window_support=fabs(InterpretLocaleValue(artifact,
-      (char **) NULL));
+    resize_filter->window_support=fabs(StringToDouble(artifact,(char **) NULL));
   /*
-    Adjust window function scaling to match windowing support for weighting
-    function.  This avoids a division on every filter call.
+    Adjust window function scaling to match windowing support for
+    weighting function.  This avoids a division on every filter call.
   */
   resize_filter->scale/=resize_filter->window_support;
+
   /*
-    Set Cubic Spline B,C values, calculate cubic coefficients.
+   * Set Cubic Spline B,C values, calculate Cubic coefficients.
   */
   B=0.0;
   C=0.0;
@@ -1004,28 +1014,26 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
       artifact=GetImageArtifact(image,"filter:b");
       if (artifact != (const char *) NULL)
         {
-          B=InterpretLocaleValue(artifact,(char **) NULL);
+          B=StringToDouble(artifact,(char **) NULL);
           C=(1.0-B)/2.0; /* Calculate C to get a Keys cubic filter. */
           artifact=GetImageArtifact(image,"filter:c"); /* user C override */
           if (artifact != (const char *) NULL)
-            C=InterpretLocaleValue(artifact,(char **) NULL);
+            C=StringToDouble(artifact,(char **) NULL);
         }
       else
         {
           artifact=GetImageArtifact(image,"filter:c");
           if (artifact != (const char *) NULL)
             {
-              C=InterpretLocaleValue(artifact,(char **) NULL);
+              C=StringToDouble(artifact,(char **) NULL);
               B=1.0-2.0*C; /* Calculate B to get a Keys cubic filter. */
             }
         }
-      {
+      /* Convert B,C values into Cubic Coefficents. See CubicBC(). */
+     {
         double
           B_squared;
 
-        /*
-          Convert B,C values into Cubic Coefficents. See CubicBC().
-        */
         B_squared=B+B;
         resize_filter->coefficient[0]=1.0-(1.0/3.0)*B;
         resize_filter->coefficient[1]=-3.0+B_squared+C;
@@ -1034,10 +1042,11 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
         resize_filter->coefficient[4]=-8.0*C-B_squared;
         resize_filter->coefficient[5]=B+5.0*C;
         resize_filter->coefficient[6]=(-1.0/6.0)*B-C;
-      }
+     }
     }
+
   /*
-    Expert option request for verbose details of the resulting filter.
+    Expert Option Request for verbose details of the resulting filter.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp master
@@ -1051,33 +1060,23 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
           x;
 
         /*
-          Set the weighting function properly when the weighting function may
-          not exactly match the filter of the same name.  EG: a point filter
-          really uses a box weighting function with a different support than is
-          typically used.
+          Set the weighting function properly when the weighting
+          function may not exactly match the filter of the same name.
+          EG: a Point filter is really uses a Box weighting function
+          with a different support than is typically used.
         */
-        if (resize_filter->filter == Box)
-          filter_type=BoxFilter;
-        if (resize_filter->filter == Sinc)
-          filter_type=SincFilter;
-        if (resize_filter->filter == SincFast)
-          filter_type=SincFastFilter;
-        if (resize_filter->filter == Jinc)
-          filter_type=JincFilter;
-        if (resize_filter->filter == CubicBC)
-          filter_type=CubicFilter;
-        if (resize_filter->window == Box)
-          window_type=BoxFilter;
-        if (resize_filter->window == Sinc)
-          window_type=SincFilter;
-        if (resize_filter->window == SincFast)
-          window_type=SincFastFilter;
-        if (resize_filter->window == Jinc)
-          window_type=JincFilter;
-        if (resize_filter->window == CubicBC)
-          window_type=CubicFilter;
+        if (resize_filter->filter == Box)       filter_type=BoxFilter;
+        if (resize_filter->filter == Sinc)      filter_type=SincFilter;
+        if (resize_filter->filter == SincFast)  filter_type=SincFastFilter;
+        if (resize_filter->filter == Jinc)      filter_type=JincFilter;
+        if (resize_filter->filter == CubicBC)   filter_type=CubicFilter;
+        if (resize_filter->window == Box)       window_type=BoxFilter;
+        if (resize_filter->window == Sinc)      window_type=SincFilter;
+        if (resize_filter->window == SincFast)  window_type=SincFastFilter;
+        if (resize_filter->window == Jinc)      window_type=JincFilter;
+        if (resize_filter->window == CubicBC)   window_type=CubicFilter;
         /*
-          Report filter details.
+          Report Filter Details.
         */
         support=GetResizeFilterSupport(resize_filter);  /* practical_support */
         (void) FormatLocaleFile(stdout,"# Resize Filter (for graphing)\n#\n");
@@ -1093,29 +1092,29 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
           GetMagickPrecision(), (double)resize_filter->blur);
         if (filter_type == GaussianFilter)
           (void) FormatLocaleFile(stdout,"# gaussian_sigma = %.*g\n",
-             GetMagickPrecision(), (double)sigma);
+            GetMagickPrecision(), (double)value);
+        if ( filter_type == KaiserFilter )
+          (void) FormatLocaleFile(stdout,"# kaiser_alpha = %.*g\n",
+            GetMagickPrecision(), (double)value);
         (void) FormatLocaleFile(stdout,"# practical_support = %.*g\n",
            GetMagickPrecision(), (double)support);
         if ( filter_type == CubicFilter || window_type == CubicFilter )
           (void) FormatLocaleFile(stdout,"# B,C = %.*g,%.*g\n",
-             GetMagickPrecision(),(double)B, GetMagickPrecision(),(double)C);
+            GetMagickPrecision(),(double)B, GetMagickPrecision(),(double)C);
         (void) FormatLocaleFile(stdout,"\n");
         /*
-          Output values of resulting filter graph -- for graphing filter result.
+          Output values of resulting filter graph -- for graphing
+          filter result.
         */
         for (x=0.0; x <= support; x+=0.01f)
           (void) FormatLocaleFile(stdout,"%5.2lf\t%.*g\n",x,
             GetMagickPrecision(),(double) GetResizeFilterWeight(resize_filter,
             x));
-        /*
-          A final value so gnuplot can graph the 'stop' properly.
-        */
+        /* A final value so gnuplot can graph the 'stop' properly. */
         (void) FormatLocaleFile(stdout,"%5.2lf\t%.*g\n",support,
           GetMagickPrecision(),0.0);
       }
-    /*
-      Output the above once only for each image - remove setting.
-    */
+      /* Output the above once only for each image - remove setting */
     (void) DeleteImageArtifact((Image *) image,"filter:verbose");
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   }
@@ -1136,10 +1135,15 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
 %
 %  AdaptiveResizeImage() adaptively resize image with pixel resampling.
 %
+%  This is shortcut function for a fast interpolative resize using mesh
+%  interpolation.  It works well for small resizes of less than +/- 50%
+%  of the original image size.  For larger resizing on images a full
+%  filtered and slower resize function should be used instead.
+%
 %  The format of the AdaptiveResizeImage method is:
 %
 %      Image *AdaptiveResizeImage(const Image *image,const size_t columns,
-%        const size_t rows,ExceptionInfo *exception)
+%        const size_t rows, ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1155,134 +1159,11 @@ MagickExport ResizeFilter *AcquireResizeFilter(const Image *image,
 MagickExport Image *AdaptiveResizeImage(const Image *image,
   const size_t columns,const size_t rows,ExceptionInfo *exception)
 {
-#define AdaptiveResizeImageTag  "Resize/Image"
-
-  CacheView
-    *image_view,
-    *interpolate_view,
-    *resize_view;
-
   Image
     *resize_image;
 
-  MagickBooleanType
-    status;
-
-  MagickOffsetType
-    progress;
-
-  ssize_t
-    y;
-
-  /*
-    Adaptively resize image.
-  */
-  assert(image != (const Image *) NULL);
-  assert(image->signature == MagickSignature);
-  if (image->debug != MagickFalse)
-    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  assert(exception != (ExceptionInfo *) NULL);
-  assert(exception->signature == MagickSignature);
-  if ((columns == 0) || (rows == 0))
-    return((Image *) NULL);
-  if ((columns == image->columns) && (rows == image->rows))
-    return(CloneImage(image,0,0,MagickTrue,exception));
-  resize_image=CloneImage(image,columns,rows,MagickTrue,exception);
-  if (resize_image == (Image *) NULL)
-    return((Image *) NULL);
-  if (SetImageStorageClass(resize_image,DirectClass) == MagickFalse)
-    {
-      InheritException(exception,&resize_image->exception);
-      resize_image=DestroyImage(resize_image);
-      return((Image *) NULL);
-    }
-  status=MagickTrue;
-  progress=0;
-  image_view=AcquireCacheView(image);
-  interpolate_view=AcquireCacheView(image);
-  resize_view=AcquireCacheView(resize_image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status) omp_throttle(1)
-#endif
-  for (y=0; y < (ssize_t) resize_image->rows; y++)
-  {
-    PointInfo
-      offset;
-
-    register const Quantum
-      *restrict p;
-
-    register Quantum
-      *restrict q;
-
-    register ssize_t
-      x;
-
-    if (status == MagickFalse)
-      continue;
-    p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
-    q=QueueCacheViewAuthenticPixels(resize_view,0,y,resize_image->columns,1,
-      exception);
-    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
-      continue;
-    offset.y=((MagickRealType) (y+0.5)*image->rows/resize_image->rows);
-    for (x=0; x < (ssize_t) resize_image->columns; x++)
-    {
-      register ssize_t
-        i;
-
-      offset.x=((MagickRealType) (x+0.5)*image->columns/resize_image->columns);
-      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
-      {
-        double
-          pixel;
-
-        PixelChannel
-          channel;
-
-        PixelTrait
-          resize_traits,
-          traits;
-
-        traits=GetPixelChannelMapTraits(image,(PixelChannel) i);
-        if (traits == UndefinedPixelTrait)
-          continue;
-        channel=GetPixelChannelMapChannel(image,(PixelChannel) i);
-        resize_traits=GetPixelChannelMapTraits(resize_image,channel);
-        if (resize_traits == UndefinedPixelTrait)
-          continue;
-        if ((resize_traits & CopyPixelTrait) != 0)
-          {
-            q[channel]=p[i];
-            continue;
-          }
-        status=InterpolatePixelChannel(image,interpolate_view,(PixelChannel) i,
-          MeshInterpolatePixel,offset.x-0.5,offset.y-0.5,&pixel,exception);
-        q[channel]=ClampToQuantum(pixel);
-      }
-      q+=GetPixelChannels(resize_image);
-    }
-    if (SyncCacheViewAuthenticPixels(resize_view,exception) == MagickFalse)
-      continue;
-    if (image->progress_monitor != (MagickProgressMonitor) NULL)
-      {
-        MagickBooleanType
-          proceed;
-
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_AdaptiveResizeImage)
-#endif
-        proceed=SetImageProgress(image,AdaptiveResizeImageTag,progress++,
-          image->rows);
-        if (proceed == MagickFalse)
-          status=MagickFalse;
-      }
-  }
-  resize_view=DestroyCacheView(resize_view);
-  interpolate_view=DestroyCacheView(interpolate_view);
-  image_view=DestroyCacheView(image_view);
-  if (status == MagickFalse)
-    resize_image=DestroyImage(resize_image);
+  resize_image=InterpolativeResizeImage(image,columns,rows,MeshInterpolatePixel,
+    exception);
   return(resize_image);
 }
 
@@ -1519,7 +1400,7 @@ static MagickRealType BesselOrderOne(MagickRealType x)
 %    o resize_filter: the resize filter.
 %
 */
-MagickExport ResizeFilter *DestroyResizeFilter(ResizeFilter *resize_filter)
+MagickPrivate ResizeFilter *DestroyResizeFilter(ResizeFilter *resize_filter)
 {
   assert(resize_filter != (ResizeFilter *) NULL);
   assert(resize_filter->signature == MagickSignature);
@@ -1551,7 +1432,7 @@ MagickExport ResizeFilter *DestroyResizeFilter(ResizeFilter *resize_filter)
 %    o filter: Image filter to use.
 %
 */
-MagickExport MagickRealType GetResizeFilterSupport(
+MagickPrivate MagickRealType GetResizeFilterSupport(
   const ResizeFilter *resize_filter)
 {
   assert(resize_filter != (ResizeFilter *) NULL);
@@ -1586,7 +1467,7 @@ MagickExport MagickRealType GetResizeFilterSupport(
 %    o x: the point.
 %
 */
-MagickExport MagickRealType GetResizeFilterWeight(
+MagickPrivate MagickRealType GetResizeFilterWeight(
   const ResizeFilter *resize_filter,const MagickRealType x)
 {
   MagickRealType
@@ -1610,6 +1491,166 @@ MagickExport MagickRealType GetResizeFilterWeight(
     }
   weight=scale*resize_filter->filter(x_blur,resize_filter);
   return(weight);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   I n t e r p o l a t i v e R e s i z e I m a g e                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  InterpolativeResizeImage() resizes an image using the specified
+%  interpolation method.
+%
+%  The format of the InterpolativeResizeImage method is:
+%
+%      Image *InterpolativeResizeImage(const Image *image,const size_t columns,
+%        const size_t rows,const PixelInterpolateMethod method,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o columns: the number of columns in the resized image.
+%
+%    o rows: the number of rows in the resized image.
+%
+%    o method: the pixel interpolation method.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport Image *InterpolativeResizeImage(const Image *image,
+  const size_t columns,const size_t rows,const PixelInterpolateMethod method,
+  ExceptionInfo *exception)
+{
+#define InterpolativeResizeImageTag  "Resize/Image"
+
+  CacheView
+    *image_view,
+    *resize_view;
+
+  Image
+    *resize_image;
+
+  MagickBooleanType
+    status;
+
+  MagickOffsetType
+    progress;
+
+  PointInfo
+    scale;
+
+  ssize_t
+    y;
+
+  /*
+    Interpolatively resize image.
+  */
+  assert(image != (const Image *) NULL);
+  assert(image->signature == MagickSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  if ((columns == 0) || (rows == 0))
+    return((Image *) NULL);
+  if ((columns == image->columns) && (rows == image->rows))
+    return(CloneImage(image,0,0,MagickTrue,exception));
+  resize_image=CloneImage(image,columns,rows,MagickTrue,exception);
+  if (resize_image == (Image *) NULL)
+    return((Image *) NULL);
+  if (SetImageStorageClass(resize_image,DirectClass,exception) == MagickFalse)
+    {
+      resize_image=DestroyImage(resize_image);
+      return((Image *) NULL);
+    }
+  status=MagickTrue;
+  progress=0;
+  image_view=AcquireCacheView(image);
+  resize_view=AcquireCacheView(resize_image);
+  scale.x=(double) image->columns/resize_image->columns;
+  scale.y=(double) image->rows/resize_image->rows;
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static) shared(progress,status)
+#endif
+  for (y=0; y < (ssize_t) resize_image->rows; y++)
+  {
+    PointInfo
+      offset;
+
+    register Quantum
+      *restrict q;
+
+    register ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    q=QueueCacheViewAuthenticPixels(resize_view,0,y,resize_image->columns,1,
+      exception);
+    if (q == (Quantum *) NULL)
+      continue;
+    offset.y=((MagickRealType) y+0.5)*scale.y-0.5;
+    for (x=0; x < (ssize_t) resize_image->columns; x++)
+    {
+      register ssize_t
+        i;
+
+      if (GetPixelMask(resize_image,q) != 0)
+        {
+          q+=GetPixelChannels(resize_image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(resize_image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          resize_traits,
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        resize_traits=GetPixelChannelMapTraits(resize_image,channel);
+        if ((traits == UndefinedPixelTrait) ||
+            (resize_traits == UndefinedPixelTrait))
+          continue;
+        offset.x=((MagickRealType) x+0.5)*scale.x-0.5;
+        status=InterpolatePixelChannels(image,image_view,resize_image,method,
+          offset.x,offset.y,q,exception);
+      }
+      q+=GetPixelChannels(resize_image);
+    }
+    if (SyncCacheViewAuthenticPixels(resize_view,exception) == MagickFalse)
+      continue;
+    if (image->progress_monitor != (MagickProgressMonitor) NULL)
+      {
+        MagickBooleanType
+          proceed;
+
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp critical (MagickCore_InterpolativeResizeImage)
+#endif
+        proceed=SetImageProgress(image,InterpolativeResizeImageTag,progress++,
+          image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  resize_view=DestroyCacheView(resize_view);
+  image_view=DestroyCacheView(image_view);
+  if (status == MagickFalse)
+    resize_image=DestroyImage(resize_image);
+  return(resize_image);
 }
 #if defined(MAGICKCORE_LQR_DELEGATE)
 
@@ -1772,9 +1813,8 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
       pixels=(gfloat *) RelinquishMagickMemory(pixels);
       return((Image *) NULL);
     }
-  if (SetImageStorageClass(rescale_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(rescale_image,DirectClass,exception) == MagickFalse)
     {
-      InheritException(exception,&rescale_image->exception);
       pixels=(gfloat *) RelinquishMagickMemory(pixels);
       rescale_image=DestroyImage(rescale_image);
       return((Image *) NULL);
@@ -1802,14 +1842,14 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
         rescale_traits,
         traits;
 
-      traits=GetPixelChannelMapTraits(image,(PixelChannel) i);
-      if (traits == UndefinedPixelTrait)
-        continue;
-      channel=GetPixelChannelMapChannel(image,(PixelChannel) i);
+      channel=GetPixelChannelMapChannel(image,i);
+      traits=GetPixelChannelMapTraits(image,channel);
       rescale_traits=GetPixelChannelMapTraits(rescale_image,channel);
-      if (rescale_traits == UndefinedPixelTrait)
+      if ((traits == UndefinedPixelTrait) ||
+          (rescale_traits == UndefinedPixelTrait))
         continue;
-      q[channel]=ClampToQuantum(QuantumRange*packet[i]);
+      SetPixelChannel(rescale_image,channel,ClampToQuantum(QuantumRange*
+        packet[i]),q);
     }
     if (SyncCacheViewAuthenticPixels(rescale_view,exception) == MagickFalse)
       break;
@@ -1974,15 +2014,15 @@ MagickExport Image *ResampleImage(const Image *image,const double x_resolution,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  width=(size_t) (x_resolution*image->columns/(image->x_resolution == 0.0 ?
-    72.0 : image->x_resolution)+0.5);
-  height=(size_t) (y_resolution*image->rows/(image->y_resolution == 0.0 ?
-    72.0 : image->y_resolution)+0.5);
+  width=(size_t) (x_resolution*image->columns/(image->resolution.x == 0.0 ?
+    72.0 : image->resolution.x)+0.5);
+  height=(size_t) (y_resolution*image->rows/(image->resolution.y == 0.0 ?
+    72.0 : image->resolution.y)+0.5);
   resample_image=ResizeImage(image,width,height,filter,blur,exception);
   if (resample_image != (Image *) NULL)
     {
-      resample_image->x_resolution=x_resolution;
-      resample_image->y_resolution=y_resolution;
+      resample_image->resolution.x=x_resolution;
+      resample_image->resolution.y=y_resolution;
     }
   return(resample_image);
 }
@@ -2048,7 +2088,7 @@ static ContributionInfo **DestroyContributionThreadSet(
   assert(contribution != (ContributionInfo **) NULL);
   for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
     if (contribution[i] != (ContributionInfo *) NULL)
-      contribution[i]=(ContributionInfo *) RelinquishMagickMemory(
+      contribution[i]=(ContributionInfo *) RelinquishAlignedMemory(
         contribution[i]);
   contribution=(ContributionInfo **) RelinquishMagickMemory(contribution);
   return(contribution);
@@ -2073,7 +2113,7 @@ static ContributionInfo **AcquireContributionThreadSet(const size_t count)
   (void) ResetMagickMemory(contribution,0,number_threads*sizeof(*contribution));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
-    contribution[i]=(ContributionInfo *) AcquireQuantumMemory(count,
+    contribution[i]=(ContributionInfo *) AcquireAlignedMemory(count,
       sizeof(**contribution));
     if (contribution[i] == (ContributionInfo *) NULL)
       return(DestroyContributionThreadSet(contribution));
@@ -2127,11 +2167,8 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   scale=MagickMax(1.0/x_factor+MagickEpsilon,1.0);
   support=scale*GetResizeFilterSupport(resize_filter);
   storage_class=support > 0.5 ? DirectClass : image->storage_class;
-  if (SetImageStorageClass(resize_image,storage_class) == MagickFalse)
-    {
-      InheritException(exception,&resize_image->exception);
-      return(MagickFalse);
-    }
+  if (SetImageStorageClass(resize_image,storage_class,exception) == MagickFalse)
+    return(MagickFalse);
   if (support < 0.5)
     {
       /*
@@ -2152,7 +2189,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireCacheView(image);
   resize_view=AcquireCacheView(resize_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (x=0; x < (ssize_t) resize_image->columns; x++)
   {
@@ -2217,7 +2254,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
       register ssize_t
         i;
 
-      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      for (i=0; i < (ssize_t) GetPixelChannels(resize_image); i++)
       {
         MagickRealType
           alpha,
@@ -2237,26 +2274,25 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
         ssize_t
           k;
 
-        traits=GetPixelChannelMapTraits(image,(PixelChannel) i);
-        if (traits == UndefinedPixelTrait)
-          continue;
-        channel=GetPixelChannelMapChannel(image,(PixelChannel) i);
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
         resize_traits=GetPixelChannelMapTraits(resize_image,channel);
-        if (resize_traits == UndefinedPixelTrait)
+        if ((traits == UndefinedPixelTrait) ||
+            (resize_traits == UndefinedPixelTrait))
           continue;
-        if ((resize_traits & CopyPixelTrait) != 0)
+        if (((resize_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(resize_image,q) != 0))
           {
             j=(ssize_t) (MagickMin(MagickMax(bisect,(double) start),(double)
               stop-1.0)+0.5);
             k=y*(contribution[n-1].pixel-contribution[0].pixel+1)+
               (contribution[j-start].pixel-contribution[0].pixel);
-            q[channel]=p[k*GetPixelChannels(image)+i];
+            SetPixelChannel(resize_image,channel,p[k*GetPixelChannels(image)+i],
+              q);
             continue;
           }
         pixel=0.0;
-        if (((resize_traits & BlendPixelTrait) == 0) ||
-            (GetPixelAlphaTraits(image) == UndefinedPixelTrait) ||
-            (image->matte == MagickFalse))
+        if ((resize_traits & BlendPixelTrait) == 0)
           {
             /*
               No alpha blending.
@@ -2268,7 +2304,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
               alpha=contribution[j].weight;
               pixel+=alpha*p[k*GetPixelChannels(image)+i];
             }
-            q[channel]=ClampToQuantum(pixel);
+            SetPixelChannel(resize_image,channel,ClampToQuantum(pixel),q);
             continue;
           }
         /*
@@ -2285,7 +2321,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
           gamma+=alpha;
         }
         gamma=1.0/(fabs((double) gamma) <= MagickEpsilon ? 1.0 : gamma);
-        q[channel]=ClampToQuantum(gamma*pixel);
+        SetPixelChannel(resize_image,channel,ClampToQuantum(gamma*pixel),q);
       }
       q+=GetPixelChannels(resize_image);
     }
@@ -2343,11 +2379,8 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   scale=MagickMax(1.0/y_factor+MagickEpsilon,1.0);
   support=scale*GetResizeFilterSupport(resize_filter);
   storage_class=support > 0.5 ? DirectClass : image->storage_class;
-  if (SetImageStorageClass(resize_image,storage_class) == MagickFalse)
-    {
-      InheritException(exception,&resize_image->exception);
-      return(MagickFalse);
-    }
+  if (SetImageStorageClass(resize_image,storage_class,exception) == MagickFalse)
+    return(MagickFalse);
   if (support < 0.5)
     {
       /*
@@ -2369,7 +2402,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   image_view=AcquireCacheView(image);
   resize_view=AcquireCacheView(resize_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
   {
@@ -2435,7 +2468,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
       register ssize_t
         i;
 
-      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      for (i=0; i < (ssize_t) GetPixelChannels(resize_image); i++)
       {
         MagickRealType
           alpha,
@@ -2455,26 +2488,25 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
         ssize_t
           k;
 
-        traits=GetPixelChannelMapTraits(image,(PixelChannel) i);
-        if (traits == UndefinedPixelTrait)
-          continue;
-        channel=GetPixelChannelMapChannel(image,(PixelChannel) i);
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
         resize_traits=GetPixelChannelMapTraits(resize_image,channel);
-        if (resize_traits == UndefinedPixelTrait)
+        if ((traits == UndefinedPixelTrait) ||
+            (resize_traits == UndefinedPixelTrait))
           continue;
-        if ((resize_traits & CopyPixelTrait) != 0)
+        if (((resize_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(resize_image,q) != 0))
           {
             j=(ssize_t) (MagickMin(MagickMax(bisect,(double) start),(double)
               stop-1.0)+0.5);
             k=(ssize_t) ((contribution[j-start].pixel-contribution[0].pixel)*
               image->columns+x);
-            q[channel]=p[k*GetPixelChannels(image)+i];
+            SetPixelChannel(resize_image,channel,p[k*GetPixelChannels(image)+i],
+              q);
             continue;
           }
         pixel=0.0;
-        if (((resize_traits & BlendPixelTrait) == 0) ||
-            (GetPixelAlphaTraits(image) == UndefinedPixelTrait) ||
-            (image->matte == MagickFalse))
+        if ((resize_traits & BlendPixelTrait) == 0)
           {
             /*
               No alpha blending.
@@ -2486,7 +2518,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
               alpha=contribution[j].weight;
               pixel+=alpha*p[k*GetPixelChannels(image)+i];
             }
-            q[channel]=ClampToQuantum(pixel);
+            SetPixelChannel(resize_image,channel,ClampToQuantum(pixel),q);
             continue;
           }
         gamma=0.0;
@@ -2500,7 +2532,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
           gamma+=alpha;
         }
         gamma=1.0/(fabs((double) gamma) <= MagickEpsilon ? 1.0 : gamma);
-        q[channel]=ClampToQuantum(gamma*pixel);
+        SetPixelChannel(resize_image,channel,ClampToQuantum(gamma*pixel),q);
       }
       q+=GetPixelChannels(resize_image);
     }
@@ -2619,8 +2651,11 @@ MagickExport Image *ResizeImage(const Image *image,const size_t columns,
   */
   filter_image=DestroyImage(filter_image);
   resize_filter=DestroyResizeFilter(resize_filter);
-  if ((status == MagickFalse) || (resize_image == (Image *) NULL))
-    return((Image *) NULL);
+  if (status == MagickFalse)
+    {
+      resize_image=DestroyImage(resize_image);
+      return((Image *) NULL);
+    }
   resize_image->type=image->type;
   return(resize_image);
 }
@@ -2718,7 +2753,7 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
   image_view=AcquireCacheView(image);
   sample_view=AcquireCacheView(sample_image);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(dynamic,4) shared(progress,status)
+  #pragma omp parallel for schedule(static) shared(progress,status)
 #endif
   for (y=0; y < (ssize_t) sample_image->rows; y++)
   {
@@ -2752,21 +2787,32 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
     */
     for (x=0; x < (ssize_t) sample_image->columns; x++)
     {
-      SetPixelRed(sample_image,GetPixelRed(image,p+x_offset[x]*
-        GetPixelChannels(image)),q);
-      SetPixelGreen(sample_image,GetPixelGreen(image,p+x_offset[x]*
-        GetPixelChannels(image)),q);
-      SetPixelBlue(sample_image,GetPixelBlue(image,p+x_offset[x]*
-        GetPixelChannels(image)),q);
-      if (image->colorspace == CMYKColorspace)
-        SetPixelBlack(sample_image,GetPixelBlack(image,p+x_offset[x]*
-          GetPixelChannels(image)),q);
-      if (image->matte != MagickFalse)
-        SetPixelAlpha(sample_image,GetPixelAlpha(image,p+x_offset[x]*
-          GetPixelChannels(image)),q);
-      if (image->storage_class == PseudoClass)
-        SetPixelIndex(sample_image,GetPixelIndex(image,p+x_offset[x]*
-          GetPixelChannels(image)),q);
+      register ssize_t
+        i;
+
+      if (GetPixelMask(sample_image,q) != 0)
+        {
+          q+=GetPixelChannels(sample_image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(sample_image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          sample_traits,
+          traits;
+
+        channel=GetPixelChannelMapChannel(image,i);
+        traits=GetPixelChannelMapTraits(image,channel);
+        sample_traits=GetPixelChannelMapTraits(sample_image,channel);
+        if ((traits == UndefinedPixelTrait) ||
+            (sample_traits == UndefinedPixelTrait))
+          continue;
+        SetPixelChannel(sample_image,channel,p[x_offset[x]*GetPixelChannels(
+          image)+i],q);
+      }
       q+=GetPixelChannels(sample_image);
     }
     if (SyncCacheViewAuthenticPixels(sample_view,exception) == MagickFalse)
@@ -2837,16 +2883,21 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     next_row,
     proceed;
 
-  PixelInfo
-    pixel,
+  MagickRealType
+    alpha,
+    gamma,
+    pixel[CompositePixelChannel],
     *scale_scanline,
     *scanline,
     *x_vector,
-    *y_vector,
-    zero;
+    *y_vector;
 
-  MagickRealType
-    alpha;
+  PixelChannel
+    channel;
+
+  PixelTrait
+    scale_traits,
+    traits;
 
   PointInfo
     scale,
@@ -2856,6 +2907,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     i;
 
   ssize_t
+    n,
     number_rows,
     y;
 
@@ -2875,29 +2927,28 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
   scale_image=CloneImage(image,columns,rows,MagickTrue,exception);
   if (scale_image == (Image *) NULL)
     return((Image *) NULL);
-  if (SetImageStorageClass(scale_image,DirectClass) == MagickFalse)
+  if (SetImageStorageClass(scale_image,DirectClass,exception) == MagickFalse)
     {
-      InheritException(exception,&scale_image->exception);
       scale_image=DestroyImage(scale_image);
       return((Image *) NULL);
     }
   /*
     Allocate memory.
   */
-  x_vector=(PixelInfo *) AcquireQuantumMemory((size_t) image->columns,
-    sizeof(*x_vector));
+  x_vector=(MagickRealType *) AcquireQuantumMemory((size_t) image->columns,
+    GetPixelChannels(image)*sizeof(*x_vector));
   scanline=x_vector;
   if (image->rows != scale_image->rows)
-    scanline=(PixelInfo *) AcquireQuantumMemory((size_t) image->columns,
-      sizeof(*scanline));
-  scale_scanline=(PixelInfo *) AcquireQuantumMemory((size_t)
-    scale_image->columns,sizeof(*scale_scanline));
-  y_vector=(PixelInfo *) AcquireQuantumMemory((size_t) image->columns,
-    sizeof(*y_vector));
-  if ((scanline == (PixelInfo *) NULL) ||
-      (scale_scanline == (PixelInfo *) NULL) ||
-      (x_vector == (PixelInfo *) NULL) ||
-      (y_vector == (PixelInfo *) NULL))
+    scanline=(MagickRealType *) AcquireQuantumMemory((size_t) image->columns,
+      GetPixelChannels(image)*sizeof(*scanline));
+  scale_scanline=(MagickRealType *) AcquireQuantumMemory((size_t)
+    scale_image->columns,MaxPixelChannels*sizeof(*scale_scanline));
+  y_vector=(MagickRealType *) AcquireQuantumMemory((size_t) image->columns,
+    GetPixelChannels(image)*sizeof(*y_vector));
+  if ((scanline == (MagickRealType *) NULL) ||
+      (scale_scanline == (MagickRealType *) NULL) ||
+      (x_vector == (MagickRealType *) NULL) ||
+      (y_vector == (MagickRealType *) NULL))
     {
       scale_image=DestroyImage(scale_image);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
@@ -2909,21 +2960,15 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
   next_row=MagickTrue;
   span.y=1.0;
   scale.y=(double) scale_image->rows/(double) image->rows;
-  (void) ResetMagickMemory(y_vector,0,(size_t) image->columns*
-    sizeof(*y_vector));
-  GetPixelInfo(image,&pixel);
-  (void) ResetMagickMemory(&zero,0,sizeof(zero));
-  i=0;
+  for (i=0; i < (ssize_t) (GetPixelChannels(image)*image->columns); i++)
+    y_vector[i]=0.0;
+  n=0;
   image_view=AcquireCacheView(image);
   scale_view=AcquireCacheView(scale_image);
   for (y=0; y < (ssize_t) scale_image->rows; y++)
   {
     register const Quantum
       *restrict p;
-
-    register PixelInfo
-      *restrict s,
-      *restrict t;
 
     register Quantum
       *restrict q;
@@ -2933,7 +2978,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
 
     q=QueueCacheViewAuthenticPixels(scale_view,0,y,scale_image->columns,1,
       exception);
-    if (q == (const Quantum *) NULL)
+    if (q == (Quantum *) NULL)
       break;
     alpha=1.0;
     if (scale_image->rows == image->rows)
@@ -2941,21 +2986,35 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
         /*
           Read a new scanline.
         */
-        p=GetCacheViewVirtualPixels(image_view,0,i++,image->columns,1,
+        p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
           exception);
         if (p == (const Quantum *) NULL)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          if (image->matte != MagickFalse)
+          if (GetPixelMask(image,p) != 0)
+            {
+              p+=GetPixelChannels(image);
+              continue;
+            }
+          for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+          {
+            PixelChannel
+              channel;
+
+            PixelTrait
+              traits;
+
+            channel=GetPixelChannelMapChannel(image,i);
+            traits=GetPixelChannelMapTraits(image,channel);
+            if ((traits & BlendPixelTrait) == 0)
+              {
+                x_vector[x*GetPixelChannels(image)+i]=(MagickRealType) p[i];
+                continue;
+              }
             alpha=QuantumScale*GetPixelAlpha(image,p);
-          x_vector[x].red=(MagickRealType) (alpha*GetPixelRed(image,p));
-          x_vector[x].green=(MagickRealType) (alpha*GetPixelGreen(image,p));
-          x_vector[x].blue=(MagickRealType) (alpha*GetPixelBlue(image,p));
-          if (image->matte != MagickFalse)
-            x_vector[x].alpha=(MagickRealType) GetPixelAlpha(image,p);
-          if (image->colorspace == CMYKColorspace)
-            x_vector[x].black=(MagickRealType) (alpha*GetPixelBlack(image,p));
+            x_vector[x*GetPixelChannels(image)+i]=alpha*p[i];
+          }
           p+=GetPixelChannels(image);
         }
       }
@@ -2972,41 +3031,44 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
               /*
                 Read a new scanline.
               */
-              p=GetCacheViewVirtualPixels(image_view,0,i++,image->columns,1,
+              p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
                 exception);
               if (p == (const Quantum *) NULL)
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
-                if (image->matte != MagickFalse)
-                  alpha=QuantumScale*
-                    GetPixelAlpha(image,p);
-                x_vector[x].red=(MagickRealType) (alpha*
-                  GetPixelRed(image,p));
-                x_vector[x].green=(MagickRealType) (alpha*
-                  GetPixelGreen(image,p));
-                x_vector[x].blue=(MagickRealType) (alpha*
-                  GetPixelBlue(image,p));
-                if (image->colorspace == CMYKColorspace)
-                  x_vector[x].black=(MagickRealType) (alpha*
-                    GetPixelBlack(image,p));
-                if (image->matte != MagickFalse)
-                  x_vector[x].alpha=(MagickRealType)
-                    GetPixelAlpha(image,p);
+                if (GetPixelMask(image,p) != 0)
+                  {
+                    p+=GetPixelChannels(image);
+                    continue;
+                  }
+                for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+                {
+                  PixelChannel
+                    channel;
+
+                  PixelTrait
+                    traits;
+
+                  channel=GetPixelChannelMapChannel(image,i);
+                  traits=GetPixelChannelMapTraits(image,channel);
+                  if ((traits & BlendPixelTrait) == 0)
+                    {
+                      x_vector[x*GetPixelChannels(image)+i]=(MagickRealType)
+                        p[i];
+                      continue;
+                    }
+                  alpha=QuantumScale*GetPixelAlpha(image,p);
+                  x_vector[x*GetPixelChannels(image)+i]=alpha*p[i];
+                }
                 p+=GetPixelChannels(image);
               }
               number_rows++;
             }
           for (x=0; x < (ssize_t) image->columns; x++)
-          {
-            y_vector[x].red+=scale.y*x_vector[x].red;
-            y_vector[x].green+=scale.y*x_vector[x].green;
-            y_vector[x].blue+=scale.y*x_vector[x].blue;
-            if (scale_image->colorspace == CMYKColorspace)
-              y_vector[x].black+=scale.y*x_vector[x].black;
-            if (scale_image->matte != MagickFalse)
-              y_vector[x].alpha+=scale.y*x_vector[x].alpha;
-          }
+            for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+              y_vector[x*GetPixelChannels(image)+i]+=scale.y*
+                x_vector[x*GetPixelChannels(image)+i];
           span.y-=scale.y;
           scale.y=(double) scale_image->rows/(double) image->rows;
           next_row=MagickTrue;
@@ -3016,46 +3078,50 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
             /*
               Read a new scanline.
             */
-            p=GetCacheViewVirtualPixels(image_view,0,i++,image->columns,1,
+            p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
               exception);
             if (p == (const Quantum *) NULL)
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
-              if (image->matte != MagickFalse)
+              if (GetPixelMask(image,p) != 0)
+                {
+                  p+=GetPixelChannels(image);
+                  continue;
+                }
+              for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+              {
+                PixelChannel
+                  channel;
+
+                PixelTrait
+                  traits;
+
+                channel=GetPixelChannelMapChannel(image,i);
+                traits=GetPixelChannelMapTraits(image,channel);
+                if ((traits & BlendPixelTrait) == 0)
+                  {
+                    x_vector[x*GetPixelChannels(image)+i]=(MagickRealType)
+                      p[i];
+                    continue;
+                  }
                 alpha=QuantumScale*GetPixelAlpha(image,p);
-              x_vector[x].red=(MagickRealType) (alpha*GetPixelRed(image,p));
-              x_vector[x].green=(MagickRealType) (alpha*GetPixelGreen(image,p));
-              x_vector[x].blue=(MagickRealType) (alpha*GetPixelBlue(image,p));
-              if (image->colorspace == CMYKColorspace)
-                x_vector[x].black=(MagickRealType) (alpha*
-                  GetPixelBlack(image,p));
-              if (image->matte != MagickFalse)
-                x_vector[x].alpha=(MagickRealType) GetPixelAlpha(image,p);
+                x_vector[x*GetPixelChannels(image)+i]=alpha*p[i];
+              }
               p+=GetPixelChannels(image);
             }
             number_rows++;
             next_row=MagickFalse;
           }
-        s=scanline;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          pixel.red=y_vector[x].red+span.y*x_vector[x].red;
-          pixel.green=y_vector[x].green+span.y*x_vector[x].green;
-          pixel.blue=y_vector[x].blue+span.y*x_vector[x].blue;
-          if (image->colorspace == CMYKColorspace)
-            pixel.black=y_vector[x].black+span.y*x_vector[x].black;
-          if (image->matte != MagickFalse)
-            pixel.alpha=y_vector[x].alpha+span.y*x_vector[x].alpha;
-          s->red=pixel.red;
-          s->green=pixel.green;
-          s->blue=pixel.blue;
-          if (scale_image->colorspace == CMYKColorspace)
-            s->black=pixel.black;
-          if (scale_image->matte != MagickFalse)
-            s->alpha=pixel.alpha;
-          s++;
-          y_vector[x]=zero;
+          for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+          {
+            pixel[i]=y_vector[x*GetPixelChannels(image)+i]+span.y*
+              x_vector[x*GetPixelChannels(image)+i];
+            scanline[x*GetPixelChannels(image)+i]=pixel[i];
+            y_vector[x*GetPixelChannels(image)+i]=0.0;
+          }
         }
         scale.y-=span.y;
         if (scale.y <= 0)
@@ -3070,33 +3136,53 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
         /*
           Transfer scanline to scaled image.
         */
-        s=scanline;
         for (x=0; x < (ssize_t) scale_image->columns; x++)
         {
-          if (scale_image->matte != MagickFalse)
-            alpha=QuantumScale*s->alpha;
-          alpha=1.0/(fabs(alpha) <= MagickEpsilon ? 1.0 : alpha);
-          SetPixelRed(scale_image,ClampToQuantum(alpha*s->red),q);
-          SetPixelGreen(scale_image,ClampToQuantum(alpha*s->green),q);
-          SetPixelBlue(scale_image,ClampToQuantum(alpha*s->blue),q);
-          if (scale_image->colorspace == CMYKColorspace)
-            SetPixelBlack(scale_image,ClampToQuantum(alpha*s->black),q);
-          if (scale_image->matte != MagickFalse)
-            SetPixelAlpha(scale_image,ClampToQuantum(s->alpha),q);
+          if (GetPixelMask(scale_image,q) != 0)
+            {
+              q+=GetPixelChannels(scale_image);
+              continue;
+            }
+          for (i=0; i < (ssize_t) GetPixelChannels(scale_image); i++)
+          {
+            ssize_t
+              offset;
+
+            channel=GetPixelChannelMapChannel(scale_image,i);
+            traits=GetPixelChannelMapTraits(image,channel);
+            scale_traits=GetPixelChannelMapTraits(scale_image,channel);
+            if ((traits == UndefinedPixelTrait) ||
+                (scale_traits == UndefinedPixelTrait))
+              continue;
+            offset=GetPixelChannelMapOffset(image,channel);
+            if ((traits & BlendPixelTrait) == 0)
+              {
+                SetPixelChannel(scale_image,channel,ClampToQuantum(
+                  scanline[x*GetPixelChannels(image)+offset]),q);
+                continue;
+              }
+            alpha=QuantumScale*scanline[x*GetPixelChannels(image)+
+              GetPixelChannelMapChannel(image,AlphaPixelChannel)];
+            gamma=1.0/(fabs((double) alpha) <= MagickEpsilon ? 1.0 : alpha);
+            SetPixelChannel(scale_image,channel,ClampToQuantum(gamma*scanline[
+              x*GetPixelChannels(image)+offset]),q);
+          }
           q+=GetPixelChannels(scale_image);
-          s++;
         }
       }
     else
       {
+        ssize_t
+          n;
+
         /*
           Scale X direction.
         */
-        pixel=zero;
         next_column=MagickFalse;
+        n=0;
         span.x=1.0;
-        s=scanline;
-        t=scale_scanline;
+        for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+          pixel[i]=0.0;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
           scale.x=(double) scale_image->columns/(double) image->columns;
@@ -3104,23 +3190,25 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
           {
             if (next_column != MagickFalse)
               {
-                pixel=zero;
-                t++;
+                for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+                  pixel[i]=0.0;
+                n++;
               }
-            pixel.red+=span.x*s->red;
-            pixel.green+=span.x*s->green;
-            pixel.blue+=span.x*s->blue;
-            if (scale_image->colorspace == CMYKColorspace)
-              pixel.black+=span.x*s->black;
-            if (image->matte != MagickFalse)
-              pixel.alpha+=span.x*s->alpha;
-            t->red=pixel.red;
-            t->green=pixel.green;
-            t->blue=pixel.blue;
-            if (scale_image->colorspace == CMYKColorspace)
-              t->black=pixel.black;
-            if (scale_image->matte != MagickFalse)
-              t->alpha=pixel.alpha;
+            for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+            {
+              PixelChannel
+                channel;
+
+              PixelTrait
+                traits;
+
+              channel=GetPixelChannelMapChannel(image,i);
+              traits=GetPixelChannelMapTraits(image,channel);
+              if (traits == UndefinedPixelTrait)
+                continue;
+              pixel[i]+=span.x*scanline[x*GetPixelChannels(image)+i];
+              scale_scanline[n*MaxPixelChannels+channel]=pixel[i];
+            }
             scale.x-=span.x;
             span.x=1.0;
             next_column=MagickTrue;
@@ -3129,60 +3217,58 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
           {
             if (next_column != MagickFalse)
               {
-                pixel=zero;
+                for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+                  pixel[i]=0.0;
+                n++;
                 next_column=MagickFalse;
-                t++;
               }
-            pixel.red+=scale.x*s->red;
-            pixel.green+=scale.x*s->green;
-            pixel.blue+=scale.x*s->blue;
-            if (scale_image->colorspace == CMYKColorspace)
-              pixel.black+=scale.x*s->black;
-            if (scale_image->matte != MagickFalse)
-              pixel.alpha+=scale.x*s->alpha;
+            for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+              pixel[i]+=scale.x*scanline[x*GetPixelChannels(image)+i];
             span.x-=scale.x;
           }
-        s++;
       }
       if (span.x > 0)
         {
-          s--;
-          pixel.red+=span.x*s->red;
-          pixel.green+=span.x*s->green;
-          pixel.blue+=span.x*s->blue;
-          if (scale_image->colorspace == CMYKColorspace)
-            pixel.black+=span.x*s->black;
-          if (scale_image->matte != MagickFalse)
-            pixel.alpha+=span.x*s->alpha;
+          for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+            pixel[i]+=span.x*scanline[(x-1)*GetPixelChannels(image)+i];
         }
       if ((next_column == MagickFalse) &&
-          ((ssize_t) (t-scale_scanline) < (ssize_t) scale_image->columns))
+          ((ssize_t) n < (ssize_t) scale_image->columns))
+        for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
-          t->red=pixel.red;
-          t->green=pixel.green;
-          t->blue=pixel.blue;
-          if (scale_image->colorspace == CMYKColorspace)
-            t->black=pixel.black;
-          if (scale_image->matte != MagickFalse)
-            t->alpha=pixel.alpha;
+          channel=GetPixelChannelMapChannel(image,i);
+          scale_scanline[n*MaxPixelChannels+channel]=pixel[i];
         }
       /*
         Transfer scanline to scaled image.
       */
-      t=scale_scanline;
       for (x=0; x < (ssize_t) scale_image->columns; x++)
       {
-        if (scale_image->matte != MagickFalse)
-          alpha=QuantumScale*s->alpha;
-        alpha=1.0/(fabs(alpha) <= MagickEpsilon ? 1.0 : alpha);
-        SetPixelRed(scale_image,ClampToQuantum(alpha*t->red),q);
-        SetPixelGreen(scale_image,ClampToQuantum(alpha*t->green),q);
-        SetPixelBlue(scale_image,ClampToQuantum(alpha*t->blue),q);
-        if (scale_image->colorspace == CMYKColorspace)
-          SetPixelBlack(scale_image,ClampToQuantum(alpha*t->black),q);
-        if (scale_image->matte != MagickFalse)
-          SetPixelAlpha(scale_image,ClampToQuantum(t->alpha),q);
-        t++;
+        if (GetPixelMask(scale_image,q) != 0)
+          {
+            q+=GetPixelChannels(scale_image);
+            continue;
+          }
+        for (i=0; i < (ssize_t) GetPixelChannels(scale_image); i++)
+        {
+          channel=GetPixelChannelMapChannel(scale_image,i);
+          traits=GetPixelChannelMapTraits(image,channel);
+          scale_traits=GetPixelChannelMapTraits(scale_image,channel);
+          if ((traits == UndefinedPixelTrait) ||
+              (scale_traits == UndefinedPixelTrait))
+            continue;
+          if ((traits & BlendPixelTrait) == 0)
+            {
+              SetPixelChannel(scale_image,channel,ClampToQuantum(
+                scale_scanline[x*MaxPixelChannels+channel]),q);
+              continue;
+            }
+          alpha=QuantumScale*scanline[x*GetPixelChannels(image)+
+            GetPixelChannelMapChannel(image,AlphaPixelChannel)];
+          gamma=1.0/(fabs((double) alpha) <= MagickEpsilon ? 1.0 : alpha);
+          SetPixelChannel(scale_image,channel,ClampToQuantum(gamma*
+            scale_scanline[x*MaxPixelChannels+channel]),q);
+        }
         q+=GetPixelChannels(scale_image);
       }
     }
@@ -3198,11 +3284,11 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
   /*
     Free allocated memory.
   */
-  y_vector=(PixelInfo *) RelinquishMagickMemory(y_vector);
-  scale_scanline=(PixelInfo *) RelinquishMagickMemory(scale_scanline);
+  y_vector=(MagickRealType *) RelinquishMagickMemory(y_vector);
+  scale_scanline=(MagickRealType *) RelinquishMagickMemory(scale_scanline);
   if (scale_image->rows != image->rows)
-    scanline=(PixelInfo *) RelinquishMagickMemory(scanline);
-  x_vector=(PixelInfo *) RelinquishMagickMemory(x_vector);
+    scanline=(MagickRealType *) RelinquishMagickMemory(scanline);
+  x_vector=(MagickRealType *) RelinquishMagickMemory(x_vector);
   scale_image->type=image->type;
   return(scale_image);
 }
@@ -3294,7 +3380,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
     return(thumbnail_image);
   (void) ParseAbsoluteGeometry("0x0+0+0",&thumbnail_image->page);
   if (thumbnail_image->matte == MagickFalse)
-    (void) SetImageAlphaChannel(thumbnail_image,OpaqueAlphaChannel);
+    (void) SetImageAlphaChannel(thumbnail_image,OpaqueAlphaChannel,exception);
   thumbnail_image->depth=8;
   thumbnail_image->interlace=NoInterlace;
   /*
@@ -3315,32 +3401,35 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
   if (strstr(image->magick_filename,"//") == (char *) NULL)
     (void) FormatLocaleString(value,MaxTextExtent,"file://%s",
       image->magick_filename);
-  (void) SetImageProperty(thumbnail_image,"Thumb::URI",value);
+  (void) SetImageProperty(thumbnail_image,"Thumb::URI",value,exception);
   (void) CopyMagickString(value,image->magick_filename,MaxTextExtent);
   if (GetPathAttributes(image->filename,&attributes) != MagickFalse)
     {
       (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
         attributes.st_mtime);
-      (void) SetImageProperty(thumbnail_image,"Thumb::MTime",value);
+      (void) SetImageProperty(thumbnail_image,"Thumb::MTime",value,exception);
     }
   (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
     attributes.st_mtime);
   (void) FormatMagickSize(GetBlobSize(image),MagickFalse,value);
   (void) ConcatenateMagickString(value,"B",MaxTextExtent);
-  (void) SetImageProperty(thumbnail_image,"Thumb::Size",value);
+  (void) SetImageProperty(thumbnail_image,"Thumb::Size",value,exception);
   (void) FormatLocaleString(value,MaxTextExtent,"image/%s",image->magick);
   LocaleLower(value);
-  (void) SetImageProperty(thumbnail_image,"Thumb::Mimetype",value);
-  (void) SetImageProperty(thumbnail_image,"software",
-    GetMagickVersion(&version));
+  (void) SetImageProperty(thumbnail_image,"Thumb::Mimetype",value,exception);
+  (void) SetImageProperty(thumbnail_image,"software",GetMagickVersion(&version),
+    exception);
   (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
     image->magick_columns);
-  (void) SetImageProperty(thumbnail_image,"Thumb::Image::Width",value);
+  (void) SetImageProperty(thumbnail_image,"Thumb::Image::Width",value,
+    exception);
   (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
     image->magick_rows);
-  (void) SetImageProperty(thumbnail_image,"Thumb::Image::height",value);
+  (void) SetImageProperty(thumbnail_image,"Thumb::Image::Height",value,
+    exception);
   (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
     GetImageListLength(image));
-  (void) SetImageProperty(thumbnail_image,"Thumb::Document::Pages",value);
+  (void) SetImageProperty(thumbnail_image,"Thumb::Document::Pages",value,
+    exception);
   return(thumbnail_image);
 }

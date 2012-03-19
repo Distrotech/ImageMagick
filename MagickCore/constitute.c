@@ -17,7 +17,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -47,6 +47,7 @@
 #include "MagickCore/cache.h"
 #include "MagickCore/client.h"
 #include "MagickCore/constitute.h"
+#include "MagickCore/constitute-private.h"
 #include "MagickCore/delegate.h"
 #include "MagickCore/geometry.h"
 #include "MagickCore/identify.h"
@@ -61,6 +62,7 @@
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/policy.h"
 #include "MagickCore/profile.h"
+#include "MagickCore/profile-private.h"
 #include "MagickCore/property.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/resize.h"
@@ -73,6 +75,7 @@
 #include "MagickCore/timer.h"
 #include "MagickCore/transform.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 static SemaphoreInfo
   *constitute_semaphore = (SemaphoreInfo *) NULL;
@@ -95,7 +98,7 @@ static SemaphoreInfo
 %      MagickBooleanType ConstituteComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType ConstituteComponentGenesis(void)
+MagickPrivate MagickBooleanType ConstituteComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&constitute_semaphore);
   return(MagickTrue);
@@ -119,7 +122,7 @@ MagickExport MagickBooleanType ConstituteComponentGenesis(void)
 %      ConstituteComponentTerminus(void)
 %
 */
-MagickExport void ConstituteComponentTerminus(void)
+MagickPrivate void ConstituteComponentTerminus(void)
 {
   if (constitute_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&constitute_semaphore);
@@ -193,20 +196,17 @@ MagickExport Image *ConstituteImage(const size_t columns,
   assert(pixels != (void *) NULL);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage((ImageInfo *) NULL);
+  image=AcquireImage((ImageInfo *) NULL,exception);
   if (image == (Image *) NULL)
     return((Image *) NULL);
   if ((columns == 0) || (rows == 0))
     ThrowImageException(OptionError,"NonZeroWidthAndHeightRequired");
   image->columns=columns;
   image->rows=rows;
-  (void) SetImageBackgroundColor(image);
-  status=ImportImagePixels(image,0,0,columns,rows,map,storage,pixels);
+  (void) SetImageBackgroundColor(image,exception);
+  status=ImportImagePixels(image,0,0,columns,rows,map,storage,pixels,exception);
   if (status == MagickFalse)
-    {
-      InheritException(exception,&image->exception);
-      image=DestroyImage(image);
-    }
+     image=DestroyImage(image);
   return(image);
 }
 
@@ -275,7 +275,7 @@ MagickExport Image *PingImage(const ImageInfo *image_info,
     {
       ResetTimer(&image->timer);
       if (ping_info->verbose != MagickFalse)
-        (void) IdentifyImage(image,stdout,MagickFalse);
+        (void) IdentifyImage(image,stdout,MagickFalse,exception);
     }
   ping_info=DestroyImageInfo(ping_info);
   return(image);
@@ -296,20 +296,23 @@ MagickExport Image *PingImage(const ImageInfo *image_info,
 %
 %  The format of the PingImage method is:
 %
-%      Image *PingImages(const ImageInfo *image_info,ExceptionInfo *exception)
+%      Image *PingImages(ImageInfo *image_info,const char *filename,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image_info: the image info.
 %
+%    o filename: the image filename.
+%
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *PingImages(const ImageInfo *image_info,
+MagickExport Image *PingImages(ImageInfo *image_info,const char *filename,
   ExceptionInfo *exception)
 {
   char
-    filename[MaxTextExtent];
+    ping_filename[MaxTextExtent];
 
   Image
     *image,
@@ -327,9 +330,11 @@ MagickExport Image *PingImages(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
+  (void) SetImageOption(image_info,"filename",filename);
+  (void) CopyMagickString(image_info->filename,filename,MaxTextExtent);
   (void) InterpretImageFilename(image_info,(Image *) NULL,image_info->filename,
-    (int) image_info->scene,filename);
-  if (LocaleCompare(filename,image_info->filename) != 0)
+    (int) image_info->scene,ping_filename,exception);
+  if (LocaleCompare(ping_filename,image_info->filename) != 0)
     {
       ExceptionInfo
         *sans;
@@ -345,13 +350,13 @@ MagickExport Image *PingImages(const ImageInfo *image_info,
       sans=AcquireExceptionInfo();
       (void) SetImageInfo(read_info,0,sans);
       sans=DestroyExceptionInfo(sans);
-      (void) CopyMagickString(filename,read_info->filename,MaxTextExtent);
+      (void) CopyMagickString(ping_filename,read_info->filename,MaxTextExtent);
       images=NewImageList();
       extent=(ssize_t) (read_info->scene+read_info->number_scenes);
       for (scene=(ssize_t) read_info->scene; scene < (ssize_t) extent; scene++)
       {
-        (void) InterpretImageFilename(image_info,(Image *) NULL,filename,(int)
-          scene,read_info->filename);
+        (void) InterpretImageFilename(image_info,(Image *) NULL,ping_filename,
+          (int) scene,read_info->filename,exception);
         image=PingImage(read_info,exception);
         if (image == (Image *) NULL)
           continue;
@@ -483,7 +488,7 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       MagickBooleanType
         status;
 
-      image=AcquireImage(read_info);
+      image=AcquireImage(read_info,exception);
       (void) CopyMagickString(image->filename,read_info->filename,
         MaxTextExtent);
       status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -541,7 +546,7 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       /*
         Let our decoding delegate process the image.
       */
-      image=AcquireImage(read_info);
+      image=AcquireImage(read_info,exception);
       if (image == (Image *) NULL)
         {
           read_info=DestroyImageInfo(read_info);
@@ -647,38 +652,40 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       next->magick_columns=next->columns;
     if (next->magick_rows == 0)
       next->magick_rows=next->rows;
-    value=GetImageProperty(next,"tiff:Orientation");
+    if ((next->colorspace == sRGBColorspace) && (next->gamma == 1.0))
+      next->colorspace=RGBColorspace;
+    value=GetImageProperty(next,"tiff:Orientation",exception);
     if (value == (char *) NULL)
-      value=GetImageProperty(next,"exif:Orientation");
+      value=GetImageProperty(next,"exif:Orientation",exception);
     if (value != (char *) NULL)
       {
         next->orientation=(OrientationType) StringToLong(value);
         (void) DeleteImageProperty(next,"tiff:Orientation");
         (void) DeleteImageProperty(next,"exif:Orientation");
       }
-    value=GetImageProperty(next,"exif:XResolution");
+    value=GetImageProperty(next,"exif:XResolution",exception);
     if (value != (char *) NULL)
       {
-        geometry_info.rho=next->x_resolution;
+        geometry_info.rho=next->resolution.x;
         geometry_info.sigma=1.0;
         flags=ParseGeometry(value,&geometry_info);
         if (geometry_info.sigma != 0)
-          next->x_resolution=geometry_info.rho/geometry_info.sigma;
+          next->resolution.x=geometry_info.rho/geometry_info.sigma;
         (void) DeleteImageProperty(next,"exif:XResolution");
       }
-    value=GetImageProperty(next,"exif:YResolution");
+    value=GetImageProperty(next,"exif:YResolution",exception);
     if (value != (char *) NULL)
       {
-        geometry_info.rho=next->y_resolution;
+        geometry_info.rho=next->resolution.y;
         geometry_info.sigma=1.0;
         flags=ParseGeometry(value,&geometry_info);
         if (geometry_info.sigma != 0)
-          next->y_resolution=geometry_info.rho/geometry_info.sigma;
+          next->resolution.y=geometry_info.rho/geometry_info.sigma;
         (void) DeleteImageProperty(next,"exif:YResolution");
       }
-    value=GetImageProperty(next,"tiff:ResolutionUnit");
+    value=GetImageProperty(next,"tiff:ResolutionUnit",exception);
     if (value == (char *) NULL)
-      value=GetImageProperty(next,"exif:ResolutionUnit");
+      value=GetImageProperty(next,"exif:ResolutionUnit",exception);
     if (value != (char *) NULL)
       {
         next->units=(ResolutionType) (StringToLong(value)-1);
@@ -692,22 +699,22 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     option=GetImageOption(read_info,"caption");
     if (option != (const char *) NULL)
       {
-        property=InterpretImageProperties(read_info,next,option);
-        (void) SetImageProperty(next,"caption",property);
+        property=InterpretImageProperties(read_info,next,option,exception);
+        (void) SetImageProperty(next,"caption",property,exception);
         property=DestroyString(property);
       }
     option=GetImageOption(read_info,"comment");
     if (option != (const char *) NULL)
       {
-        property=InterpretImageProperties(read_info,next,option);
-        (void) SetImageProperty(next,"comment",property);
+        property=InterpretImageProperties(read_info,next,option,exception);
+        (void) SetImageProperty(next,"comment",property,exception);
         property=DestroyString(property);
       }
     option=GetImageOption(read_info,"label");
     if (option != (const char *) NULL)
       {
-        property=InterpretImageProperties(read_info,next,option);
-        (void) SetImageProperty(next,"label",property);
+        property=InterpretImageProperties(read_info,next,option,exception);
+        (void) SetImageProperty(next,"label",property,exception);
         property=DestroyString(property);
       }
     if (LocaleCompare(next->magick,"TEXT") == 0)
@@ -754,10 +761,10 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       profile=GetImageProfile(next,"8bim");
     (void) FormatMagickTime(GetBlobProperties(next)->st_mtime,MaxTextExtent,
       timestamp);
-    (void) SetImageProperty(next,"date:modify",timestamp);
+    (void) SetImageProperty(next,"date:modify",timestamp,exception);
     (void) FormatMagickTime(GetBlobProperties(next)->st_ctime,MaxTextExtent,
       timestamp);
-    (void) SetImageProperty(next,"date:create",timestamp);
+    (void) SetImageProperty(next,"date:create",timestamp,exception);
     option=GetImageOption(image_info,"delay");
     if (option != (const char *) NULL)
       {
@@ -786,7 +793,7 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       next->dispose=(DisposeType) ParseCommandOption(MagickDisposeOptions,
         MagickFalse,option);
     if (read_info->verbose != MagickFalse)
-      (void) IdentifyImage(next,stderr,MagickFalse);
+      (void) IdentifyImage(next,stderr,MagickFalse,exception);
     image=next;
   }
   read_info=DestroyImageInfo(read_info);
@@ -808,20 +815,23 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
 %
 %  The format of the ReadImage method is:
 %
-%      Image *ReadImages(const ImageInfo *image_info,ExceptionInfo *exception)
+%      Image *ReadImages(ImageInfo *image_info,const char *filename,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image_info: the image info.
 %
+%    o filename: the image filename.
+%
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *ReadImages(const ImageInfo *image_info,
+MagickExport Image *ReadImages(ImageInfo *image_info,const char *filename,
   ExceptionInfo *exception)
 {
   char
-    filename[MaxTextExtent];
+    read_filename[MaxTextExtent];
 
   Image
     *image,
@@ -839,9 +849,11 @@ MagickExport Image *ReadImages(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
-  (void) InterpretImageFilename(image_info,(Image *) NULL,image_info->filename,
-    (int) image_info->scene,filename);
-  if (LocaleCompare(filename,image_info->filename) != 0)
+  (void) SetImageOption(image_info,"filename",filename);
+  (void) CopyMagickString(image_info->filename,filename,MaxTextExtent);
+  (void) InterpretImageFilename(image_info,(Image *) NULL,filename,
+    (int) image_info->scene,read_filename,exception);
+  if (LocaleCompare(read_filename,image_info->filename) != 0)
     {
       ExceptionInfo
         *sans;
@@ -862,13 +874,13 @@ MagickExport Image *ReadImages(const ImageInfo *image_info,
           read_info=DestroyImageInfo(read_info);
           return(ReadImage(image_info,exception));
         }
-      (void) CopyMagickString(filename,read_info->filename,MaxTextExtent);
+      (void) CopyMagickString(read_filename,read_info->filename,MaxTextExtent);
       images=NewImageList();
       extent=(ssize_t) (read_info->scene+read_info->number_scenes);
       for (scene=(ssize_t) read_info->scene; scene < (ssize_t) extent; scene++)
       {
-        (void) InterpretImageFilename(image_info,(Image *) NULL,filename,(int)
-          scene,read_info->filename);
+        (void) InterpretImageFilename(image_info,(Image *) NULL,read_filename,
+          (int) scene,read_info->filename,exception);
         image=ReadImage(read_info,exception);
         if (image == (Image *) NULL)
           continue;
@@ -970,7 +982,8 @@ MagickExport Image *ReadInlineImage(const ImageInfo *image_info,
 %
 %  The format of the WriteImage method is:
 %
-%      MagickBooleanType WriteImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteImage(const ImageInfo *image_info,Image *image,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -978,9 +991,11 @@ MagickExport Image *ReadInlineImage(const ImageInfo *image_info,
 %
 %    o image: the image.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
 MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   char
     filename[MaxTextExtent];
@@ -1023,23 +1038,13 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
       image_info->filename);
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
+  assert(exception != (ExceptionInfo *) NULL);
   sans_exception=AcquireExceptionInfo();
   write_info=CloneImageInfo(image_info);
   (void) CopyMagickString(write_info->filename,image->filename,MaxTextExtent);
   if (*write_info->magick == '\0')
     (void) CopyMagickString(write_info->magick,image->magick,MaxTextExtent);
   (void) SetImageInfo(write_info,1,sans_exception);
-  if (LocaleCompare(write_info->magick,"clipmask") == 0)
-    {
-      if (image->clip_mask == (Image *) NULL)
-        {
-          (void) ThrowMagickException(&image->exception,GetMagickModule(),
-            OptionError,"NoClipPathDefined","`%s'",image->filename);
-          return(MagickFalse);
-        }
-      image=image->clip_mask;
-      (void) SetImageInfo(write_info,1,sans_exception);
-    }
   (void) CopyMagickString(filename,image->filename,MaxTextExtent);
   (void) CopyMagickString(image->filename,write_info->filename,MaxTextExtent);
   domain=CoderPolicyDomain;
@@ -1076,8 +1081,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
       (GetNextImageInList(image) == (Image *) NULL) &&
       (IsTaintImage(image) == MagickFalse))
     {
-      delegate_info=GetDelegateInfo(image->magick,write_info->magick,
-        &image->exception);
+      delegate_info=GetDelegateInfo(image->magick,write_info->magick,exception);
       if ((delegate_info != (const DelegateInfo *) NULL) &&
           (GetDelegateMode(delegate_info) == 0) &&
           (IsPathAccessible(image->magick_filename) != MagickFalse))
@@ -1088,7 +1092,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
           (void) CopyMagickString(image->filename,image->magick_filename,
             MaxTextExtent);
           status=InvokeDelegate(write_info,image,image->magick,
-            write_info->magick,&image->exception);
+            write_info->magick,exception);
           write_info=DestroyImageInfo(write_info);
           (void) CopyMagickString(image->filename,filename,MaxTextExtent);
           return(status);
@@ -1103,7 +1107,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
         filename[MaxTextExtent];
 
       (void) CopyMagickString(filename,image->filename,MaxTextExtent);
-      status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       (void) CopyMagickString(image->filename,filename,MaxTextExtent);
       if (status != MagickFalse)
         {
@@ -1132,14 +1136,13 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
       thread_support=GetMagickThreadSupport(magick_info);
       if ((thread_support & EncoderThreadSupport) == 0)
         LockSemaphoreInfo(constitute_semaphore);
-      status=GetImageEncoder(magick_info)(write_info,image);
+      status=GetImageEncoder(magick_info)(write_info,image,exception);
       if ((thread_support & EncoderThreadSupport) == 0)
         UnlockSemaphoreInfo(constitute_semaphore);
     }
   else
     {
-      delegate_info=GetDelegateInfo((char *) NULL,write_info->magick,
-        &image->exception);
+      delegate_info=GetDelegateInfo((char *) NULL,write_info->magick,exception);
       if (delegate_info != (DelegateInfo *) NULL)
         {
           /*
@@ -1149,7 +1152,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
           if (GetDelegateThreadSupport(delegate_info) == MagickFalse)
             LockSemaphoreInfo(constitute_semaphore);
           status=InvokeDelegate(write_info,image,(char *) NULL,
-            write_info->magick,&image->exception);
+            write_info->magick,exception);
           if (GetDelegateThreadSupport(delegate_info) == MagickFalse)
             UnlockSemaphoreInfo(constitute_semaphore);
           (void) CopyMagickString(image->filename,filename,MaxTextExtent);
@@ -1164,7 +1167,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
             {
               (void) CopyMagickString(write_info->magick,image->magick,
                 MaxTextExtent);
-              magick_info=GetMagickInfo(write_info->magick,&image->exception);
+              magick_info=GetMagickInfo(write_info->magick,exception);
             }
           if ((magick_info == (const MagickInfo *) NULL) ||
               (GetImageEncoder(magick_info) == (EncodeImageHandler *) NULL))
@@ -1174,14 +1177,14 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
 
               GetPathComponent(image->filename,ExtensionPath,extension);
               if (*extension != '\0')
-                magick_info=GetMagickInfo(extension,&image->exception);
+                magick_info=GetMagickInfo(extension,exception);
               else
-                magick_info=GetMagickInfo(image->magick,&image->exception);
+                magick_info=GetMagickInfo(image->magick,exception);
               (void) CopyMagickString(image->filename,filename,MaxTextExtent);
             }
           if ((magick_info == (const MagickInfo *) NULL) ||
               (GetImageEncoder(magick_info) == (EncodeImageHandler *) NULL))
-            (void) ThrowMagickException(&image->exception,GetMagickModule(),
+            (void) ThrowMagickException(exception,GetMagickModule(),
               MissingDelegateError,"NoEncodeDelegateForThisImageFormat","`%s'",
               image->filename);
           else
@@ -1192,23 +1195,26 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
               thread_support=GetMagickThreadSupport(magick_info);
               if ((thread_support & EncoderThreadSupport) == 0)
                 LockSemaphoreInfo(constitute_semaphore);
-              status=GetImageEncoder(magick_info)(write_info,image);
+              status=GetImageEncoder(magick_info)(write_info,image,exception);
               if ((thread_support & EncoderThreadSupport) == 0)
                 UnlockSemaphoreInfo(constitute_semaphore);
             }
         }
     }
   if (GetBlobError(image) != MagickFalse)
-    ThrowFileException(&image->exception,FileOpenError,
+    ThrowFileException(exception,FileOpenError,
       "AnErrorHasOccurredWritingToFile",image->filename);
   if (temporary == MagickTrue)
     {
       /*
         Copy temporary image file to permanent.
       */
-      status=OpenBlob(write_info,image,ReadBinaryBlobMode,&image->exception);
+      status=OpenBlob(write_info,image,ReadBinaryBlobMode,exception);
       if (status != MagickFalse)
-        status=ImageToFile(image,write_info->filename,&image->exception);
+        {
+          (void) RelinquishUniqueFileResource(write_info->filename);
+          status=ImageToFile(image,write_info->filename,exception);
+        }
       (void) CloseBlob(image);
       (void) RelinquishUniqueFileResource(image->filename);
       (void) CopyMagickString(image->filename,write_info->filename,
@@ -1216,7 +1222,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
     }
   if ((LocaleCompare(write_info->magick,"info") != 0) &&
       (write_info->verbose != MagickFalse))
-    (void) IdentifyImage(image,stdout,MagickFalse);
+    (void) IdentifyImage(image,stdout,MagickFalse,exception);
   write_info=DestroyImageInfo(write_info);
   return(status);
 }
@@ -1338,8 +1344,7 @@ MagickExport MagickBooleanType WriteImages(const ImageInfo *image_info,
     if (number_images != 1)
       progress_monitor=SetImageProgressMonitor(p,(MagickProgressMonitor) NULL,
         p->client_data);
-    status&=WriteImage(write_info,p);
-    GetImageException(p,exception);
+    status&=WriteImage(write_info,p,exception);
     if (number_images != 1)
       (void) SetImageProgressMonitor(p,progress_monitor,p->client_data);
     if (write_info->adjoin != MagickFalse)

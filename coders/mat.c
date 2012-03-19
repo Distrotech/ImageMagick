@@ -55,6 +55,7 @@
 #include "MagickCore/color-private.h"
 #include "MagickCore/colormap.h"
 #include "MagickCore/colorspace-private.h"
+#include "MagickCore/distort.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image.h"
@@ -69,11 +70,11 @@
 #include "MagickCore/option.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/resource_.h"
-#include "MagickCore/shear.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
 #include "MagickCore/transform.h"
+#include "MagickCore/utility-private.h"
 #if defined(MAGICKCORE_ZLIB_DELEGATE)
  #include "zlib.h"
 #endif
@@ -82,7 +83,7 @@
   Forward declaration.
 */
 static MagickBooleanType
-  WriteMATImage(const ImageInfo *,Image *);
+  WriteMATImage(const ImageInfo *,Image *,ExceptionInfo *);
 
 
 /* Auto coloring method, sorry this creates some artefact inside data
@@ -177,11 +178,9 @@ typedef enum
 static const QuantumType z2qtype[4] = {GrayQuantum, BlueQuantum, GreenQuantum, RedQuantum};
 
 
-static void InsertComplexDoubleRow(double *p, int y, Image * image, double MinVal,
-                                  double MaxVal)
+static void InsertComplexDoubleRow(Image *image,double *p,int y,double MinVal,
+  double MaxVal,ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
 
   double f;
   int x;
@@ -192,9 +191,8 @@ static void InsertComplexDoubleRow(double *p, int y, Image * image, double MinVa
   if (MaxVal == 0)
     MaxVal = 1;
 
-  exception=(&image->exception);
   q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
-  if (q == (const Quantum *) NULL)
+  if (q == (Quantum *) NULL)
     return;
   for (x = 0; x < (ssize_t) image->columns; x++)
   {
@@ -243,12 +241,9 @@ static void InsertComplexDoubleRow(double *p, int y, Image * image, double MinVa
 }
 
 
-static void InsertComplexFloatRow(float *p, int y, Image * image, double MinVal,
-                                  double MaxVal)
+static void InsertComplexFloatRow(Image *image,float *p,int y,double MinVal,
+  double MaxVal,ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   double f;
   int x;
   register Quantum *q;
@@ -258,9 +253,8 @@ static void InsertComplexFloatRow(float *p, int y, Image * image, double MinVal,
   if (MaxVal == 0)
     MaxVal = 1;
 
-  exception=(&image->exception);
   q = QueueAuthenticPixels(image, 0, y, image->columns, 1,exception);
-  if (q == (const Quantum *) NULL)
+  if (q == (Quantum *) NULL)
     return;
   for (x = 0; x < (ssize_t) image->columns; x++)
   {
@@ -494,7 +488,7 @@ int status;
   {
     fclose(clone_info->file);
     clone_info->file = NULL;
-    (void) unlink(clone_info->filename);
+    (void) remove_utf8(clone_info->filename);
   }
 
   CacheBlock = AcquireQuantumMemory((size_t)((Size<16384)?Size:16384),sizeof(unsigned char *));
@@ -549,7 +543,7 @@ DblBreak:
   RelinquishMagickMemory(DecompressBlock);
 
   if((clone_info->file=fopen(clone_info->filename,"rb"))==NULL) goto UnlinkFile;
-  if( (image2 = AcquireImage(clone_info))==NULL ) goto EraseFile;  
+  if( (image2 = AcquireImage(clone_info,exception))==NULL ) goto EraseFile;  
   status = OpenBlob(clone_info,image2,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
   {
@@ -558,7 +552,7 @@ EraseFile:
     fclose(clone_info->file);
     clone_info->file = NULL;
 UnlinkFile:
-    (void) unlink(clone_info->filename);
+    (void) remove_utf8(clone_info->filename);
     return NULL; 
   }
 
@@ -643,7 +637,7 @@ static Image *ReadMATImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
      Open image file.
    */
-  image = AcquireImage(image_info);
+  image = AcquireImage(image_info,exception);
 
   status = OpenBlob(image_info, image, ReadBinaryBlobMode, exception);
   if (status == MagickFalse)
@@ -781,7 +775,10 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
       /* Image is gray when no complex flag is set and 2D Matrix */
     if ((MATLAB_HDR.DimFlag == 8) &&
         ((MATLAB_HDR.StructureFlag & FLAG_COMPLEX) == 0))
-      image->type=GrayscaleType;
+      {
+        image->type=GrayscaleType;
+        image->colorspace=GRAYColorspace;
+      }
 
     switch (CellType)
     {
@@ -852,7 +849,7 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     {
       if(image->colors>256) image->colors = 256;
 
-      if (!AcquireImageColormap(image, image->colors))
+      if (AcquireImageColormap(image, image->colors,exception) == MagickFalse)
       {
  NoMemory:ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");}
     }
@@ -889,7 +886,7 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
       for (i = 0; i < (ssize_t) MATLAB_HDR.SizeY; i++)
       {
         q=QueueAuthenticPixels(image,0,MATLAB_HDR.SizeY-i-1,image->columns,1,exception);
-        if (q == (const Quantum *)NULL)
+        if (q == (Quantum *)NULL)
   {
     if (logging) (void)LogMagickEvent(CoderEvent,GetMagickModule(),
               "  MAT set image pixels returns unexpected NULL on a row %u.", (unsigned)(MATLAB_HDR.SizeY-i-1));
@@ -949,14 +946,16 @@ ExitLoop:
         for (i = 0; i < (ssize_t) MATLAB_HDR.SizeY; i++)
   {
           ReadBlobDoublesXXX(image2, ldblk, (double *)BImgBuff);
-          InsertComplexDoubleRow((double *)BImgBuff, i, image, MinVal, MaxVal);
+          InsertComplexDoubleRow(image, (double *)BImgBuff, i, MinVal, MaxVal,
+            exception);
   }
 
       if (CellType==miSINGLE)
         for (i = 0; i < (ssize_t) MATLAB_HDR.SizeY; i++)
   {
           ReadBlobFloatsXXX(image2, ldblk, (float *)BImgBuff);
-          InsertComplexFloatRow((float *)BImgBuff, i, image, MinVal, MaxVal);
+          InsertComplexFloatRow(image,(float *)BImgBuff,i,MinVal,MaxVal,
+            exception);
   }    
     }
 
@@ -998,13 +997,13 @@ done_reading:
     {
             fclose(clone_info->file);
             clone_info->file = NULL;
-            (void) unlink(clone_info->filename);
+            (void) remove_utf8(clone_info->filename);
     }
         }    
       }
 
       /* Allocate next image structure. */    
-    AcquireNextImage(image_info,image);
+    AcquireNextImage(image_info,image,exception);
     if (image->next == (Image *) NULL) break;                
     image=SyncNextImageInList(image);
     image->columns=image->rows=0;
@@ -1054,7 +1053,7 @@ done_reading:
     {
       fclose(clone_info->file);
       clone_info->file = NULL;
-      (void) unlink(clone_info->filename);
+      (void) remove_utf8(clone_info->filename);
     }
     DestroyImageInfo(clone_info);
     clone_info = NULL;
@@ -1143,24 +1142,21 @@ ModuleExport void UnregisterMATImage(void)
 %
 %  The format of the WriteMATImage method is:
 %
-%      unsigned int WriteMATImage(const ImageInfo *image_info,Image *image)
+%      MagickBooleanType WriteMATImage(const ImageInfo *image_info,
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
-%
-%    o status: Function WriteMATImage return True if the image is written.
-%      False is returned is there is a memory shortage or if the image file
-%      fails to write.
 %
 %    o image_info: Specifies a pointer to a ImageInfo structure.
 %
 %    o image:  A pointer to an Image structure.
 %
+%    o exception: return any errors or warnings in this structure.
+%
 */
-static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image)
+static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image,
+  ExceptionInfo *exception)
 {
-  ExceptionInfo
-    *exception;
-
   ssize_t y;
   unsigned z;
   register const Quantum *p;
@@ -1190,7 +1186,9 @@ static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image)
   assert(image->signature == MagickSignature);
   logging=LogMagickEvent(CoderEvent,GetMagickModule(),"enter MAT");
   (void) logging;
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(MagickFalse);
   image->depth=8;
@@ -1215,9 +1213,9 @@ static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image)
   do
   {
     if (IsRGBColorspace(image->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image,RGBColorspace);
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
 
-    is_gray = IsImageGray(image,&image->exception);
+    is_gray = IsImageGray(image,exception);
     z = is_gray ? 0 : 3;
 
     /*
@@ -1251,7 +1249,6 @@ static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image)
     /*
       Store image data.
     */
-    exception=(&image->exception);
     quantum_info=AcquireQuantumInfo(image_info,image);
     if (quantum_info == (QuantumInfo *) NULL)
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
@@ -1260,14 +1257,14 @@ static MagickBooleanType WriteMATImage(const ImageInfo *image_info,Image *image)
     {
       for (y=0; y < (ssize_t)image->columns; y++)
       {
-        p=GetVirtualPixels(image,y,0,1,image->rows,&image->exception);
+        p=GetVirtualPixels(image,y,0,1,image->rows,exception);
         if (p == (const Quantum *) NULL)
           break;
         (void) ExportQuantumPixels(image,(CacheView *) NULL,quantum_info,
           z2qtype[z],pixels,exception);
         (void) WriteBlob(image,image->rows,pixels);
       }    
-      if (!SyncAuthenticPixels(image,exception))
+      if (SyncAuthenticPixels(image,exception) == MagickFalse)
         break;
     } while(z-- >= 2);
     while(padding-->0) (void) WriteBlobByte(image,0);

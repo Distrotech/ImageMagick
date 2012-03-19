@@ -17,7 +17,7 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -47,13 +47,16 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
 #include "MagickCore/locale_.h"
+#include "MagickCore/locale-private.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/xml-tree.h"
 
 /*
@@ -234,7 +237,7 @@ MagickExport LinkedListInfo *DestroyLocaleOptions(LinkedListInfo *messages)
 %
 */
 
-MagickExport ssize_t FormatLocaleFileList(FILE *file,
+MagickPrivate ssize_t FormatLocaleFileList(FILE *file,
   const char *restrict format,va_list operands)
 {
   ssize_t
@@ -325,7 +328,7 @@ MagickExport ssize_t FormatLocaleFile(FILE *file,const char *restrict format,
 %
 */
 
-MagickExport ssize_t FormatLocaleStringList(char *restrict string,
+MagickPrivate ssize_t FormatLocaleStringList(char *restrict string,
   const size_t length,const char *restrict format,va_list operands)
 {
   ssize_t
@@ -742,9 +745,11 @@ MagickExport LinkedListInfo *GetLocaleOptions(const char *filename,
     blob=(char *) NTResourceToBlob(filename);
     if (blob != (char *) NULL)
       {
-        xml=StringToStringInfo(blob);
+        xml=AcquireStringInfo(0);
+        SetStringInfoLength(xml,strlen(blob)+1);
+        SetStringInfoDatum(xml,(unsigned char *) blob);
+        SetStringInfoPath(xml,filename);
         (void) AppendValueToLinkedList(messages,xml);
-        blob=DestroyString(blob);
       }
   }
 #endif
@@ -876,23 +881,31 @@ static MagickBooleanType InitializeLocaleList(ExceptionInfo *exception)
 MagickExport double InterpretLocaleValue(const char *restrict string,
   char **restrict sentinal)
 {
+  char
+    *q;
+
   double
     value;
 
+  if ((*string == '0') && ((string[1] | 0x20)=='x'))
+    value=(double) strtoul(string,&q,16);
+  else
+    {
 #if defined(MAGICKCORE_HAVE_STRTOD_L)
-  {
-    locale_t
-      locale;
+      locale_t
+        locale;
 
-    locale=AcquireCLocale();
-    if (locale == (locale_t) NULL)
-      value=strtod(string,sentinal);
-    else
-      value=strtod_l(string,sentinal,locale);
-  }
+      locale=AcquireCLocale();
+      if (locale == (locale_t) NULL)
+        value=strtod(string,&q);
+      else
+        value=strtod_l(string,&q,locale);
 #else
-  value=strtod(string,sentinal);
+      value=strtod(string,&q);
 #endif
+    }
+  if (sentinal != (char **) NULL)
+    *sentinal=q;
   return(value);
 }
 
@@ -1315,7 +1328,7 @@ static MagickBooleanType LoadLocaleList(const char *xml,const char *filename,
 static MagickBooleanType LoadLocaleLists(const char *filename,
   const char *locale,ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_EMBEDDABLE_SUPPORT)
+#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   return(LoadLocaleList(LocaleMap,"built-in",locale,0,exception));
 #else
   const StringInfo
@@ -1375,7 +1388,7 @@ static MagickBooleanType LoadLocaleLists(const char *filename,
 %      MagickBooleanType LocaleComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType LocaleComponentGenesis(void)
+MagickPrivate MagickBooleanType LocaleComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&locale_semaphore);
   return(MagickTrue);
@@ -1399,7 +1412,7 @@ MagickExport MagickBooleanType LocaleComponentGenesis(void)
 %      LocaleComponentTerminus(void)
 %
 */
-MagickExport void LocaleComponentTerminus(void)
+MagickPrivate void LocaleComponentTerminus(void)
 {
   if (locale_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&locale_semaphore);

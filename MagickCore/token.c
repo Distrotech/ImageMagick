@@ -17,7 +17,7 @@
 %                              January 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,6 +50,7 @@
 #include "MagickCore/token.h"
 #include "MagickCore/token-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 
 /*
   Typedef declaractions.
@@ -229,7 +230,7 @@ MagickExport void GetMagickToken(const char *start,const char **end,char *token)
         char
           *q;
 
-        value=InterpretLocaleValue(p,&q);
+        value=StringToDouble(p,&q);
         (void) value;
         if ((p != q) && (*p != ','))
           {
@@ -248,7 +249,8 @@ MagickExport void GetMagickToken(const char *start,const char **end,char *token)
         for ( ; *p != '\0'; p++)
         {
           if (((isspace((int) ((unsigned char) *p)) != 0) || (*p == '=') ||
-              (*p == ',') || (*p == ':') || (*p == ';')) && (*(p-1) != '\\'))
+              (*p == ':') || (*p == ',') || (*p == '|') || (*p == ';')) &&
+              (*(p-1) != '\\'))
             break;
           if ((i > 0) && (*p == '<'))
             break;
@@ -589,7 +591,7 @@ MagickExport MagickBooleanType GlobExpression(const char *expression,
 %    o path: the path.
 %
 */
-MagickExport MagickBooleanType IsGlob(const char *path)
+MagickPrivate MagickBooleanType IsGlob(const char *path)
 {
   MagickBooleanType
     status;

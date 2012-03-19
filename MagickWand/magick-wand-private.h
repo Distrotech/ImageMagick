@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -35,24 +35,21 @@ struct _MagickWand
     id;
 
   char
-    name[MaxTextExtent];
+    name[MaxTextExtent];  /* Wand name to use for MagickWand Logs */
+
+  Image
+    *images;          /* The images in this wand - also the current image */
+
+  ImageInfo
+    *image_info;      /* Global settings used for images in Wand */
 
   ExceptionInfo
     *exception;
 
-  ImageInfo
-    *image_info;
-
-  QuantizeInfo
-    *quantize_info;
-
-  Image
-    *images;
-
   MagickBooleanType
-    active,
-    pend,
-    debug;
+    insert_before,    /* wand set to first image, prepend new images */
+    image_pending,    /* this image is pending Next/Previous Iteration */
+    debug;            /* Log calls to MagickWand library */
 
   size_t
     signature;

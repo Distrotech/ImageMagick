@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -121,12 +121,13 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   (void) ResetImagePage(image,"0x0+0+0");
-  property=InterpretImageProperties(image_info,image,image_info->filename);
-  (void) SetImageProperty(image,"label",property);
+  property=InterpretImageProperties(image_info,image,image_info->filename,
+    exception);
+  (void) SetImageProperty(image,"label",property,exception);
   property=DestroyString(property);
-  label=GetImageProperty(image,"label");
+  label=GetImageProperty(image,"label",exception);
   draw_info=CloneDrawInfo(image_info,(DrawInfo *) NULL);
   draw_info->text=ConstantString(label);
   if (((image->columns != 0) || (image->rows != 0)) &&
@@ -135,35 +136,35 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
       /*
         Fit label to canvas size.
       */
-      status=GetMultilineTypeMetrics(image,draw_info,&metrics);
+      status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
       for ( ; status != MagickFalse; draw_info->pointsize*=2.0)
       {
         width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
         height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
-        if (((image->columns != 0) && (width > (image->columns+1))) ||
-            ((image->rows != 0) && (height > (image->rows+1))))
+        if (((image->columns != 0) && (width >= image->columns)) ||
+            ((image->rows != 0) && (height >= image->rows)))
           break;
-        status=GetMultilineTypeMetrics(image,draw_info,&metrics);
+        status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
       }
+      draw_info->pointsize/=2.0;
       for ( ; status != MagickFalse; draw_info->pointsize--)
       {
         width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
         height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
-        if ((image->columns != 0) && (width <= (image->columns+1)) &&
-           ((image->rows == 0) || (height <= (image->rows+1))))
+        if ((image->columns != 0) && (width < image->columns) &&
+           ((image->rows == 0) || (height < image->rows)))
           break;
-        if ((image->rows != 0) && (height <= (image->rows+1)) &&
-           ((image->columns == 0) || (width <= (image->columns+1))))
+        if ((image->rows != 0) && (height < image->rows) &&
+           ((image->columns == 0) || (width < image->columns)))
           break;
         if (draw_info->pointsize < 2.0)
           break;
-        status=GetMultilineTypeMetrics(image,draw_info,&metrics);
+        status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
       }
     }
-  status=GetMultilineTypeMetrics(image,draw_info,&metrics);
+  status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
   if (status == MagickFalse)
     {
-      InheritException(exception,&image->exception);
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
@@ -188,13 +189,12 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
   if (image->rows == 0)
     image->rows=(size_t) floor(draw_info->pointsize+draw_info->stroke_width+
       0.5);
-  if (SetImageBackgroundColor(image) == MagickFalse)
+  if (SetImageBackgroundColor(image,exception) == MagickFalse)
     {
-      InheritException(exception,&image->exception);
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
-  (void) AnnotateImage(image,draw_info);
+  (void) AnnotateImage(image,draw_info,exception);
   if (image_info->pointsize == 0.0)
     {
       char
@@ -202,7 +202,7 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
 
       (void) FormatLocaleString(pointsize,MaxTextExtent,"%.20g",
         draw_info->pointsize);
-      (void) SetImageProperty(image,"label:pointsize",pointsize);
+      (void) SetImageProperty(image,"label:pointsize",pointsize,exception);
     }
   draw_info=DestroyDrawInfo(draw_info);
   return(GetFirstImageInList(image));

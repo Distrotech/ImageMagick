@@ -17,7 +17,7 @@
 %                                September 2002                               %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -43,10 +43,12 @@
 #include "MagickCore/blob.h"
 #include "MagickCore/client.h"
 #include "MagickCore/configure.h"
+#include "MagickCore/configure-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/hashmap.h"
 #include "MagickCore/log.h"
+#include "MagickCore/log-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/option.h"
 #include "MagickCore/semaphore.h"
@@ -57,6 +59,7 @@
 #include "MagickCore/thread_.h"
 #include "MagickCore/thread-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
 #include "MagickCore/xml-tree.h"
 
@@ -686,7 +689,7 @@ MagickExport MagickBooleanType ListLogInfo(FILE *file,ExceptionInfo *exception)
 %      MagickBooleanType LogComponentGenesis(void)
 %
 */
-MagickExport MagickBooleanType LogComponentGenesis(void)
+MagickPrivate MagickBooleanType LogComponentGenesis(void)
 {
   AcquireSemaphoreInfo(&log_semaphore);
   return(MagickTrue);
@@ -737,7 +740,7 @@ static void *DestroyLogElement(void *log_info)
   return((void *) NULL);
 }
 
-MagickExport void LogComponentTerminus(void)
+MagickPrivate void LogComponentTerminus(void)
 {
   if (log_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&log_semaphore);
@@ -1177,7 +1180,7 @@ MagickBooleanType LogMagickEventList(const LogEventType type,const char *module,
       file_info.st_size=0;
       if (log_info->file != (FILE *) NULL)
         (void) fstat(fileno(log_info->file),&file_info);
-      if (file_info.st_size > (1024*1024*log_info->limit))
+      if (file_info.st_size > (ssize_t) (1024*1024*log_info->limit))
         {
           (void) FormatLocaleFile(log_info->file,"</log>\n");
           (void) fclose(log_info->file);
@@ -1196,7 +1199,7 @@ MagickBooleanType LogMagickEventList(const LogEventType type,const char *module,
               return(MagickFalse);
             }
           log_info->append=IsPathAccessible(filename);
-          log_info->file=OpenMagickStream(filename,"ab");
+          log_info->file=fopen_utf8(filename,"ab");
           filename=(char  *) RelinquishMagickMemory(filename);
           if (log_info->file == (FILE *) NULL)
             {

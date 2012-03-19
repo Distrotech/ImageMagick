@@ -1,4 +1,4 @@
-#  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -16,10 +16,6 @@
 #
 #  Top-Level Makefile for building ImageMagick.
 #
-
-AUTOMAKE_OPTIONS = 1.11 subdir-objects parallel-tests color-tests dist-zip dist-bzip2 dist-xz foreign
-
-topincludedir = @includedir@/ImageMagick
 
 AM_CPPFLAGS = -I$(top_builddir) -I$(top_srcdir)
 
@@ -74,6 +70,7 @@ TESTS_ENVIRONMENT = \
 	CONVERT="$(MEMCHECK) @abs_top_builddir@/utilities/convert" \
 	DISPLAY="$(MEMCHECK) @abs_top_builddir@/utilities/display" \
 	IDENTIFY="$(MEMCHECK) @abs_top_builddir@/utilities/identify" \
+	MAGICK="$(MEMCHECK) @abs_top_builddir@/utilities/magick" \
 	MONTAGE="$(MEMCHECK) @abs_top_builddir@/utilities/montage" \
 	VALIDATE="$(MEMCHECK) @abs_top_builddir@/tests/validate" \
 	LD_LIBRARY_PATH="@abs_top_builddir@/MagickCore/.libs:${LD_LIBRARY_PATH}" \
@@ -325,7 +322,7 @@ if RPM_DELEGATE
 
 DIST_ARCHIVE_SRPM=$(distdir)-1.src.rpm
 .PHONY: srpm
-$(DIST_ARCHIVE_SRPM) srpm: dist
+$(DIST_ARCHIVE_SRPM) srpm: dist-bzip2
 	rm -f $(DIST_ARCHIVE_SRPM)
 	$(RPM) --define="_sourcedir `pwd`" --define="_srcrpmdir `pwd`" --nodeps --bs ImageMagick.spec
 	@echo ==============================================================

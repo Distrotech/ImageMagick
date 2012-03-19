@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -49,6 +49,7 @@
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
 #include "MagickCore/colorspace.h"
+#include "MagickCore/constitute.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/geometry.h"
@@ -71,7 +72,7 @@
  Forward declarations.
 */
 static MagickBooleanType
-  WriteCALSImage(const ImageInfo *,Image *);
+  WriteCALSImage(const ImageInfo *,Image *,ExceptionInfo *);
 #endif
 
 /*
@@ -185,7 +186,7 @@ static Image *ReadCALSImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  image=AcquireImage(image_info);
+  image=AcquireImage(image_info,exception);
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -265,9 +266,9 @@ static Image *ReadCALSImage(const ImageInfo *image_info,
   (void) FormatLocaleString(read_info->filename,MaxTextExtent,"group4:%s",
     filename);
   (void) FormatLocaleString(message,MaxTextExtent,"%lux%lu",width,height);
-  read_info->size=ConstantString(message);
+  (void) CloneString(&read_info->size,message);
   (void) FormatLocaleString(message,MaxTextExtent,"%lu",density);
-  read_info->density=ConstantString(message);
+  (void) CloneString(&read_info->density,message);
   read_info->orientation=(OrientationType) orientation;
   image=ReadImage(read_info,exception);
   if (image != (Image *) NULL)
@@ -389,13 +390,15 @@ ModuleExport void UnregisterCALSImage(void)
 %  The format of the WriteCALSImage method is:
 %
 %      MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
-%        Image *image)
+%        Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
 %
 %    o image_info: the image info.
 %
 %    o image:  The image.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 
@@ -414,6 +417,7 @@ static ssize_t WriteCALSRecord(Image *image,const char *data)
     count;
 
   i=0;
+  count=0;
   if (data != (const char *) NULL)
     {
       p=data;
@@ -423,14 +427,14 @@ static ssize_t WriteCALSRecord(Image *image,const char *data)
   if (i < 128)
     {
       i=128-i;
-      (void) ResetMagickMemory(pad,' ',(const size_t) i);
+      (void) ResetMagickMemory(pad,' ',(size_t) i);
       count=WriteBlob(image,(size_t) i,(const unsigned char *) pad);
     }
   return(count);
 }
 
 static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
-  Image *image)
+  Image *image,ExceptionInfo *exception)
 {
   char
     header[129];
@@ -468,7 +472,9 @@ static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
   /*
@@ -558,14 +564,14 @@ static MagickBooleanType WriteCALSImage(const ImageInfo *image_info,
   write_info=CloneImageInfo(image_info);
   (void) CopyMagickString(write_info->filename,"GROUP4:",MaxTextExtent);
   (void) CopyMagickString(write_info->magick,"GROUP4",MaxTextExtent);
-  group4_image=CloneImage(image,0,0,MagickTrue,&image->exception);
+  group4_image=CloneImage(image,0,0,MagickTrue,exception);
   if (group4_image == (Image *) NULL)
     {
       (void) CloseBlob(image);
       return(MagickFalse);
     }
   group4=(unsigned char *) ImageToBlob(write_info,group4_image,&length,
-    &image->exception);
+    exception);
   group4_image=DestroyImage(group4_image);
   if (group4 == (unsigned char *) NULL)
     {

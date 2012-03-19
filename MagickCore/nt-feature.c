@@ -18,7 +18,7 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2011 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -55,12 +55,13 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
+#include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/token.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/utility.h"
-#include "MagickCore/nt-feature.h"
+#include "MagickCore/nt-base-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -177,39 +178,30 @@ MagickExport void *CropImageToHBITMAP(Image *image,
   if ( bitmap.bmBits == NULL )
     bitmap.bmBits = bitmap_bits;
   if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    TransformImageColorspace(image,RGBColorspace);
+    TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Extract crop image.
   */
   q=bitmap_bits;
   for (y=0; y < (ssize_t) page.height; y++)
   {
+    register ssize_t
+      x;
+
     p=GetVirtualPixels(image,page.x,page.y+y,page.width,1,exception);
     if (p == (const Quantum *) NULL)
       break;
 
-#if MAGICKCORE_QUANTUM_DEPTH == 8
-      /* Form of PixelPacket is identical to RGBQUAD when MAGICKCORE_QUANTUM_DEPTH==8 */
-      CopyMagickMemory((void*)q,(const void*)p,page.width*sizeof(PixelPacket));
-      q += page.width;
-
-#else  /* 16 or 32 bit Quantum */
-      {
-        ssize_t
-          x;
-
-        /* Transfer pixels, scaling to Quantum */
-        for( x=(ssize_t) page.width ; x> 0 ; x-- )
-          {
-            q->rgbRed = ScaleQuantumToChar(GetPixelRed(image,p));
-            q->rgbGreen = ScaleQuantumToChar(GetPixelGreen(image,p));
-            q->rgbBlue = ScaleQuantumToChar(GetPixelBlue(image,p));
-            q->rgbReserved = 0;
-            ++q;
-            ++p;
-          }
-      }
-#endif
+    /* Transfer pixels, scaling to Quantum */
+    for( x=(ssize_t) page.width ; x> 0 ; x-- )
+    {
+      q->rgbRed = ScaleQuantumToChar(GetPixelRed(image,p));
+      q->rgbGreen = ScaleQuantumToChar(GetPixelGreen(image,p));
+      q->rgbBlue = ScaleQuantumToChar(GetPixelBlue(image,p));
+      q->rgbReserved = 0;
+      p+=GetPixelChannels(image);
+      q++;
+    }
     proceed=SetImageProgress(image,CropImageTag,y,page.height);
     if (proceed == MagickFalse)
       break;
@@ -572,20 +564,17 @@ MagickExport MagickBooleanType NTLoadTypeLists(SplayTreeInfo *type_list,
 %
 %  The format of the ImageToHBITMAP method is:
 %
-%      HBITMAP ImageToHBITMAP(Image *image)
+%      HBITMAP ImageToHBITMAP(Image *image,Exceptioninfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the image to convert.
 %
 */
-MagickExport void *ImageToHBITMAP(Image *image)
+MagickExport void *ImageToHBITMAP(Image *image,ExceptionInfo *exception)
 {
   BITMAP
     bitmap;
-
-  ExceptionInfo
-    *exception;
 
   HANDLE
     bitmap_bitsH;
@@ -627,7 +616,7 @@ MagickExport void *ImageToHBITMAP(Image *image)
         *message;
 
       message=GetExceptionMessage(errno);
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
+      (void) ThrowMagickException(exception,GetMagickModule(),
         ResourceLimitError,"MemoryAllocationFailed","`%s'",message);
       message=DestroyString(message);
       return(NULL);
@@ -636,8 +625,7 @@ MagickExport void *ImageToHBITMAP(Image *image)
   q=bitmap_bits;
   if (bitmap.bmBits == NULL)
     bitmap.bmBits=bitmap_bits;
-  (void) TransformImageColorspace(image,RGBColorspace);
-  exception=(&image->exception);
+  (void) TransformImageColorspace(image,sRGBColorspace,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);
@@ -661,7 +649,7 @@ MagickExport void *ImageToHBITMAP(Image *image)
         *message;
 
       message=GetExceptionMessage(errno);
-      (void) ThrowMagickException(&image->exception,GetMagickModule(),
+      (void) ThrowMagickException(exception,GetMagickModule(),
         ResourceLimitError,"MemoryAllocationFailed","`%s'",message);
       message=DestroyString(message);
     }
