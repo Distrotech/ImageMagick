@@ -149,7 +149,7 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   bounds.x=(ssize_t) image->columns;
   bounds.y=(ssize_t) image->rows;
   GetPixelInfo(image,&target[0]);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   p=GetCacheViewVirtualPixels(image_view,0,0,1,1,exception);
   if (p == (const Quantum *) NULL)
     {
@@ -168,7 +168,8 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   status=MagickTrue;
   GetPixelInfo(image,&zero);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -231,7 +232,7 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   image_view=DestroyCacheView(image_view);
   if ((bounds.width == 0) || (bounds.height == 0))
     (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
-      "GeometryDoesNotContainImage","`%s'",image->filename);
+      "GeometryDoesNotContainImage","'%s'",image->filename);
   else
     {
       bounds.width-=(bounds.x-1);
@@ -304,7 +305,9 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(status)
+      #pragma omp parallel for schedule(static) shared(status) \
+        if ((image->colors) > 256) \
+          num_threads(GetMagickResourceLimit(ThreadResource))
 #endif
       for (i=0; i < (ssize_t) image->colors; i++)
       {
@@ -347,7 +350,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
       current_depth=(size_t *) RelinquishMagickMemory(current_depth);
       return(depth);
     }
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
 #if !defined(MAGICKCORE_HDRI_SUPPORT)
   if (QuantumRange <= MaxMap)
     {
@@ -384,7 +387,8 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
         depth_map[i]=depth;
       }
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(status)
+      #pragma omp parallel for schedule(static,4) shared(status) \
+        dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -447,7 +451,8 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
     Compute pixel depth.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -685,10 +690,11 @@ MagickExport MagickBooleanType IsImageGray(const Image *image,
   if ((image->type == BilevelType) || (image->type == GrayscaleType) ||
       (image->type == GrayscaleMatteType))
     return(MagickTrue);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if ((IsGrayColorspace(image->colorspace) == MagickFalse) &&
+      (IsRGBColorspace(image->colorspace) == MagickFalse))
     return(MagickFalse);
   type=BilevelType;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -769,10 +775,11 @@ MagickExport MagickBooleanType IsImageMonochrome(const Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->type == BilevelType)
     return(MagickTrue);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if ((IsGrayColorspace(image->colorspace) == MagickFalse) &&
+      (IsRGBColorspace(image->colorspace) == MagickFalse))
     return(MagickFalse);
   type=BilevelType;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -809,7 +816,9 @@ MagickExport MagickBooleanType IsImageMonochrome(const Image *image,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  IsImageOpaque() returns MagickTrue if none of the pixels in the image have
-%  an opacity value other than opaque (0).
+%  an alpha value other than OpaqueAlpha (QuantumRange).
+%
+%  Will return true immediatally is alpha channel is not available.
 %
 %  The format of the IsImageOpaque method is:
 %
@@ -847,7 +856,7 @@ MagickExport MagickBooleanType IsImageOpaque(const Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->matte == MagickFalse)
     return(MagickTrue);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -926,7 +935,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(status)
+      #pragma omp parallel for schedule(static) shared(status) \
+        dynamic_number_threads(image,image->columns,1,1)
 #endif
       for (i=0; i < (ssize_t) image->colors; i++)
       {
@@ -934,7 +944,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
           image->colormap[i].red=(double) ScaleAnyToQuantum(ScaleQuantumToAny(
             ClampToQuantum(image->colormap[i].red),range),range);
         if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].green=(double) ScaleAnyToQuantum(ScaleQuantumToAny(            ClampToQuantum(image->colormap[i].green),range),range);
+          image->colormap[i].green=(double) ScaleAnyToQuantum(ScaleQuantumToAny(
+            ClampToQuantum(image->colormap[i].green),range),range);
         if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
           image->colormap[i].blue=(double) ScaleAnyToQuantum(ScaleQuantumToAny(
             ClampToQuantum(image->colormap[i].blue),range),range);
@@ -942,13 +953,9 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
           image->colormap[i].alpha=(double) ScaleAnyToQuantum(ScaleQuantumToAny(
             ClampToQuantum(image->colormap[i].alpha),range),range);
       }
-      status=SyncImage(image,exception);
-      if (status != MagickFalse)
-        image->depth=depth;
-      return(status);
     }
   status=MagickTrue;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if !defined(MAGICKCORE_HDRI_SUPPORT)
   if (QuantumRange <= MaxMap)
     {
@@ -968,7 +975,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
         depth_map[i]=ScaleAnyToQuantum(ScaleQuantumToAny((Quantum) i,range),
           range);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(status)
+      #pragma omp parallel for schedule(static,4) shared(status) \
+        dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -1031,7 +1039,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
     Scale pixels to desired depth.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

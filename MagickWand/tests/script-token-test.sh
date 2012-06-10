@@ -1,24 +1,19 @@
 #!/bin/sh
 #
-#
 # Basic testing of ScriptToken parser.
+#
+#    script-token-test.sh | diff - script-token-test-results.txt
 #
 ./script-token-test script-token-test-data.txt
 echo ""
-
-
 
 echo -n "\"Next token bad quotes\" \"unfinished quotes ->" |\
    ./script-token-test
 echo ""
 
-
-
 perl -e 'print "\"Binary input follows\"\n", "abc\006xyz\n"' |\
    ./script-token-test
 echo ""
-
-
 
 ( echo '"Very BIG Token Tests"'
   dd if=/dev/zero bs=80   count=1    2>/dev/null | tr '\0' 'a'; echo ""

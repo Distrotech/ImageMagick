@@ -64,6 +64,7 @@
 #include "MagickCore/statistic.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 
 /*
@@ -184,9 +185,6 @@ static MagickBooleanType WriteHISTOGRAMImage(const ImageInfo *image_info,
 
   char
     filename[MaxTextExtent];
-
-  const char
-    *option;
 
   Image
     *histogram_image;
@@ -336,12 +334,10 @@ static MagickBooleanType WriteHISTOGRAMImage(const ImageInfo *image_info,
     if (status == MagickFalse)
       break;
   }
-  /*
-    Relinquish resources.
-  */
   histogram=(PixelInfo *) RelinquishMagickMemory(histogram);
-  option=GetImageOption(image_info,"histogram:unique-colors");
-  if ((option == (const char *) NULL) || (IsMagickTrue(option) != MagickFalse))
+
+  /* output unique colors?  True by default (when not defined) */
+  if (IfStringNotFalse(GetImageOption(image_info, "histogram:unique-colors")))
     {
       FILE
         *file;

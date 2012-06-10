@@ -465,6 +465,7 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
 
   Image
     *difference_image,
+    *ping_image,
     *reconstruct_image,
     *reference_image;
 
@@ -550,10 +551,22 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
           continue;
         }
       /*
-        Read reference image.
+        Ping reference image.
       */
       (void) FormatLocaleString(image_info->filename,MaxTextExtent,"%s:%s",
         reference_formats[i].magick,output_filename);
+      ping_image=PingImage(image_info,exception);
+      if (ping_image == (Image *) NULL)
+        {
+          (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
+            GetMagickModule());
+          (*fail)++;
+          continue;
+        }
+      ping_image=DestroyImage(ping_image);
+      /*
+        Read reference image.
+      */
       reference_image=ReadImage(image_info,exception);
       if (reference_image == (Image *) NULL)
         {
@@ -582,6 +595,19 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
           continue;
         }
       /*
+        Ping reference blob.
+      */
+      ping_image=PingBlob(image_info,blob,length,exception);
+      if (ping_image == (Image *) NULL)
+        {
+          (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
+            GetMagickModule());
+          (*fail)++;
+          blob=(unsigned char *) RelinquishMagickMemory(blob);
+          continue;
+        }
+      ping_image=DestroyImage(ping_image);
+      /*
         Read reconstruct image.
       */
       (void) FormatLocaleString(image_info->filename,MaxTextExtent,"%s:%s",
@@ -605,7 +631,7 @@ static size_t ValidateImageFormatsInMemory(ImageInfo *image_info,
 #if defined(MAGICKCORE_HDRI_SUPPORT)
       fuzz+=0.003;
 #endif
-      if (IsRGBColorspace(reference_image->colorspace) == MagickFalse)
+      if (IssRGBColorspace(reference_image->colorspace) == MagickFalse)
         fuzz+=0.3;
       fuzz+=MagickEpsilon;
       difference_image=CompareImages(reference_image,reconstruct_image,
@@ -817,7 +843,7 @@ static size_t ValidateImageFormatsOnDisk(ImageInfo *image_info,
 #if defined(MAGICKCORE_HDRI_SUPPORT)
       fuzz+=0.003;
 #endif
-      if (IsRGBColorspace(reference_image->colorspace) == MagickFalse)
+      if (IssRGBColorspace(reference_image->colorspace) == MagickFalse)
         fuzz+=0.3;
       fuzz+=MagickEpsilon;
       difference_image=CompareImages(reference_image,reconstruct_image,
@@ -935,7 +961,7 @@ static size_t ValidateImportExportPixels(ImageInfo *image_info,
           continue;
         }
       if (LocaleNCompare(reference_map[i],"cmy",3) == 0)
-        reference_image->colorspace=CMYKColorspace;
+        (void) SetImageColorspace(reference_image,CMYKColorspace,exception);
       length=strlen(reference_map[i])*reference_image->columns*
         reference_image->rows*reference_storage[j].quantum;
       pixels=(unsigned char *) AcquireQuantumMemory(length,sizeof(*pixels));

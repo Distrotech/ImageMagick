@@ -150,7 +150,7 @@ static Image *ReadGRAYImage(const ImageInfo *image_info,
   /*
     Create virtual canvas to support cropping (i.e. image.gray[100x100+10+20]).
   */
-  image->colorspace=GRAYColorspace;
+  SetImageColorspace(image,GRAYColorspace,exception);
   canvas_image=CloneImage(image,image->extract_info.width,1,MagickFalse,
     exception);
   (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod,
@@ -411,7 +411,7 @@ static MagickBooleanType WriteGRAYImage(const ImageInfo *image_info,
     /*
       Write grayscale pixels.
     */
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     quantum_type=GrayQuantum;
     quantum_info=AcquireQuantumInfo(image_info,image);

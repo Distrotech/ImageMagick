@@ -22,7 +22,21 @@
 extern "C" {
 #endif
 
+#include <MagickCore/cache.h>
+#include <MagickCore/resource_.h>
 #include <MagickCore/thread_.h>
+
+/*
+  Single threaded unless workload justifies the threading overhead.
+*/
+#define WorkloadThreshold()  (16*GetMagickResourceLimit(ThreadResource))
+#define dynamic_number_threads(image,columns,rows,expression) \
+  if (((((columns) > WorkloadThreshold()) || \
+      ((rows) > WorkloadThreshold()))) && ((MagickSizeType) \
+      ((columns)*(rows)) > (WorkloadThreshold()*WorkloadThreshold())) && \
+      ((GetImagePixelCacheType(image) == MemoryCache) || \
+       (GetImagePixelCacheType(image) == MapCache)) && (expression)) \
+    num_threads(GetMagickResourceLimit(ThreadResource))
 
 #if (__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR > 10))
 #define MagickCachePrefetch(address,mode,locality) \
@@ -30,9 +44,6 @@ extern "C" {
 #else
 #define MagickCachePrefetch(address,mode,locality)
 #endif
-
-#define omp_throttle(factor)  num_threads(omp_get_max_threads() >> \
-   (factor) == 0 ? 1 : omp_get_max_threads() >> (factor))
 
 #if defined(MAGICKCORE_THREAD_SUPPORT)
   typedef pthread_mutex_t MagickMutexType;
@@ -97,20 +108,11 @@ static inline MagickBooleanType IsMagickThreadEqual(const MagickThreadType id)
 */
 static inline size_t GetOpenMPMaximumThreads(void)
 {
-  static size_t
-    maximum_threads = 1;
-
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  {
-    ssize_t
-      threads;
-
-    threads=omp_get_max_threads();
-    if (threads > (ssize_t) maximum_threads)
-      maximum_threads=threads;
-  }
+  return(omp_get_max_threads());
+#else
+  return(1);
 #endif
-  return(maximum_threads);
 }
 
 static inline int GetOpenMPThreadId(void)

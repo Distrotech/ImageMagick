@@ -55,6 +55,7 @@
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/thread-private.h"
 #include "MagickCore/transform.h"
 
@@ -229,6 +230,9 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
       frame_image=DestroyImage(frame_image);
       return((Image *) NULL);
     }
+  if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
+      (IsPixelInfoGray(&image->matte_color) == MagickFalse))
+    (void) SetImageColorspace(frame_image,sRGBColorspace,exception);
   if ((frame_image->border_color.matte != MagickFalse) &&
       (frame_image->matte == MagickFalse))
     (void) SetImageAlpha(frame_image,OpaqueAlpha,exception);
@@ -277,8 +281,8 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
   trough.alpha=matte.alpha;
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
-  frame_view=AcquireCacheView(frame_image);
+  image_view=AcquireVirtualCacheView(image,exception);
+  frame_view=AcquireAuthenticCacheView(frame_image,exception);
   height=(size_t) (frame_info->outer_bevel+(frame_info->y-bevel_width)+
     frame_info->inner_bevel);
   if (height != 0)
@@ -380,7 +384,8 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     Draw sides of ornamental border.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(static) shared(progress,status)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -593,7 +598,8 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
         frame_info->inner_bevel);
       y=(ssize_t) (frame_info->outer_bevel+(frame_info->y-bevel_width)+
         frame_info->inner_bevel);
-      (void) CompositeImage(frame_image,compose,image,x,y,exception);
+      (void) CompositeImage(frame_image,image,compose,MagickTrue,x,y,
+        exception);
     }
   return(frame_image);
 }
@@ -681,9 +687,10 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
   */
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(static) shared(progress,status)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) raise_info->height; y++)
   {
@@ -788,7 +795,8 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
       }
   }
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(progress,status)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=(ssize_t) raise_info->height; y < (ssize_t) (image->rows-raise_info->height); y++)
   {
@@ -870,7 +878,8 @@ MagickExport MagickBooleanType RaiseImage(Image *image,
       }
   }
 #if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(static) shared(progress,status)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=(ssize_t) (image->rows-raise_info->height); y < (ssize_t) image->rows; y++)
   {

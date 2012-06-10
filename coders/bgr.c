@@ -141,7 +141,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
   image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
-  image->colorspace=RGBColorspace;
+  SetImageColorspace(image,sRGBColorspace,exception);
   if (image_info->interlace != PartitionInterlace)
     {
       status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -197,7 +197,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
-    image->colorspace=RGBColorspace;
+    SetImageColorspace(image,sRGBColorspace,exception);
     switch (image_info->interlace)
     {
       case NoInterlace:
@@ -1107,7 +1107,7 @@ static MagickBooleanType WriteBGRImage(const ImageInfo *image_info,Image *image,
     /*
       Convert MIFF to BGR raster pixels.
     */
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     if ((LocaleCompare(image_info->magick,"BGRA") == 0) &&
         (image->matte == MagickFalse))

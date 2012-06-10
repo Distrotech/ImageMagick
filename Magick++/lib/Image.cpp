@@ -300,7 +300,7 @@ void Magick::Image::adaptiveBlur( const double radius_, const double sigma_ )
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   MagickCore::Image* newImage =
-    AdaptiveBlurImage( image(), radius_, sigma_, image()->bias, &exceptionInfo);
+    AdaptiveBlurImage( image(), radius_, sigma_, &exceptionInfo);
   replaceImage( newImage );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -487,7 +487,7 @@ void Magick::Image::blur( const double radius_, const double sigma_ )
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   MagickCore::Image* newImage =
-    BlurImage( image(), radius_, sigma_, image()->bias, &exceptionInfo);
+    BlurImage( image(), radius_, sigma_, &exceptionInfo);
   replaceImage( newImage );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -500,7 +500,7 @@ void Magick::Image::blurChannel( const ChannelType channel_,
   GetExceptionInfo( &exceptionInfo );
   ChannelType channel_mask = SetPixelChannelMask( image(), channel_ );
   MagickCore::Image* newImage =
-    BlurImage( image(), radius_, sigma_, image()->bias, &exceptionInfo);
+    BlurImage( image(), radius_, sigma_, &exceptionInfo);
   (void) SetPixelChannelMapMask( image(), channel_mask );
   replaceImage( newImage );
   throwException( exceptionInfo );
@@ -563,7 +563,7 @@ void Magick::Image::charcoal( const double radius_, const double sigma_ )
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   MagickCore::Image* newImage =
-    CharcoalImage( image(), radius_, sigma_, image()->bias, &exceptionInfo );
+    CharcoalImage( image(), radius_, sigma_, &exceptionInfo );
   replaceImage( newImage );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -683,8 +683,8 @@ void Magick::Image::composite ( const Image &compositeImage_,
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   CompositeImage( image(),
-		  compose_,
 		  compositeImage_.constImage(),
+		  compose_, MagickFalse,
 		  xOffset_,
                   yOffset_, &exceptionInfo );
   throwException( exceptionInfo );
@@ -708,8 +708,8 @@ void Magick::Image::composite ( const Image &compositeImage_,
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   CompositeImage( image(),
-		  compose_,
 		  compositeImage_.constImage(),
+		  compose_, MagickFalse,
 		  x, y, &exceptionInfo );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -728,8 +728,8 @@ void Magick::Image::composite ( const Image &compositeImage_,
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   CompositeImage( image(),
-		  compose_,
 		  compositeImage_.constImage(),
+		  compose_, MagickFalse,
 		  geometry.x, geometry.y, &exceptionInfo );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -760,11 +760,10 @@ void Magick::Image::convolve ( const size_t order_,
   kernel_info=AcquireKernelInfo((const char *) NULL);
   kernel_info->width=order_;
   kernel_info->height=order_;
-  kernel_info->values=(MagickRealType *) kernel_;
-  kernel_info->bias=image()->bias;
+  kernel_info->values=(double *) kernel_;
   MagickCore::Image* newImage =
     ConvolveImage ( image(), kernel_info, &exceptionInfo );
-  kernel_info->values=(MagickRealType *) NULL;
+  kernel_info->values=(double *) NULL;
   kernel_info=DestroyKernelInfo(kernel_info);
   replaceImage( newImage );
   throwException( exceptionInfo );
@@ -959,7 +958,10 @@ void Magick::Image::extent ( const Geometry &geometry_, const Color &backgroundC
 }
 void Magick::Image::extent ( const Geometry &geometry_, const GravityType gravity_ )
 {
-  image()->gravity  = gravity_;
+  RectangleInfo geometry;
+
+  SetGeometry(image(), &geometry);
+  GravityAdjustGeometry(image()->columns, image()->rows, gravity_, &geometry);
   extent ( geometry_ );
 }
 void Magick::Image::extent ( const Geometry &geometry_, const Color &backgroundColor_, const GravityType gravity_ )
@@ -1428,7 +1430,7 @@ void            Magick::Image::motionBlur ( const double radius_,
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   MagickCore::Image* newImage =
-    MotionBlurImage( image(), radius_, sigma_, angle_, 0.0, &exceptionInfo);
+    MotionBlurImage( image(), radius_, sigma_, angle_, &exceptionInfo);
   replaceImage( newImage );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -1562,6 +1564,7 @@ void Magick::Image::process( std::string name_, const ssize_t argc, const char *
   size_t status = 
     InvokeDynamicImageFilter( name_.c_str(), &image(), argc, argv,
       &exceptionInfo );
+  (void) status;
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
 }
@@ -1618,8 +1621,8 @@ void Magick::Image::quantumOperator ( const ssize_t x_,const ssize_t y_,
   ChannelType channel_mask = SetPixelChannelMask( image(), channel_);
   EvaluateImage( crop_image, operator_, rvalue_, &exceptionInfo );
   (void) SetPixelChannelMapMask( image(), channel_mask );
-  (void) CompositeImage( image(), image()->matte != MagickFalse ?
-    OverCompositeOp : CopyCompositeOp, crop_image, geometry.x, geometry.y,
+  (void) CompositeImage( image(), crop_image, image()->matte != MagickFalse ?
+    OverCompositeOp : CopyCompositeOp, MagickFalse, geometry.x, geometry.y,
     &exceptionInfo );
   crop_image = DestroyImageList(crop_image);
   throwException( exceptionInfo );
@@ -1824,7 +1827,6 @@ void Magick::Image::resize( const Geometry &geometry_ )
                width,
                height,
                image()->filter,
-               1.0,
                &exceptionInfo);
   replaceImage( newImage );
   throwException( exceptionInfo );
@@ -1961,7 +1963,7 @@ void Magick::Image::shadow( const double percent_opacity_, const double sigma_,
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
   MagickCore::Image* newImage = ShadowImage( image(), percent_opacity_, sigma_,
-    image()->bias, x_, y_, &exceptionInfo );
+    x_, y_, &exceptionInfo );
   replaceImage( newImage );
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
@@ -1976,7 +1978,6 @@ void Magick::Image::sharpen ( const double radius_, const double sigma_ )
     SharpenImage( image(),
                   radius_,
                   sigma_,
-                  image()->bias,
                   &exceptionInfo );
   replaceImage( newImage );
   throwException( exceptionInfo );
@@ -1993,7 +1994,6 @@ void Magick::Image::sharpenChannel ( const ChannelType channel_,
     SharpenImage( image(),
                          radius_,
                          sigma_,
-                  image()->bias,
                          &exceptionInfo );
   (void) SetPixelChannelMapMask( image(), channel_mask );
   replaceImage( newImage );
@@ -2416,7 +2416,6 @@ void Magick::Image::zoom( const Geometry &geometry_ )
                width,
                height,
                image()->filter,
-               image()->blur,
                &exceptionInfo);
   replaceImage( newImage );
   throwException( exceptionInfo );
@@ -2806,46 +2805,13 @@ size_t Magick::Image::colorMapSize ( void )
 // Image colorspace
 void Magick::Image::colorSpace( const ColorspaceType colorSpace_ )
 {
-  // Nothing to do?
   if ( image()->colorspace == colorSpace_ )
     return;
 
   modifyImage();
-
   ExceptionInfo exceptionInfo;
   GetExceptionInfo( &exceptionInfo );
-  if ( colorSpace_ != RGBColorspace &&
-       colorSpace_ != sRGBColorspace &&
-       colorSpace_ != TransparentColorspace &&
-       colorSpace_ != GRAYColorspace )
-    {
-      if (image()->colorspace != RGBColorspace &&
-          image()->colorspace != sRGBColorspace &&
-          image()->colorspace != TransparentColorspace &&
-          image()->colorspace != GRAYColorspace)
-        {
-          /* Transform to RGB colorspace as intermediate step */
-          TransformRGBImage( image(), image()->colorspace, &exceptionInfo );
-          throwImageException();
-        }
-      /* Transform to final non-RGB colorspace */
-      RGBTransformImage( image(), colorSpace_, &exceptionInfo );
-      throwException( exceptionInfo );
-      (void) DestroyExceptionInfo( &exceptionInfo );
-      return;
-    }
-
-  if ( colorSpace_ == RGBColorspace ||
-       colorSpace_ == sRGBColorspace ||
-       colorSpace_ == TransparentColorspace ||
-       colorSpace_ == GRAYColorspace )
-    {
-      /* Transform to a RGB-type colorspace */
-      TransformRGBImage( image(), image()->colorspace, &exceptionInfo );
-      throwException( exceptionInfo );
-      (void) DestroyExceptionInfo( &exceptionInfo );
-      return;
-    }
+  TransformImageColorspace(image(), colorSpace_, &exceptionInfo);
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
 }
@@ -3576,9 +3542,6 @@ void Magick::Image::pixelColor ( const ssize_t x_, const ssize_t y_,
 Magick::Color Magick::Image::pixelColor ( const ssize_t x_,
 					  const ssize_t y_ ) const
 {
-  ClassType storage_class;
-  storage_class = classType();
-  // DirectClass
   const Quantum* pixel = getConstPixels( x_, y_, 1, 1 );
   if ( pixel )
     {
@@ -3620,6 +3583,7 @@ void Magick::Image::profile( const std::string name_,
   ssize_t result = ProfileImage( image(), name_.c_str(),
                              (unsigned char *)profile_.data(),
                              profile_.length(), &exceptionInfo);
+  (void) result;
   throwException( exceptionInfo );
   (void) DestroyExceptionInfo( &exceptionInfo );
 

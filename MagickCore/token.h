@@ -35,6 +35,9 @@ extern MagickExport int
 extern MagickExport MagickBooleanType
   GlobExpression(const char *,const char *,const MagickBooleanType);
 
+/* Depreciated Function equivelent */
+/* #define IsMagickTrue(v)   IsStringTrue(v) */
+
 extern MagickExport TokenInfo
   *AcquireTokenInfo(void),
   *DestroyTokenInfo(TokenInfo *);

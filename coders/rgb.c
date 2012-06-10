@@ -96,8 +96,7 @@ static MagickBooleanType
 %    o exception: return any errors or warnings in this structure.
 %
 */
-static Image *ReadRGBImage(const ImageInfo *image_info,
-  ExceptionInfo *exception)
+static Image *ReadRGBImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
   Image
     *canvas_image,
@@ -141,7 +140,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
   image=AcquireImage(image_info,exception);
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(OptionError,"MustSpecifyImageSize");
-  image->colorspace=RGBColorspace;
+  SetImageColorspace(image,sRGBColorspace,exception);
   if (image_info->interlace != PartitionInterlace)
     {
       status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
@@ -170,11 +169,12 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
     {
       quantum_type=RGBAQuantum;
       image->matte=MagickTrue;
+      canvas_image->matte=MagickTrue;
     }
   if (LocaleCompare(image_info->magick,"RGBO") == 0)
     {
       quantum_type=RGBOQuantum;
-      image->matte=MagickTrue;
+      canvas_image->matte=MagickTrue;
     }
   if (image_info->number_scenes != 0)
     while (image->scene < image_info->scene)
@@ -202,7 +202,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
-    image->colorspace=RGBColorspace;
+    SetImageColorspace(image,sRGBColorspace,exception);
     switch (image_info->interlace)
     {
       case NoInterlace:
@@ -248,8 +248,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=QueueAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -332,8 +331,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                   0,canvas_image->columns,1,exception);
                 q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                   image->columns,1,exception);
-                if ((p == (const Quantum *) NULL) ||
-                    (q == (Quantum *) NULL))
+                if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
@@ -427,8 +425,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -479,8 +476,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -531,8 +527,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -592,8 +587,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                     exception);
                   q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                     image->columns,1,exception);
-                  if ((p == (const Quantum *) NULL) ||
-                      (q == (Quantum *) NULL))
+                  if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                     break;
                   for (x=0; x < (ssize_t) image->columns; x++)
                   {
@@ -679,8 +673,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -750,8 +743,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -821,8 +813,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                 canvas_image->columns,1,exception);
               q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                 image->columns,1,exception);
-              if ((p == (const Quantum *) NULL) ||
-                  (q == (Quantum *) NULL))
+              if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                 break;
               for (x=0; x < (ssize_t) image->columns; x++)
               {
@@ -894,8 +885,7 @@ static Image *ReadRGBImage(const ImageInfo *image_info,
                     0,canvas_image->columns,1,exception);
                   q=GetAuthenticPixels(image,0,y-image->extract_info.y,
                     image->columns,1,exception);
-                  if ((p == (const Quantum *) NULL) ||
-                      (q == (Quantum *) NULL))
+                  if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
                     break;
                   for (x=0; x < (ssize_t) image->columns; x++)
                   {
@@ -1111,24 +1101,16 @@ static MagickBooleanType WriteRGBImage(const ImageInfo *image_info,
     }
   quantum_type=RGBQuantum;
   if (LocaleCompare(image_info->magick,"RGBA") == 0)
-    {
-      quantum_type=RGBAQuantum;
-      if (image->matte == MagickFalse)
-        SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
-    }
+    quantum_type=RGBAQuantum;
   if (LocaleCompare(image_info->magick,"RGBO") == 0)
-    {
-      quantum_type=RGBOQuantum;
-      if (image->matte == MagickFalse)
-        SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
-    }
+    quantum_type=RGBOQuantum;
   scene=0;
   do
   {
     /*
       Convert MIFF to RGB raster pixels.
     */
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     if ((LocaleCompare(image_info->magick,"RGBA") == 0) &&
         (image->matte == MagickFalse))

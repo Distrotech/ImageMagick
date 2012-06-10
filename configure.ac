@@ -189,7 +189,7 @@ eval "eval LIBEXEC_DIR=$libexecdir"
 AC_SUBST(LIBEXEC_DIR)
 eval "eval DATA_DIR=$datadir"
 AC_SUBST(DATA_DIR)
-eval "eval DOC_DIR=$docdir"
+eval "eval DOC_DIR=$datadir/doc"
 AC_SUBST(DOC_DIR)
 eval "eval SYSCONF_DIR=$sysconfdir"
 AC_SUBST(SYSCONF_DIR)
@@ -268,7 +268,7 @@ PKG_PROG_PKG_CONFIG
 # Enable run-time checking.
 #
 AC_ARG_ENABLE([bounds-checking],
-    [AC_HELP_STRING([--bounds-checking],
+    [AC_HELP_STRING([--enable-bounds-checking],
                     [enable run-time bounds-checking])],
     [enable_bounds_checking=$enableval],
     [enable_bounds_checking='no'])
@@ -688,6 +688,13 @@ if test "$with_method_prefix" != 'no'; then
     AC_DEFINE_UNQUOTED(NAMESPACE_PREFIX,$with_method_prefix,[Magick API method prefix])
     DISTCHECK_CONFIG_FLAGS="${DISTCHECK_CONFIG_FLAGS} --with-method-prefix "
 fi
+
+# Enable legacy support (default no)
+AC_ARG_ENABLE(legacy-support,
+              [  --enable-legacy-support  install legacy command-line utilities (default disabled)],
+              [with_legacy_support=$enableval],
+              [with_legacy_support='no'])
+AM_CONDITIONAL(LEGACY_SUPPORT, test "$with_legacy_support" != 'no')
 
 # Number of bits in a Quantum
 AC_ARG_WITH([quantum-depth],
@@ -2451,13 +2458,13 @@ if test "$with_pango" != 'yes'; then
 fi
 
 have_pango='no'
-have_pangoft2='no'
+have_pangocairo='no'
 PANGO_CFLAGS=""
 PANGO_LIBS=""
 PANGO_PKG=""
 if test "x$with_pango" = "xyes"; then
     AC_MSG_RESULT([-------------------------------------------------------------])
-    PKG_CHECK_MODULES(PANGO, [pangoft2 >= 1.28.1], have_pangoft2=yes, have_pangoft2=no)
+    PKG_CHECK_MODULES(PANGO, [pangocairo >= 1.28.1], have_pangocairo=yes, have_pangocairo=no)
     AC_MSG_RESULT([])
     PKG_CHECK_MODULES(PANGO, [pango >= 1.28.1], have_pango=yes, have_pango=no)
     AC_MSG_RESULT([])
@@ -2470,15 +2477,15 @@ if test "$have_pango" = 'yes'; then
     fi
 fi
 
-if test "$have_pangoft2" = 'yes'; then
-    AC_DEFINE(PANGOFT2_DELEGATE,1,Define if you have PANGOFT2 library)
+if test "$have_pangocairo" = 'yes'; then
+    AC_DEFINE(PANGOCAIRO_DELEGATE,1,Define if you have PANGOCAIRO library)
     if test "$with_modules" = 'no'; then
-        CPPFLAGS="$PANGOFT2_CFLAGS $CPPFLAGS"
+        CPPFLAGS="$PANGOCAIRO_CFLAGS $CPPFLAGS"
     fi
 fi
 
 AM_CONDITIONAL(PANGO_DELEGATE, test "$have_pango" = 'yes')
-AM_CONDITIONAL(PANGOFT2_DELEGATE, test "$have_pangoft2" = 'yes')
+AM_CONDITIONAL(PANGOCAIRO_DELEGATE, test "$have_pangocairo" = 'yes')
 AC_SUBST(PANGO_CFLAGS)
 AC_SUBST(PANGO_LIBS)
 
@@ -2969,7 +2976,7 @@ AC_SUBST(FILTER_PATH)
 
 #
 # Path to ImageMagick documentation files
-DOCUMENTATION_RELATIVE_PATH=""
+DOCUMENTATION_RELATIVE_PATH="${PACKAGE_NAME}-${PACKAGE_VERSION}"
 DOCUMENTATION_PATH="${DOC_DIR}/${DOCUMENTATION_RELATIVE_PATH}"
 DEFINE_DOCUMENTATION_PATH="${DOC_DIR}/${DOCUMENTATION_RELATIVE_PATH}/"
 case "${build_os}" in
@@ -3636,6 +3643,7 @@ if test "$have_lqr"        = 'yes'; then DELEGATES="$DELEGATES lqr"; fi
 if test "$have_lzma"       = 'yes'; then DELEGATES="$DELEGATES lzma"; fi
 if test "$have_ffmpeg"     = 'yes'; then DELEGATES="$DELEGATES mpeg"; fi
 if test "$have_openexr"    = 'yes'; then DELEGATES="$DELEGATES openexr"; fi
+if test "$have_pango"      = 'yes'; then DELEGATES="$DELEGATES pango"; fi
 if test "$have_png"        = 'yes'; then DELEGATES="$DELEGATES png"; fi
 if test "$have_rsvg"       = 'yes'; then DELEGATES="$DELEGATES rsvg"; fi
 if test "$have_tiff"       = 'yes'; then DELEGATES="$DELEGATES tiff"; fi

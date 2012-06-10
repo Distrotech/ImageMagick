@@ -219,12 +219,12 @@ static CubeInfo *ClassifyImageColors(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
       return(cube_info);
     }
   GetPixelInfo(image,&pixel);
   GetPixelInfo(image,&target);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -247,7 +247,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
                   image->filename);
                 return(0);
               }
@@ -274,7 +274,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                ResourceLimitError,"MemoryAllocationFailed","'%s'",
                 image->filename);
               return(0);
             }
@@ -537,7 +537,7 @@ MagickExport PixelInfo *GetImageHistogram(const Image *image,
         sizeof(*histogram));
       if (histogram == (PixelInfo *) NULL)
         (void) ThrowMagickException(exception,GetMagickModule(),
-          ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+          ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
       else
         {
           PixelInfo
@@ -681,12 +681,12 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
       return(MagickFalse);
     }
   GetPixelInfo(image,&pixel);
   GetPixelInfo(image,&target);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -709,7 +709,7 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
                   image->filename);
                 break;
               }
@@ -741,7 +741,7 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                ResourceLimitError,"MemoryAllocationFailed","'%s'",
                 image->filename);
               break;
             }
@@ -841,12 +841,12 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
       return(MagickFalse);
     }
   GetPixelInfo(image,&pixel);
   GetPixelInfo(image,&target);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
@@ -869,7 +869,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
                   image->filename);
                 break;
               }
@@ -901,7 +901,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","`%s'",
+                ResourceLimitError,"MemoryAllocationFailed","'%s'",
                 image->filename);
               break;
             }
@@ -1292,7 +1292,7 @@ MagickExport Image *UniqueImageColors(const Image *image,
       unique_image=DestroyImage(unique_image);
       return((Image *) NULL);
     }
-  unique_view=AcquireCacheView(unique_image);
+  unique_view=AcquireAuthenticCacheView(unique_image,exception);
   UniqueColorsToImage(unique_image,unique_view,cube_info,cube_info->root,
     exception);
   unique_view=DestroyCacheView(unique_view);
@@ -1303,7 +1303,7 @@ MagickExport Image *UniqueImageColors(const Image *image,
 
       quantize_info=AcquireQuantizeInfo((ImageInfo *) NULL);
       quantize_info->number_colors=MaxColormapSize;
-      quantize_info->dither=MagickFalse;
+      quantize_info->dither_method=NoDitherMethod;
       quantize_info->tree_depth=8;
       (void) QuantizeImage(quantize_info,unique_image,exception);
       quantize_info=DestroyQuantizeInfo(quantize_info);

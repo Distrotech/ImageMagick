@@ -238,7 +238,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
 }
 #define ThrowImportException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
      option); \
   DestroyImport(); \
   return(MagickFalse); \
@@ -246,7 +246,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
 #define ThrowImportInvalidArgumentException(option,argument) \
 { \
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError, \
-    "InvalidArgument","`%s': %s",option,argument); \
+    "InvalidArgument","'%s': %s",option,argument); \
   DestroyImport(); \
   return(MagickFalse); \
 }
@@ -374,7 +374,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   quantize_info=resource_info.quantize_info;
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "border","False");
-  ximage_info.borders=IsMagickTrue(resource_value);
+  ximage_info.borders=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "delay","0");
   resource_info.delay=(unsigned int) StringToUnsignedLong(resource_value);
@@ -382,10 +382,10 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
     "density",(char *) NULL);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "descend","True");
-  ximage_info.descend=IsMagickTrue(resource_value);
+  ximage_info.descend=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "frame","False");
-  ximage_info.frame=IsMagickTrue(resource_value);
+  ximage_info.frame=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "interlace","none");
   image_info->interlace=UndefinedInterlace;
@@ -410,16 +410,17 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   image_info->quality=StringToUnsignedLong(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "screen","False");
-  ximage_info.screen=IsMagickTrue(resource_value);
+  ximage_info.screen=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "silent","False");
-  ximage_info.silent=IsMagickTrue(resource_value);
+  ximage_info.silent=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "verbose","False");
-  image_info->verbose=IsMagickTrue(resource_value);
+  image_info->verbose=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "dither","True");
-  quantize_info->dither=IsMagickTrue(resource_value);
+  quantize_info->dither_method=IsStringTrue(resource_value) != MagickFalse ?
+    RiemersmaDitherMethod : NoDitherMethod;
   snapshots=1;
   status=MagickTrue;
   filename=(char *) NULL;
@@ -728,7 +729,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
             ssize_t
               method;
 
-            quantize_info->dither=MagickFalse;
+            quantize_info->dither_method=NoDitherMethod;
             if (*option == '+')
               break;
             i++;
@@ -738,7 +739,6 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
             if (method < 0)
               ThrowImportException(OptionError,"UnrecognizedDitherMethod",
                 argv[i]);
-            quantize_info->dither=MagickTrue;
             quantize_info->dither_method=(DitherMethod) method;
             break;
           }
@@ -1308,7 +1308,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   (void) argc;
   (void) argv;
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
-    "DelegateLibrarySupportNotBuiltIn","`%s' (X11)",image_info->filename);
+    "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image_info->filename);
   return(ImportUsage());
 #endif
 }

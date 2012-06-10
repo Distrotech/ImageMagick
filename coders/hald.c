@@ -56,9 +56,11 @@
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum-private.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/thread-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -124,7 +126,8 @@ static Image *ReadHALDImage(const ImageInfo *image_info,
   image->columns=(size_t) (level*cube_size);
   image->rows=(size_t) (level*cube_size);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,8) shared(status)
+  #pragma omp parallel for schedule(static,8) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) level)
   {

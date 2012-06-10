@@ -213,7 +213,7 @@ static MagickBooleanType AnimateUsage(void)
     "-borderwidth, -font, -foreground, -iconGeometry, -iconic, -name,\n");
   (void) printf("-mattecolor, -shared-memory, or -title.\n");
   (void) printf(
-    "\nBy default, the image format of `file' is determined by its magic\n");
+    "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
     "number.  To specify a particular image format, precede the filename\n");
   (void) printf(
@@ -247,7 +247,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
 }
 #define ThrowAnimateException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
     option); \
   DestroyAnimate(); \
   return(MagickFalse); \
@@ -255,7 +255,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
 #define ThrowAnimateInvalidArgumentException(option,argument) \
 { \
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError, \
-    "InvalidArgument","`%s': %s",option,argument); \
+    "InvalidArgument","'%s': %s",option,argument); \
   DestroyAnimate(); \
   return(MagickFalse); \
 }
@@ -386,10 +386,11 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
     ParseCommandOption(MagickInterlaceOptions,MagickFalse,resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "verbose","False");
-  image_info->verbose=IsMagickTrue(resource_value);
+  image_info->verbose=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "dither","True");
-  quantize_info->dither=IsMagickTrue(resource_value);
+  quantize_info->dither_method=IsStringTrue(resource_value) != MagickFalse ?
+    RiemersmaDitherMethod : NoDitherMethod;
   /*
     Parse command line.
   */
@@ -574,7 +575,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             if (k != 0)
               clone_images=image_stack[k-1].image;
             if (clone_images == (Image *) NULL)
-              ThrowAnimateException(ImageError,"ImageSequenceRequired",option);
+              ThrowAnimateException(ImageError,"UnableToCloneImage",option);
             FireImageStack(MagickFalse,MagickTrue,MagickTrue);
             if (*option == '+')
               clone_images=CloneImages(clone_images,"-1",exception);
@@ -765,7 +766,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             ssize_t
               method;
 
-            quantize_info->dither=MagickFalse;
+            quantize_info->dither_method=NoDitherMethod;
             if (*option == '+')
               break;
             i++;
@@ -775,7 +776,6 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             if (method < 0)
               ThrowAnimateException(OptionError,"UnrecognizedDitherMethod",
                 argv[i]);
-            quantize_info->dither=MagickTrue;
             quantize_info->dither_method=(DitherMethod) method;
             break;
           }
@@ -1472,7 +1472,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
   (void) argc;
   (void) argv;
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
-    "DelegateLibrarySupportNotBuiltIn","`%s' (X11)",image_info->filename);
+    "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image_info->filename);
   return(AnimateUsage());
 #endif
 }

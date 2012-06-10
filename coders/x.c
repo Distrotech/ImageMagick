@@ -56,6 +56,7 @@
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/xwindow.h"
 #include "MagickCore/xwindow-private.h"
@@ -95,20 +96,13 @@ static MagickBooleanType
 */
 static Image *ReadXImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
-  const char
-    *option;
-
   XImportInfo
     ximage_info;
 
   (void) exception;
   XGetImportInfo(&ximage_info);
-  option=GetImageOption(image_info,"x:screen");
-  if (option != (const char *) NULL)
-    ximage_info.screen=IsMagickTrue(option);
-  option=GetImageOption(image_info,"x:silent");
-  if (option != (const char *) NULL)
-    ximage_info.silent=IsMagickTrue(option);
+  ximage_info.screen=IsStringTrue(GetImageOption(image_info,"x:screen"));
+  ximage_info.silent=IsStringTrue(GetImageOption(image_info,"x:silent"));
   return(XImportImage(image_info,&ximage_info,exception));
 }
 #endif

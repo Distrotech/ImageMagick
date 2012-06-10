@@ -26,7 +26,7 @@ extern "C" {
 
 /*
   WARNING:  The order of this table must also match the order of a table
-  located in AcquireResizeFilter() or "resize.c" otherwise the users filter
+  located in AcquireResizeFilter() in "resize.c" otherwise the users filter
   will not match the actual filter that is setup.
 */
 typedef enum
@@ -58,6 +58,9 @@ typedef enum
   Lanczos2Filter,
   Lanczos2SharpFilter,
   RobidouxFilter,
+  RobidouxSharpFilter,
+  CosineFilter,
+  SplineFilter,
   SentinelFilter  /* a count of all the filters, not a real filter */
 } FilterTypes;
 
@@ -73,7 +76,7 @@ typedef struct _ResampleFilter
 
 extern MagickExport MagickBooleanType
   ResamplePixelColor(ResampleFilter *,const double,const double,
-    PixelInfo *),
+    PixelInfo *,ExceptionInfo *),
   SetResampleFilterInterpolateMethod(ResampleFilter *,
     const PixelInterpolateMethod),
   SetResampleFilterVirtualPixelMethod(ResampleFilter *,
@@ -86,7 +89,7 @@ extern MagickExport ResampleFilter
 extern MagickExport void
   ScaleResampleFilter(ResampleFilter *,const double,const double,const double,
     const double),
-  SetResampleFilter(ResampleFilter *,const FilterTypes,const double);
+  SetResampleFilter(ResampleFilter *,const FilterTypes);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

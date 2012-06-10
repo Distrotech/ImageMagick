@@ -81,6 +81,7 @@
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/random_.h"
 #include "MagickCore/random-private.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/segment.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/signature-private.h"
@@ -140,7 +141,7 @@ static PixelChannels **DestroyPixelThreadSet(PixelChannels **pixels)
     i;
 
   assert(pixels != (PixelChannels **) NULL);
-  for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+  for (i=0; i < (ssize_t) GetMagickResourceLimit(ThreadResource); i++)
     if (pixels[i] != (PixelChannels *) NULL)
       pixels[i]=(PixelChannels *) RelinquishMagickMemory(pixels[i]);
   pixels=(PixelChannels **) RelinquishMagickMemory(pixels);
@@ -311,8 +312,9 @@ static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
     }
     case LogEvaluateOperator:
     {
-      result=(MagickRealType) (QuantumRange*log((double) (QuantumScale*value*
-        pixel+1.0))/log((double) (value+1.0)));
+      if ((QuantumScale*pixel) >= MagickEpsilon)
+        result=(MagickRealType) (QuantumRange*log((double) (QuantumScale*value*
+          pixel+1.0))/log((double) (value+1.0)));
       break;
     }
     case MaxEvaluateOperator:
@@ -433,7 +435,7 @@ MagickExport Image *EvaluateImages(const Image *images,
     *next;
 
   Image
-    *evaluate_image;
+    *image;
 
   MagickBooleanType
     status;
@@ -453,6 +455,9 @@ MagickExport Image *EvaluateImages(const Image *images,
   ssize_t
     y;
 
+  unsigned long
+    key;
+
   /*
     Ensure the image are the same size.
   */
@@ -466,28 +471,28 @@ MagickExport Image *EvaluateImages(const Image *images,
     if ((next->columns != images->columns) || (next->rows != images->rows))
       {
         (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-          "ImageWidthsOrHeightsDiffer","`%s'",images->filename);
+          "ImageWidthsOrHeightsDiffer","'%s'",images->filename);
         return((Image *) NULL);
       }
   /*
     Initialize evaluate next attributes.
   */
-  evaluate_image=CloneImage(images,images->columns,images->rows,MagickTrue,
+  image=CloneImage(images,images->columns,images->rows,MagickTrue,
     exception);
-  if (evaluate_image == (Image *) NULL)
+  if (image == (Image *) NULL)
     return((Image *) NULL);
-  if (SetImageStorageClass(evaluate_image,DirectClass,exception) == MagickFalse)
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     {
-      evaluate_image=DestroyImage(evaluate_image);
+      image=DestroyImage(image);
       return((Image *) NULL);
     }
   number_images=GetImageListLength(images);
   evaluate_pixels=AcquirePixelThreadSet(images,number_images);
   if (evaluate_pixels == (PixelChannels **) NULL)
     {
-      evaluate_image=DestroyImage(evaluate_image);
+      image=DestroyImage(image);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",images->filename);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",images->filename);
       return((Image *) NULL);
     }
   /*
@@ -496,13 +501,15 @@ MagickExport Image *EvaluateImages(const Image *images,
   status=MagickTrue;
   progress=0;
   random_info=AcquireRandomInfoThreadSet();
-  evaluate_view=AcquireCacheView(evaluate_image);
+  key=GetRandomSecretKey(random_info[0]);
+  evaluate_view=AcquireAuthenticCacheView(image,exception);
   if (op == MedianEvaluateOperator)
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status)
+      #pragma omp parallel for schedule(static) shared(progress,status) \
+        dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
 #endif
-      for (y=0; y < (ssize_t) evaluate_image->rows; y++)
+      for (y=0; y < (ssize_t) image->rows; y++)
       {
         CacheView
           *image_view;
@@ -525,14 +532,14 @@ MagickExport Image *EvaluateImages(const Image *images,
         if (status == MagickFalse)
           continue;
         q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,
-          evaluate_image->columns,1,exception);
+          image->columns,1,exception);
         if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
             continue;
           }
         evaluate_pixel=evaluate_pixels[id];
-        for (x=0; x < (ssize_t) evaluate_image->columns; x++)
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
           register ssize_t
             j,
@@ -550,14 +557,14 @@ MagickExport Image *EvaluateImages(const Image *images,
             register ssize_t
               i;
 
-            image_view=AcquireCacheView(next);
+            image_view=AcquireVirtualCacheView(next,exception);
             p=GetCacheViewVirtualPixels(image_view,x,y,1,1,exception);
             if (p == (const Quantum *) NULL)
               {
                 image_view=DestroyCacheView(image_view);
                 break;
               }
-            for (i=0; i < (ssize_t) GetPixelChannels(evaluate_image); i++)
+            for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
             {
               PixelChannel
                 channel;
@@ -566,8 +573,8 @@ MagickExport Image *EvaluateImages(const Image *images,
                 evaluate_traits,
                 traits;
 
-              channel=GetPixelChannelMapChannel(evaluate_image,i);
-              evaluate_traits=GetPixelChannelMapTraits(evaluate_image,channel);
+              channel=GetPixelChannelMapChannel(image,i);
+              evaluate_traits=GetPixelChannelMapTraits(image,channel);
               traits=GetPixelChannelMapTraits(next,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
@@ -575,7 +582,7 @@ MagickExport Image *EvaluateImages(const Image *images,
               if ((evaluate_traits & UpdatePixelTrait) == 0)
                 continue;
               evaluate_pixel[j].channel[i]=ApplyEvaluateOperator(
-                random_info[id],GetPixelChannel(evaluate_image,channel,p),op,
+                random_info[id],GetPixelChannel(image,channel,p),op,
                 evaluate_pixel[j].channel[i]);
             }
             image_view=DestroyCacheView(image_view);
@@ -583,9 +590,9 @@ MagickExport Image *EvaluateImages(const Image *images,
           }
           qsort((void *) evaluate_pixel,number_images,sizeof(*evaluate_pixel),
             IntensityCompare);
-          for (k=0; k < (ssize_t) GetPixelChannels(evaluate_image); k++)
+          for (k=0; k < (ssize_t) GetPixelChannels(image); k++)
             q[k]=ClampToQuantum(evaluate_pixel[j/2].channel[k]);
-          q+=GetPixelChannels(evaluate_image);
+          q+=GetPixelChannels(image);
         }
         if (SyncCacheViewAuthenticPixels(evaluate_view,exception) == MagickFalse)
           status=MagickFalse;
@@ -598,7 +605,7 @@ MagickExport Image *EvaluateImages(const Image *images,
             #pragma omp critical (MagickCore_EvaluateImages)
 #endif
             proceed=SetImageProgress(images,EvaluateImageTag,progress++,
-              evaluate_image->rows);
+              image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
           }
@@ -607,9 +614,10 @@ MagickExport Image *EvaluateImages(const Image *images,
   else
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status)
+      #pragma omp parallel for schedule(static) shared(progress,status) \
+        dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
 #endif
-      for (y=0; y < (ssize_t) evaluate_image->rows; y++)
+      for (y=0; y < (ssize_t) image->rows; y++)
       {
         CacheView
           *image_view;
@@ -636,14 +644,14 @@ MagickExport Image *EvaluateImages(const Image *images,
         if (status == MagickFalse)
           continue;
         q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,
-          evaluate_image->columns,1,exception);
+          image->columns,1,exception);
         if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
             continue;
           }
         evaluate_pixel=evaluate_pixels[id];
-        for (j=0; j < (ssize_t) evaluate_image->columns; j++)
+        for (j=0; j < (ssize_t) image->columns; j++)
           for (i=0; i < MaxPixelChannels; i++)
             evaluate_pixel[j].channel[i]=0.0;
         next=images;
@@ -652,7 +660,7 @@ MagickExport Image *EvaluateImages(const Image *images,
           register const Quantum
             *p;
 
-          image_view=AcquireCacheView(next);
+          image_view=AcquireVirtualCacheView(next,exception);
           p=GetCacheViewVirtualPixels(image_view,0,y,next->columns,1,exception);
           if (p == (const Quantum *) NULL)
             {
@@ -678,16 +686,16 @@ MagickExport Image *EvaluateImages(const Image *images,
                 evaluate_traits,
                 traits;
 
-              channel=GetPixelChannelMapChannel(evaluate_image,i);
+              channel=GetPixelChannelMapChannel(image,i);
               traits=GetPixelChannelMapTraits(next,channel);
-              evaluate_traits=GetPixelChannelMapTraits(evaluate_image,channel);
+              evaluate_traits=GetPixelChannelMapTraits(image,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
               if ((traits & UpdatePixelTrait) == 0)
                 continue;
               evaluate_pixel[x].channel[i]=ApplyEvaluateOperator(
-                random_info[id],GetPixelChannel(evaluate_image,channel,p),j ==
+                random_info[id],GetPixelChannel(image,channel,p),j ==
                 0 ? AddEvaluateOperator : op,evaluate_pixel[x].channel[i]);
             }
             p+=GetPixelChannels(next);
@@ -695,7 +703,7 @@ MagickExport Image *EvaluateImages(const Image *images,
           image_view=DestroyCacheView(image_view);
           next=GetNextImageInList(next);
         }
-        for (x=0; x < (ssize_t) evaluate_image->columns; x++)
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
           register ssize_t
              i;
@@ -704,13 +712,13 @@ MagickExport Image *EvaluateImages(const Image *images,
           {
             case MeanEvaluateOperator:
             {
-              for (i=0; i < (ssize_t) GetPixelChannels(evaluate_image); i++)
+              for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
                 evaluate_pixel[x].channel[i]/=(MagickRealType) number_images;
               break;
             }
             case MultiplyEvaluateOperator:
             {
-              for (i=0; i < (ssize_t) GetPixelChannels(evaluate_image); i++)
+              for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
               {
                 register ssize_t
                   j;
@@ -724,17 +732,17 @@ MagickExport Image *EvaluateImages(const Image *images,
               break;
           }
         }
-        for (x=0; x < (ssize_t) evaluate_image->columns; x++)
+        for (x=0; x < (ssize_t) image->columns; x++)
         {
           register ssize_t
             i;
 
-          if (GetPixelMask(evaluate_image,q) != 0)
+          if (GetPixelMask(image,q) != 0)
             {
-              q+=GetPixelChannels(evaluate_image);
+              q+=GetPixelChannels(image);
               continue;
             }
-          for (i=0; i < (ssize_t) GetPixelChannels(evaluate_image); i++)
+          for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
             PixelChannel
               channel;
@@ -742,15 +750,15 @@ MagickExport Image *EvaluateImages(const Image *images,
             PixelTrait
               traits;
 
-            channel=GetPixelChannelMapChannel(evaluate_image,i);
-            traits=GetPixelChannelMapTraits(evaluate_image,channel);
+            channel=GetPixelChannelMapChannel(image,i);
+            traits=GetPixelChannelMapTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             if ((traits & UpdatePixelTrait) == 0)
               continue;
             q[i]=ClampToQuantum(evaluate_pixel[x].channel[i]);
           }
-          q+=GetPixelChannels(evaluate_image);
+          q+=GetPixelChannels(image);
         }
         if (SyncCacheViewAuthenticPixels(evaluate_view,exception) == MagickFalse)
           status=MagickFalse;
@@ -763,7 +771,7 @@ MagickExport Image *EvaluateImages(const Image *images,
             #pragma omp critical (MagickCore_EvaluateImages)
 #endif
             proceed=SetImageProgress(images,EvaluateImageTag,progress++,
-              evaluate_image->rows);
+              image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
           }
@@ -773,8 +781,8 @@ MagickExport Image *EvaluateImages(const Image *images,
   evaluate_pixels=DestroyPixelThreadSet(evaluate_pixels);
   random_info=DestroyRandomInfoThreadSet(random_info);
   if (status == MagickFalse)
-    evaluate_image=DestroyImage(evaluate_image);
-  return(evaluate_image);
+    image=DestroyImage(image);
+  return(image);
 }
 
 MagickExport MagickBooleanType EvaluateImage(Image *image,
@@ -795,6 +803,9 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
   ssize_t
     y;
 
+  unsigned long
+    key;
+
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
@@ -806,9 +817,11 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
   status=MagickTrue;
   progress=0;
   random_info=AcquireRandomInfoThreadSet();
-  image_view=AcquireCacheView(image);
+  key=GetRandomSecretKey(random_info[0]);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -851,6 +864,8 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
         traits=GetPixelChannelMapTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
+        if ((traits & CopyPixelTrait) != 0)
+          continue;
         q[i]=ClampToQuantum(ApplyEvaluateOperator(random_info[id],q[i],op,
           value));
       }
@@ -864,7 +879,7 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_EvaluateImage)
+        #pragma omp critical (MagickCore_EvaluateImage)
 #endif
         proceed=SetImageProgress(image,EvaluateImageTag,progress++,image->rows);
         if (proceed == MagickFalse)
@@ -1036,9 +1051,10 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
     return(MagickFalse);
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1093,7 +1109,7 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_FunctionImage)
+        #pragma omp critical (MagickCore_FunctionImage)
 #endif
         proceed=SetImageProgress(image,FunctionImageTag,progress++,image->rows);
         if (proceed == MagickFalse)
@@ -1299,9 +1315,10 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
   sum_squares=0.0;
   sum_cubes=0.0;
   sum_fourth_power=0.0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status)
+  #pragma omp parallel for schedule(static) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1415,6 +1432,7 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
     *image_view;
 
   MagickBooleanType
+    initialize,
     status;
 
   ssize_t
@@ -1425,11 +1443,13 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   status=MagickTrue;
-  *maxima=(-MagickHuge);
-  *minima=MagickHuge;
-  image_view=AcquireCacheView(image);
+  initialize=MagickTrue;
+  *maxima=0.0;
+  *minima=0.0;
+  image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status)
+  #pragma omp parallel for schedule(static) shared(status,initialize) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1475,10 +1495,19 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
         #pragma omp critical (MagickCore_GetImageRange)
 #endif
         {
-          if ((double) p[i] < *minima)
-            *minima=(double) p[i];
-          if ((double) p[i] > *maxima)
-            *maxima=(double) p[i];
+          if (initialize != MagickFalse)
+            {
+              *minima=(double) p[i];
+              *maxima=(double) p[i];
+              initialize=MagickFalse;
+            }
+          else
+            {
+              if ((double) p[i] < *minima)
+                *minima=(double) p[i];
+              if ((double) p[i] > *maxima)
+                *maxima=(double) p[i];
+           }
         }
       }
       p+=GetPixelChannels(image);
@@ -1557,6 +1586,7 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
     area;
 
   MagickStatusType
+    initialize,
     status;
 
   QuantumAny
@@ -1585,9 +1615,10 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
   for (i=0; i <= (ssize_t) MaxPixelChannels; i++)
   {
     channel_statistics[i].depth=1;
-    channel_statistics[i].maxima=(-MagickHuge);
-    channel_statistics[i].minima=MagickHuge;
+    channel_statistics[i].maxima=0.0;
+    channel_statistics[i].minima=0.0;
   }
+  initialize=MagickTrue;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     register const Quantum
@@ -1630,13 +1661,23 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
             if (status != MagickFalse)
               {
                 channel_statistics[channel].depth++;
+                i--;
                 continue;
               }
           }
-        if ((double) p[i] < channel_statistics[channel].minima)
-          channel_statistics[channel].minima=(double) p[i];
-        if ((double) p[i] > channel_statistics[channel].maxima)
-          channel_statistics[channel].maxima=(double) p[i];
+        if (initialize != MagickFalse)
+          {
+            channel_statistics[channel].minima=(double) p[i];
+            channel_statistics[channel].maxima=(double) p[i];
+            initialize=MagickFalse;
+          }
+        else
+          {
+            if ((double) p[i] < channel_statistics[channel].minima)
+              channel_statistics[channel].minima=(double) p[i];
+            if ((double) p[i] > channel_statistics[channel].maxima)
+              channel_statistics[channel].maxima=(double) p[i];
+          }
         channel_statistics[channel].sum+=p[i];
         channel_statistics[channel].sum_squared+=(double) p[i]*p[i];
         channel_statistics[channel].sum_cubed+=(double) p[i]*p[i]*p[i];
@@ -1799,7 +1840,7 @@ static PixelList **DestroyPixelListThreadSet(PixelList **pixel_list)
     i;
 
   assert(pixel_list != (PixelList **) NULL);
-  for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+  for (i=0; i < (ssize_t) GetMagickResourceLimit(ThreadResource); i++)
     if (pixel_list[i] != (PixelList *) NULL)
       pixel_list[i]=DestroyPixelList(pixel_list[i]);
   pixel_list=(PixelList **) RelinquishMagickMemory(pixel_list);
@@ -2247,10 +2288,11 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
     (MagickMax(height,1)/2L)+GetPixelChannels(image)*(MagickMax(width,1)/2L);
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
-  statistic_view=AcquireCacheView(statistic_image);
+  image_view=AcquireVirtualCacheView(image,exception);
+  statistic_view=AcquireAuthenticCacheView(statistic_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) statistic_image->rows; y++)
   {
@@ -2282,6 +2324,12 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
       register ssize_t
         i;
 
+      if (GetPixelMask(image,p) != 0)
+        {
+          p+=GetPixelChannels(image);
+          q+=GetPixelChannels(statistic_image);
+          continue;
+        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -2309,8 +2357,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
         if ((traits == UndefinedPixelTrait) ||
             (statistic_traits == UndefinedPixelTrait))
           continue;
-        if (((statistic_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+        if ((statistic_traits & CopyPixelTrait) != 0)
           {
             SetPixelChannel(statistic_image,channel,p[center+i],q);
             continue;
@@ -2391,7 +2438,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_StatisticImage)
+        #pragma omp critical (MagickCore_StatisticImage)
 #endif
         proceed=SetImageProgress(image,StatisticImageTag,progress++,
           image->rows);

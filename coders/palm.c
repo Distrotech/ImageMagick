@@ -732,7 +732,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   scene=0;
   do
   {
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     count=GetNumberColors(image,NULL,exception);
     for (bits_per_pixel=1;  (one << bits_per_pixel) < count; bits_per_pixel*=2) ;
@@ -792,7 +792,8 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
       {
         if (flags & PALM_HAS_COLORMAP_FLAG)  /* Write out colormap */
           {
-            quantize_info->dither=IsPaletteImage(image,exception);
+            quantize_info->dither_method=IsPaletteImage(image,exception)
+              == MagickFalse ? RiemersmaDitherMethod : NoDitherMethod;
             quantize_info->number_colors=image->colors;
             (void) QuantizeImage(quantize_info,image,exception);
             (void) WriteBlobMSBShort(image,(unsigned short) image->colors);

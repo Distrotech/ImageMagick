@@ -91,6 +91,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/timer.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
@@ -613,7 +614,6 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
               (void) FormatLocaleFile(file,"  %s\n",tuple);
             }
         }
-      artifact=GetImageArtifact(image,"identify:unique-colors");
       if (IsHistogramImage(image,exception) != MagickFalse)
         {
           (void) FormatLocaleFile(file,"  Colors: %.20g\n",(double)
@@ -621,11 +621,12 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           (void) FormatLocaleFile(file,"  Histogram:\n");
           (void) GetNumberColors(image,file,exception);
         }
-      else
-        if ((artifact != (const char *) NULL) &&
-            (IsMagickTrue(artifact) != MagickFalse))
-          (void) FormatLocaleFile(file,"  Colors: %.20g\n",(double)
-            GetNumberColors(image,(FILE *) NULL,exception));
+      else {
+          artifact=GetImageArtifact(image,"identify:unique-colors");
+          if (IfMagickTrue(IsStringTrue(artifact)))
+            (void) FormatLocaleFile(file,"  Colors: %.20g\n",(double)
+              GetNumberColors(image,(FILE *) NULL,exception));
+        }
     }
   if (image->storage_class == PseudoClass)
     {

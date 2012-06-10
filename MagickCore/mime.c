@@ -784,7 +784,7 @@ static MagickBooleanType LoadMimeList(const char *xml,const char *filename,
       {
         if (depth > 200)
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ConfigureError,"IncludeElementNestedTooDeeply","`%s'",filename);
+            ConfigureError,"IncludeElementNestedTooDeeply","'%s'",filename);
         else
           {
             char
@@ -913,15 +913,14 @@ static MagickBooleanType LoadMimeList(const char *xml,const char *filename,
     if (attribute != (const char *) NULL)
       mime_info->priority=(ssize_t) strtol(attribute,(char **) NULL,0);
     attribute=GetXMLTreeAttribute(mime,"stealth");
-    if (attribute != (const char *) NULL)
-      mime_info->stealth=IsMagickTrue(attribute);
+    mime_info->stealth=IsStringTrue(attribute);
     attribute=GetXMLTreeAttribute(mime,"type");
     if (attribute != (const char *) NULL)
       mime_info->type=ConstantString(attribute);
     status=AppendValueToLinkedList(mime_list,mime_info);
     if (status == MagickFalse)
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",filename);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",filename);
     mime=GetNextXMLTreeTag(mime);
   }
   mime_map=DestroyXMLTree(mime_map);

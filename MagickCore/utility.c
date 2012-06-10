@@ -675,9 +675,40 @@ MagickPrivate void ExpandFilename(char *path)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  ExpandFilenames() checks each argument of the command line vector and
-%  expands it if they have a wildcard character.  For example, *.jpg might
-%  expand to:  bird.jpg rose.jpg tiki.jpg.
+%  ExpandFilenames() checks each argument of the given argument array, and
+%  expands it if they have a wildcard character.
+%
+%  Any coder prefix (EG: 'coder:filename') or read modifier postfix (EG:
+%  'filename[...]') are ignored during the file the expansion, but will be
+%  included in the final argument.  If no filename matching the meta-character
+%  'glob' is found the original argument is returned.
+%
+%  For example, an argument of '*.gif[20x20]' will be replaced by the list
+%    'abc.gif[20x20]',  'foobar.gif[20x20]',  'xyzzy.gif[20x20]'
+%  if such filenames exist, (in the current directory in this case).
+%
+%  Meta-characters handled...
+%     @    read a list of filenames (no further expansion performed)
+%     ~    At start of filename expands to HOME environemtn variable
+%     *    matches any string including an empty string
+%     ?    matches by any single character
+%
+%  WARNING: filenames starting with '.' (hidden files in a UNIX file system)
+%  will never be expanded.  Attempting to epand '.*' will produce no change.
+%
+%  Expansion is ignored for coders "label:" "caption:" "pango:" and "vid:".
+%  Which provide their own '@' meta-character handling.
+%
+%  You can see the results of the expansion using "Configure" log
+%  events.
+%
+%
+%  The returned list should be freed using  DestroyStringList().
+%
+%  However the strings in the original pointed to argv are not
+%  freed  (TO BE CHECKED).  So a copy of the original pointer (and count)
+%  should be kept separate if they need to be freed later.
+%
 %
 %  The format of the ExpandFilenames function is:
 %
@@ -768,11 +799,12 @@ MagickExport MagickBooleanType ExpandFilenames(int *number_arguments,
     GetPathComponent(option,MagickPath,magick);
     if ((LocaleCompare(magick,"CAPTION") == 0) ||
         (LocaleCompare(magick,"LABEL") == 0) ||
+        (LocaleCompare(magick,"PANGO") == 0) ||
         (LocaleCompare(magick,"VID") == 0))
       continue;
-    if ((IsGlob(filename) == MagickFalse) && (*filename != '@'))
+    if ((IsGlob(filename) == MagickFalse) && (*option != '@'))
       continue;
-    if (*filename != '@')
+    if (*option != '@')
       {
         /*
           Generate file list from wildcard filename (e.g. *.jpg).
@@ -801,7 +833,7 @@ MagickExport MagickBooleanType ExpandFilenames(int *number_arguments,
           Generate file list from file list (e.g. @filelist.txt).
         */
         exception=AcquireExceptionInfo();
-        files=FileToString(filename+1,~0,exception);
+        files=FileToString(option+1,~0,exception);
         exception=DestroyExceptionInfo(exception);
         if (files == (char *) NULL)
           continue;
@@ -1137,6 +1169,9 @@ MagickExport MagickBooleanType GetPathAttributes(const char *path,
 %  GetPathComponent() returns the parent directory name, filename, basename, or
 %  extension of a file path.
 %
+%  The component string pointed to must have at least MaxTextExtent space
+%  for the results to be stored.
+%
 %  The format of the GetPathComponent function is:
 %
 %      GetPathComponent(const char *path,PathType type,char *component)
@@ -1446,47 +1481,6 @@ static int IsPathDirectory(const char *path)
   if (S_ISDIR(attributes.st_mode) == 0)
     return(0);
   return(1);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%   I s M a g i c k T r u e                                                   %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  IsMagickTrue() returns MagickTrue if the value is "true", "on", "yes" or
-%  "1".
-%
-%  The format of the IsMagickTrue method is:
-%
-%      MagickBooleanType IsMagickTrue(const char *value)
-%
-%  A description of each parameter follows:
-%
-%    o option: either MagickTrue or MagickFalse depending on the value
-%      parameter.
-%
-%    o value: Specifies a pointer to a character array.
-%
-*/
-MagickExport MagickBooleanType IsMagickTrue(const char *value)
-{
-  if (value == (const char *) NULL)
-    return(MagickFalse);
-  if (LocaleCompare(value,"true") == 0)
-    return(MagickTrue);
-  if (LocaleCompare(value,"on") == 0)
-    return(MagickTrue);
-  if (LocaleCompare(value,"yes") == 0)
-    return(MagickTrue);
-  if (LocaleCompare(value,"1") == 0)
-    return(MagickTrue);
-  return(MagickFalse);
 }
 
 /*
@@ -1822,7 +1816,7 @@ MagickExport int SystemCommand(const MagickBooleanType asynchronous,
     {
       errno=EPERM;
       (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
-        "NotAuthorized","`%s'",arguments[1]);
+        "NotAuthorized","'%s'",arguments[1]);
       for (i=0; i < (ssize_t) number_arguments; i++)
         arguments[i]=DestroyString(arguments[i]);
       arguments=(char **) RelinquishMagickMemory(arguments);
@@ -1897,7 +1891,7 @@ MagickExport int SystemCommand(const MagickBooleanType asynchronous,
 #endif
   if (status < 0)
     (void) ThrowMagickException(exception,GetMagickModule(),DelegateError,
-      "`%s' (%d)",command,status);
+      "'%s' (%d)",command,status);
   if (shell_command != command)
     shell_command=DestroyString(shell_command);
   for (i=0; i < (ssize_t) number_arguments; i++)

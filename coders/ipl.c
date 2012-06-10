@@ -246,7 +246,7 @@ static Image *ReadIPLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if((ipl_info.width == 0UL) || (ipl_info.height == 0UL))
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   ipl_info.colors=ReadBlobLong(image); 
-  if(ipl_info.colors == 3){ image->colorspace=RGBColorspace;}
+  if(ipl_info.colors == 3){ SetImageColorspace(image,sRGBColorspace,exception);}
   else { image->colorspace = GRAYColorspace; }
   ipl_info.z=ReadBlobLong(image); 
   ipl_info.time=ReadBlobLong(image); 
@@ -576,10 +576,10 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
   ipl_info.width = (unsigned int) image->columns;
   ipl_info.height = (unsigned int) image->rows;
   
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   
-  if(IsRGBColorspace(image->colorspace) == MagickTrue) { ipl_info.colors = 3; }
+  if(IssRGBColorspace(image->colorspace) == MagickTrue) { ipl_info.colors = 3; }
   else{ ipl_info.colors = 1; }
   
   ipl_info.size = (unsigned int) (28 + 

@@ -59,24 +59,6 @@ static inline void ConvertRGBToCMYK(PixelInfo *pixel)
   pixel->black=QuantumRange*black;
 }
 
-static inline MagickBooleanType IsGrayColorspace(
-  const ColorspaceType colorspace)
-{
-  if ((colorspace == GRAYColorspace) || (colorspace == Rec601LumaColorspace) ||
-      (colorspace == Rec709LumaColorspace))
-    return(MagickTrue);
-  return(MagickFalse);
-}
-
-static inline MagickBooleanType IsRGBColorspace(const ColorspaceType colorspace)
-{
-  if ((IsGrayColorspace(colorspace) != MagickFalse) ||
-      (colorspace == RGBColorspace) || (colorspace == sRGBColorspace) ||
-      (colorspace == TransparentColorspace))
-    return(MagickTrue);
-  return(MagickFalse);
-}
-
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif

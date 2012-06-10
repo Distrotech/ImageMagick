@@ -721,7 +721,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image,
   one=1;
   do
   {
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     /*
       Initialize the printer.
@@ -787,8 +787,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image,
           }
         }
     option=GetImageOption(image_info,"pcl:fit-to-page");
-    if ((option != (const char *) NULL) &&
-        (IsMagickTrue(option) != MagickFalse))
+    if (IfMagickTrue(IsStringTrue(option)))
       (void) WriteBlobString(image,"\033*r3A");
     else
       (void) WriteBlobString(image,"\033*r1A");  /* start raster graphics */

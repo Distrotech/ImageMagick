@@ -508,7 +508,7 @@ MagickExport MagickBooleanType HuffmanDecodeImage(Image *image,
   image->resolution.x=204.0;
   image->resolution.y=196.0;
   image->units=PixelsPerInchResolution;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
   for (y=0; ((y < (ssize_t) image->rows) && (null_lines < 3)); )
   {
     register Quantum
@@ -1305,7 +1305,7 @@ MagickExport MagickBooleanType ZLIBEncodeImage(Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
-    "DelegateLibrarySupportNotBuiltIn","`%s' (ZIP)",image->filename);
+    "DelegateLibrarySupportNotBuiltIn","'%s' (ZIP)",image->filename);
   return(MagickFalse);
 }
 #endif

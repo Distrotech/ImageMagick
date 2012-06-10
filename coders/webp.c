@@ -163,6 +163,7 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   image->columns=(size_t) width;
   image->rows=(size_t) height;
+  image->matte=MagickTrue;
   p=pixels;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -175,8 +176,6 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       SetPixelGreen(image,ScaleCharToQuantum(*p++),q);
       SetPixelBlue(image,ScaleCharToQuantum(*p++),q);
       SetPixelAlpha(image,ScaleCharToQuantum(*p++),q);
-      if (GetPixelAlpha(image,q) != OpaqueAlpha)
-        image->matte=MagickTrue;
       q+=GetPixelChannels(image);
     }
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -335,6 +334,8 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if ((image->columns > 16383) || (image->rows > 16383))
+    ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
@@ -357,8 +358,8 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   /*
     Allocate memory for pixels.
   */
-  pixels=(unsigned char *) AcquireQuantumMemory(image->columns,
-    (image->matte != MagickFalse ? 4 : 3)*image->rows*sizeof(*pixels));
+  pixels=(unsigned char *) AcquireQuantumMemory(image->columns,4*image->rows*
+    sizeof(*pixels));
   if (pixels == (unsigned char *) NULL)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   /*
@@ -376,8 +377,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
       *q++=ScaleQuantumToChar(GetPixelGreen(image,p));
       *q++=ScaleQuantumToChar(GetPixelBlue(image,p));
       if (image->matte != MagickFalse)
-        *q++=ScaleQuantumToChar((Quantum) (image->matte != MagickFalse ?
-          GetPixelAlpha(image,p) : OpaqueAlpha));
+        *q++=ScaleQuantumToChar(GetPixelAlpha(image,p));
       p+=GetPixelChannels(image);
     }
     status=SetImageProgress(image,SaveImageTag,(MagickOffsetType) y,

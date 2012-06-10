@@ -77,6 +77,7 @@
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/xml-tree.h"
 #include "MagickCore/xml-tree-private.h"
@@ -100,7 +101,7 @@ typedef unsigned char boolean;
 #define ICC_PROFILE  "ICC_PROFILE"
 #define IPTC_MARKER  (JPEG_APP0+13)
 #define XML_MARKER  (JPEG_APP0+1)
-#define MaxBufferExtent  8192
+#define MaxBufferExtent  16384
 
 /*
   Typedef declarations.
@@ -247,7 +248,7 @@ static boolean FillInputBuffer(j_decompress_ptr cinfo)
     MaxBufferExtent,source->buffer);
   if (source->manager.bytes_in_buffer == 0)
     {
-      if (source->start_of_blob != 0)
+      if (source->start_of_blob != FALSE)
         ERREXIT(cinfo,JERR_INPUT_EMPTY);
       WARNMS(cinfo,JWRN_JPEG_EOF);
       source->buffer[0]=(JOCTET) 0xff;
@@ -329,6 +330,8 @@ static void JPEGErrorHandler(j_common_ptr jpeg_info)
 
 static MagickBooleanType JPEGWarningHandler(j_common_ptr jpeg_info,int level)
 {
+#define JPEGExcessiveWarnings  1000
+
   char
     message[JMSG_LENGTH_MAX];
 
@@ -351,11 +354,12 @@ static MagickBooleanType JPEGWarningHandler(j_common_ptr jpeg_info,int level)
         Process warning message.
       */
       (jpeg_info->err->format_message)(jpeg_info,message);
+      if (jpeg_info->err->num_warnings++ > JPEGExcessiveWarnings)
+        JPEGErrorHandler(jpeg_info);
       if ((jpeg_info->err->num_warnings == 0) ||
           (jpeg_info->err->trace_level >= 3))
         ThrowBinaryException(CorruptImageWarning,(char *) message,
           image->filename);
-      jpeg_info->err->num_warnings++;
     }
   else
     if ((image->debug != MagickFalse) &&
@@ -1063,14 +1067,6 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
       (image_info->colorspace == Rec601YCbCrColorspace) ||
       (image_info->colorspace == Rec709YCbCrColorspace))
     jpeg_info.out_color_space=JCS_YCbCr;
-  if (IsITUFaxImage(image) != MagickFalse)
-    {
-      image->colorspace=LabColorspace;
-      jpeg_info.out_color_space=JCS_YCbCr;
-    }
-  else
-    if (jpeg_info.out_color_space == JCS_CMYK)
-      image->colorspace=CMYKColorspace;
   /*
     Set image resolution.
   */
@@ -1153,12 +1149,7 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
       jpeg_info.desired_number_of_colors=(int) StringToUnsignedLong(option);
     }
   option=GetImageOption(image_info,"jpeg:block-smoothing");
-  if (option != (const char *) NULL)
-    {
-      jpeg_info.do_block_smoothing=MagickFalse;
-      if (IsMagickTrue(option) != MagickFalse)
-        jpeg_info.do_block_smoothing=MagickTrue;
-    }
+  jpeg_info.do_block_smoothing=IsStringTrue(option);
   jpeg_info.dct_method=JDCT_FLOAT;
   option=GetImageOption(image_info,"jpeg:dct-method");
   if (option != (const char *) NULL)
@@ -1191,20 +1182,40 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
       }
     }
   option=GetImageOption(image_info,"jpeg:fancy-upsampling");
-  if (option != (const char *) NULL)
-    {
-      jpeg_info.do_fancy_upsampling=MagickFalse;
-      if (IsMagickTrue(option) != MagickFalse)
-        jpeg_info.do_fancy_upsampling=MagickTrue;
-    }
+  jpeg_info.do_fancy_upsampling=IsStringTrue(option);
   (void) jpeg_start_decompress(&jpeg_info);
   image->columns=jpeg_info.output_width;
   image->rows=jpeg_info.output_height;
   image->depth=(size_t) jpeg_info.data_precision;
-  if (jpeg_info.out_color_space == JCS_YCbCr)
-    image->colorspace=YCbCrColorspace;
-  if (jpeg_info.out_color_space == JCS_CMYK)
-    image->colorspace=CMYKColorspace;
+  switch (jpeg_info.out_color_space)
+  {
+    case JCS_RGB:
+    default:
+    {
+      SetImageColorspace(image,sRGBColorspace,exception);
+      break;
+    }
+    case JCS_GRAYSCALE:
+    {
+      SetImageColorspace(image,GRAYColorspace,exception);
+      break;
+    }
+    case JCS_YCbCr:
+    {
+      SetImageColorspace(image,YCbCrColorspace,exception);
+      break;
+    }
+    case JCS_CMYK:
+    {
+      SetImageColorspace(image,CMYKColorspace,exception);
+      break;
+    }
+  }
+  if (IsITUFaxImage(image) != MagickFalse)
+    {
+      SetImageColorspace(image,LabColorspace,exception);
+      jpeg_info.out_color_space=JCS_YCbCr;
+    }
   option=GetImageOption(image_info,"jpeg:colors");
   if (option != (const char *) NULL)
     if (AcquireImageColormap(image,StringToUnsignedLong(option),exception)
@@ -2098,7 +2109,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
     }
     default:
     {
-      if (IsRGBColorspace(image->colorspace) == MagickFalse)
+      if (IssRGBColorspace(image->colorspace) == MagickFalse)
         (void) TransformImageColorspace(image,sRGBColorspace,exception);
       break;
     }
@@ -2166,11 +2177,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
     }
   option=GetImageOption(image_info,"jpeg:optimize-coding");
   if (option != (const char *) NULL)
-    {
-      jpeg_info.optimize_coding=MagickFalse;
-      if (IsMagickTrue(option) != MagickFalse)
-        jpeg_info.optimize_coding=MagickTrue;
-    }
+    jpeg_info.optimize_coding=IsStringTrue(option);
   else
     {
       MagickSizeType
@@ -2184,9 +2191,8 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
             Perform optimization only if available memory resources permit it.
           */
           status=AcquireMagickResource(MemoryResource,length);
-          if (status != MagickFalse)
-            jpeg_info.optimize_coding=MagickTrue;
           RelinquishMagickResource(MemoryResource,length);
+          jpeg_info.optimize_coding=status;
         }
     }
 #if (JPEG_LIB_VERSION >= 61) && defined(C_PROGRESSIVE_SUPPORTED)

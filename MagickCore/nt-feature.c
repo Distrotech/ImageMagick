@@ -55,6 +55,8 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
+#include "MagickCore/nt-base.h"
+#include "MagickCore/nt-base-private.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/string_.h"
@@ -177,7 +179,7 @@ MagickExport void *CropImageToHBITMAP(Image *image,
   bitmap_bits=(RGBQUAD *) GlobalLock((HGLOBAL) bitmap_bitsH);
   if ( bitmap.bmBits == NULL )
     bitmap.bmBits = bitmap_bits;
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Extract crop image.
@@ -542,7 +544,7 @@ MagickExport MagickBooleanType NTLoadTypeLists(SplayTreeInfo *type_list,
           type_info);
         if (status == MagickFalse)
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","`%s'",type_info->name);
+            ResourceLimitError,"MemoryAllocationFailed","'%s'",type_info->name);
       }
   }
   RegCloseKey ( reg_key );
@@ -617,7 +619,7 @@ MagickExport void *ImageToHBITMAP(Image *image,ExceptionInfo *exception)
 
       message=GetExceptionMessage(errno);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",message);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",message);
       message=DestroyString(message);
       return(NULL);
     }
@@ -650,7 +652,7 @@ MagickExport void *ImageToHBITMAP(Image *image,ExceptionInfo *exception)
 
       message=GetExceptionMessage(errno);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","`%s'",message);
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",message);
       message=DestroyString(message);
     }
   GlobalUnlock((HGLOBAL) bitmap_bitsH);

@@ -263,6 +263,12 @@ namespace Magick
   using MagickCore::ShepardsDistortion;
   using MagickCore::SentinelDistortion;
 
+  // Dither methods
+  using MagickCore::UndefinedDitherMethod;
+  using MagickCore::NoDitherMethod;
+  using MagickCore::RiemersmaDitherMethod;
+  using MagickCore::FloydSteinbergDitherMethod;
+
   // Endian options
   using MagickCore::EndianType;
   using MagickCore::UndefinedEndian;
@@ -334,7 +340,6 @@ namespace Magick
   using MagickCore::SouthWestGravity;
   using MagickCore::SouthGravity;
   using MagickCore::SouthEastGravity;
-  using MagickCore::StaticGravity;
 
   // Image types
   using MagickCore::ImageType;
@@ -549,8 +554,9 @@ namespace Magick
   //
   // ImageMagick symbols used in implementation code
   //
-  using MagickCore::AcquireCacheView;
+  using MagickCore::AcquireAuthenticCacheView;
   using MagickCore::AcquireExceptionInfo;
+  using MagickCore::AcquireVirtualCacheView;
   using MagickCore::GetCacheViewVirtualPixels;
   using MagickCore::AcquireImage;
   using MagickCore::GetVirtualPixels;
@@ -864,7 +870,6 @@ namespace Magick
   using MagickCore::ResourceLimitError;
   using MagickCore::ResourceLimitFatalError;
   using MagickCore::ResourceLimitWarning;
-  using MagickCore::RGBTransformImage;
   using MagickCore::RollImage;
   using MagickCore::RotateImage;
   using MagickCore::SampleImage;
@@ -919,7 +924,7 @@ namespace Magick
   using MagickCore::TextureImage;
   using MagickCore::ThrowException;
   using MagickCore::TransformImage;
-  using MagickCore::TransformRGBImage;
+  using MagickCore::TransformImageColorspace;
   using MagickCore::TransparentPaintImage;
   using MagickCore::TransparentPaintImageChroma;
   using MagickCore::TrimImage;

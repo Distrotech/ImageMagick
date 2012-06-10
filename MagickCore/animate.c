@@ -304,7 +304,7 @@ MagickExport MagickBooleanType AnimateImages(const ImageInfo *image_info,
   if (display == (Display *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),XServerError,
-        "UnableToOpenXServer","`%s'",XDisplayName(image_info->server_name));
+        "UnableToOpenXServer","'%s'",XDisplayName(image_info->server_name));
       return(MagickFalse);
     }
   if (exception->severity != UndefinedException)
@@ -1929,7 +1929,7 @@ MagickExport Image *XAnimateImages(Display *display,
     /*
       Create X image.
     */
-    if (IsRGBColorspace(image_list[scene]->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image_list[scene]->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image_list[scene],sRGBColorspace,
         exception);
     windows->image.pixmap=(Pixmap) NULL;
@@ -3038,7 +3038,7 @@ MagickExport MagickBooleanType AnimateImages(const ImageInfo *image_info,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
-    "DelegateLibrarySupportNotBuiltIn","`%s' (X11)",image->filename);
+    "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image->filename);
   return(MagickFalse);
 }
 #endif

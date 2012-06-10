@@ -248,7 +248,7 @@ static MagickBooleanType DisplayUsage(void)
     "-borderwidth, -font, -foreground, -iconGeometry, -iconic, -mattecolor,\n");
   (void) printf("-name, -shared-memory, -usePixmap, or -title.\n");
   (void) printf(
-    "\nBy default, the image format of `file' is determined by its magic\n");
+    "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
     "number.  To specify a particular image format, precede the filename\n");
   (void) printf(
@@ -285,7 +285,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 }
 #define ThrowDisplayException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
     option); \
   DestroyDisplay(); \
   return(MagickFalse); \
@@ -293,7 +293,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 #define ThrowDisplayInvalidArgumentException(option,argument) \
 { \
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError, \
-    "InvalidArgument","`%s': %s",option,argument); \
+    "InvalidArgument","'%s': %s",option,argument); \
   DestroyDisplay(); \
   return(MagickFalse); \
 }
@@ -448,10 +448,11 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
   image_info->quality=StringToUnsignedLong(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "verbose","False");
-  image_info->verbose=IsMagickTrue(resource_value);
+  image_info->verbose=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "dither","True");
-  quantize_info->dither=IsMagickTrue(resource_value);
+  quantize_info->dither_method=IsStringTrue(resource_value) != MagickFalse ?
+    RiemersmaDitherMethod : NoDitherMethod;
   /*
     Parse command line.
   */
@@ -473,7 +474,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 
             c=getc(stdin);
             if (c == EOF)
-              break;
+              option="logo:";
             else
               {
                 c=ungetc(c,stdin);
@@ -629,9 +630,10 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
         /*
           Free image resources.
         */
-        display_image=DestroyImageList(display_image);
+        display_image=GetFirstImageInList(display_image);
         if (image_list != display_image)
           image_list=DestroyImageList(image_list);
+        display_image=DestroyImageList(display_image);
         if ((state & FormerImageState) == 0)
           {
             last_image=(size_t) image_number;
@@ -1017,7 +1019,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             ssize_t
               method;
 
-            quantize_info->dither=MagickFalse;
+            quantize_info->dither_method=NoDitherMethod;
             if (*option == '+')
               break;
             i++;
@@ -1027,7 +1029,6 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             if (method < 0)
               ThrowDisplayException(OptionError,"UnrecognizedDitherMethod",
                 argv[i]);
-            quantize_info->dither=MagickTrue;
             quantize_info->dither_method=(DitherMethod) method;
             break;
           }
@@ -1907,7 +1908,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
   (void) argc;
   (void) argv;
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
-    "DelegateLibrarySupportNotBuiltIn","`%s' (X11)",image_info->filename);
+    "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image_info->filename);
   return(DisplayUsage());
 #endif
 }

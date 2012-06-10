@@ -62,6 +62,7 @@
 #include "MagickCore/option.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/pixel-private.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/resource_.h"
@@ -921,7 +922,7 @@ static void ImportBlackQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","`%s'",image->filename);
+        "ColorSeparatedImageRequired","'%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -1249,7 +1250,7 @@ static void ImportCMYKQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","`%s'",image->filename);
+        "ColorSeparatedImageRequired","'%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -1414,7 +1415,7 @@ static void ImportCMYKAQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","`%s'",image->filename);
+        "ColorSeparatedImageRequired","'%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -2233,7 +2234,7 @@ static void ImportIndexQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->storage_class != PseudoClass)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColormappedImageRequired","`%s'",image->filename);
+        "ColormappedImageRequired","'%s'",image->filename);
       return;
     }
   range_exception=MagickFalse;
@@ -2420,7 +2421,7 @@ static void ImportIndexQuantum(const Image *image,QuantumInfo *quantum_info,
   }
   if (range_exception != MagickFalse)
     (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
-      "InvalidColormapIndex","`%s'",image->filename);
+      "InvalidColormapIndex","'%s'",image->filename);
 }
 
 static void ImportIndexAlphaQuantum(const Image *image,
@@ -2445,7 +2446,7 @@ static void ImportIndexAlphaQuantum(const Image *image,
   if (image->storage_class != PseudoClass)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColormappedImageRequired","`%s'",image->filename);
+        "ColormappedImageRequired","'%s'",image->filename);
       return;
     }
   range_exception=MagickFalse;
@@ -2637,7 +2638,7 @@ static void ImportIndexAlphaQuantum(const Image *image,
   }
   if (range_exception != MagickFalse)
     (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
-      "InvalidColormapIndex","`%s'",image->filename);
+      "InvalidColormapIndex","'%s'",image->filename);
 }
 
 static void ImportOpacityQuantum(const Image *image,QuantumInfo *quantum_info,
@@ -3609,7 +3610,7 @@ MagickExport size_t ImportQuantumPixels(const Image *image,
             continue;
           }
         Sa=QuantumScale*GetPixelAlpha(image,q);
-        gamma=1.0/(fabs(Sa) <= MagickEpsilon ? 1.0 : Sa);
+        gamma=MagickEpsilonReciprocal(Sa);
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
           PixelChannel

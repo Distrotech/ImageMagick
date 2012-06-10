@@ -49,10 +49,12 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/prepress.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/registry.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/thread-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -103,14 +105,15 @@ MagickExport double GetImageTotalInkDensity(Image *image,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","`%s'",image->filename);
+        "ColorSeparatedImageRequired","'%s'",image->filename);
       return(0.0);
     }
   status=MagickTrue;
   total_ink_density=0.0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -135,7 +138,7 @@ MagickExport double GetImageTotalInkDensity(Image *image,
         GetPixelBlue(image,p)+GetPixelBlack(image,p);
       if (density > total_ink_density)
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_GetImageTotalInkDensity)
+        #pragma omp critical (MagickCore_GetImageTotalInkDensity)
 #endif
         {
           if (density > total_ink_density)

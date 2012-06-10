@@ -60,9 +60,11 @@
 #include "MagickCore/option.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/pixel-private.h"
 #include "MagickCore/resample.h"
 #include "MagickCore/resample-private.h"
 #include "MagickCore/registry.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/shear.h"
 #include "MagickCore/string_.h"
@@ -103,7 +105,7 @@ static void InvertAffineCoefficients(const double *coeff,double *inverse)
   /* From "Digital Image Warping" by George Wolberg, page 50 */
   double determinant;
 
-  determinant=1.0/(coeff[0]*coeff[4]-coeff[1]*coeff[3]);
+  determinant=MagickEpsilonReciprocal(coeff[0]*coeff[4]-coeff[1]*coeff[3]);
   inverse[0]=determinant*coeff[4];
   inverse[1]=determinant*(-coeff[1]);
   inverse[2]=determinant*(coeff[1]*coeff[5]-coeff[2]*coeff[4]);
@@ -118,7 +120,7 @@ static void InvertPerspectiveCoefficients(const double *coeff,
   /* From "Digital Image Warping" by George Wolberg, page 53 */
   double determinant;
 
-  determinant=1.0/(coeff[0]*coeff[4]-coeff[3]*coeff[1]);
+  determinant=MagickEpsilonReciprocal(coeff[0]*coeff[4]-coeff[3]*coeff[1]);
   inverse[0]=determinant*(coeff[4]-coeff[7]*coeff[5]);
   inverse[1]=determinant*(coeff[7]*coeff[2]-coeff[1]);
   inverse[2]=determinant*(coeff[1]*coeff[5]-coeff[4]*coeff[2]);
@@ -1461,15 +1463,15 @@ MagickExport Image *DistortResizeImage(const Image *image,
 {
 #define DistortResizeImageTag  "Distort/Image"
 
+  double
+    distort_args[12];
+
   Image
     *resize_image,
     *tmp_image;
 
   RectangleInfo
     crop_area;
-
-  double
-    distort_args[12];
 
   VirtualPixelMethod
     vp_save;
@@ -1486,7 +1488,6 @@ MagickExport Image *DistortResizeImage(const Image *image,
   if ((columns == 0) || (rows == 0))
     return((Image *) NULL);
   /* Do not short-circuit this resize if final image size is unchanged */
-
 
   (void) ResetMagickMemory(distort_args,0,12*sizeof(double));
   distort_args[4]=(double) image->columns;
@@ -1556,8 +1557,8 @@ MagickExport Image *DistortResizeImage(const Image *image,
         exception);
       (void) SetImageAlphaChannel(resize_alpha,DeactivateAlphaChannel,
         exception);
-      (void) CompositeImage(resize_image,CopyAlphaCompositeOp,resize_alpha,
-        0,0,exception);
+      (void) CompositeImage(resize_image,resize_alpha,CopyAlphaCompositeOp,
+        MagickTrue,0,0,exception);
       resize_alpha=DestroyImage(resize_alpha);
     }
   (void) SetImageVirtualPixelMethod(resize_image,vp_save,exception);
@@ -1798,28 +1799,28 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
         s.x = (double) image->page.x;
         s.y = (double) image->page.y;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=1.0/(  (fabs(scale) <= MagickEpsilon) ? 1.0 : scale );
+        scale=MagickEpsilonReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         InitalBounds(d);
         s.x = (double) image->page.x+image->columns;
         s.y = (double) image->page.y;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=1.0/(  (fabs(scale) <= MagickEpsilon) ? 1.0 : scale );
+        scale=MagickEpsilonReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
         s.x = (double) image->page.x;
         s.y = (double) image->page.y+image->rows;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=1.0/(  (fabs(scale) <= MagickEpsilon) ? 1.0 : scale );
+        scale=MagickEpsilonReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
         s.x = (double) image->page.x+image->columns;
         s.y = (double) image->page.y+image->rows;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=1.0/(  (fabs(scale) <= MagickEpsilon) ? 1.0 : scale );
+        scale=MagickEpsilonReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
@@ -1948,13 +1949,18 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
   { const char *artifact=GetImageArtifact(image,"distort:viewport");
     viewport_given = MagickFalse;
     if ( artifact != (const char *) NULL ) {
-      (void) ParseAbsoluteGeometry(artifact,&geometry);
-      viewport_given = MagickTrue;
+      MagickStatusType flags=ParseAbsoluteGeometry(artifact,&geometry);
+      if (flags==NoValue)
+        (void) ThrowMagickException(exception,GetMagickModule(),
+             OptionWarning,"InvalidSetting","'%s' '%s'",
+             "distort:viewport",artifact);
+      else
+        viewport_given = MagickTrue;
     }
   }
 
   /* Verbose output */
-  if ( GetImageArtifact(image,"verbose") != (const char *) NULL ) {
+  if ( IfStringTrue(GetImageArtifact(image,"verbose")) ) {
     register ssize_t
        i;
     char image_gen[MaxTextExtent];
@@ -2305,9 +2311,10 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
     GetPixelInfo(distort_image,&zero);
     resample_filter=AcquireResampleFilterThreadSet(image,
       UndefinedVirtualPixelMethod,MagickFalse,exception);
-    distort_view=AcquireCacheView(distort_image);
+    distort_view=AcquireAuthenticCacheView(distort_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+    #pragma omp parallel for schedule(static,4) shared(progress,status) \
+      dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
     for (j=0; j < (ssize_t) distort_image->rows; j++)
     {
@@ -2705,7 +2712,8 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
         }
         else {
           /* resample the source image to find its correct color */
-          (void) ResamplePixelColor(resample_filter[id],s.x,s.y,&pixel);
+          (void) ResamplePixelColor(resample_filter[id],s.x,s.y,&pixel,
+            exception);
           /* if validity between 0.0 and 1.0 mix result with invalid pixel */
           if ( validity < 1.0 ) {
             /* Do a blend of sample color and invalid pixel */
@@ -2726,7 +2734,7 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
             proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_DistortImage)
+          #pragma omp critical (MagickCore_DistortImage)
 #endif
           proceed=SetImageProgress(image,DistortImageTag,progress++,
             image->rows);
@@ -2824,6 +2832,8 @@ MagickExport Image *RotateImage(const Image *image,const double degrees,
   distort_image=CloneImage(image,0,0,MagickTrue,exception);
   if (distort_image == (Image *) NULL)
     return((Image *) NULL);
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(distort_image,sRGBColorspace,exception);
   (void) SetImageVirtualPixelMethod(distort_image,BackgroundVirtualPixelMethod,
     exception);
   rotate_image=DistortImage(distort_image,ScaleRotateTranslateDistortion,1,
@@ -2937,7 +2947,7 @@ MagickExport Image *SparseColorImage(const Image *image,
   }
 
   /* Verbose output */
-  if ( GetImageArtifact(image,"verbose") != (const char *) NULL ) {
+  if ( IfStringTrue(GetImageArtifact(image,"verbose")) ) {
 
     switch (sparse_method) {
       case BarycentricColorInterpolate:
@@ -3026,9 +3036,10 @@ MagickExport Image *SparseColorImage(const Image *image,
 
     status=MagickTrue;
     progress=0;
-    sparse_view=AcquireCacheView(sparse_image);
+    sparse_view=AcquireAuthenticCacheView(sparse_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+    #pragma omp parallel for schedule(static,4) shared(progress,status) \
+      dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
     for (j=0; j < (ssize_t) sparse_image->rows; j++)
     {
@@ -3215,7 +3226,7 @@ MagickExport Image *SparseColorImage(const Image *image,
             proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_SparseColorImage)
+          #pragma omp critical (MagickCore_SparseColorImage)
 #endif
           proceed=SetImageProgress(image,SparseColorTag,progress++,image->rows);
           if (proceed == MagickFalse)

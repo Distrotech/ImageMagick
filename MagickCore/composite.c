@@ -72,6 +72,7 @@
 #include "MagickCore/resource_.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/thread-private.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
@@ -93,18 +94,21 @@
 %  The format of the CompositeImage method is:
 %
 %      MagickBooleanType CompositeImage(Image *image,
-%        const CompositeOperator compose,Image *composite_image,
-%        const ssize_t x_offset,const ssize_t y_offset,ExceptionInfo *exception)
+%        const Image *composite_image,const CompositeOperator compose,
+%        const MagickBooleanType clip_to_self,const ssize_t x_offset,
+%        const ssize_t y_offset,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
 %    o image: the destination image, modified by he composition
 %
+%    o composite_image: the composite (source) image.
+%
 %    o compose: This operator affects how the composite is applied to
 %      the image.  The operators and how they are utilized are listed here
 %      http://www.w3.org/TR/SVG12/#compositing.
 %
-%    o composite_image: the composite (source) image.
+%    o clip_to_self: set to MagickTrue to limit composition to area composed.
 %
 %    o x_offset: the column offset of the composited image.
 %
@@ -120,28 +124,62 @@
 %        Compose methods needing such arguments include "BlendCompositeOp" and
 %        "DisplaceCompositeOp".
 %
-%    o "compose:outside-overlay"
-%        Modify how the composition is to effect areas not directly covered
-%        by the 'composite_image' at the offset given.  Normally this is
-%        dependant on the 'compose' method, especially Duff-Porter methods.
-%
-%        If set to "false" then disable all normal handling of pixels not
-%        covered by the composite_image.  Typically used for repeated tiling
-%        of the composite_image by the calling API.
-%
-%        Previous to IM v6.5.3-3  this was called "modify-outside-overlay"
-%
 %    o exception: return any errors or warnings in this structure.
 %
 */
 
-static void CompositeHSB(const Quantum red,const Quantum green,
-  const Quantum blue,double *hue,double *saturation,double *brightness)
+/*
+   Composition based on the SVG specification:
+
+   A Composition is defined by...
+      Color Function :  f(Sc,Dc)  where Sc and Dc are the normizalized colors
+      Blending areas :  X = 1     for area of overlap, ie: f(Sc,Dc)
+                        Y = 1     for source preserved
+                        Z = 1     for destination preserved
+
+   Conversion to transparency (then optimized)
+      Dca' = f(Sc, Dc)*Sa*Da + Y*Sca*(1-Da) + Z*Dca*(1-Sa)
+      Da'  = X*Sa*Da + Y*Sa*(1-Da) + Z*Da*(1-Sa)
+
+   Where...
+      Sca = Sc*Sa     normalized Source color divided by Source alpha
+      Dca = Dc*Da     normalized Dest color divided by Dest alpha
+      Dc' = Dca'/Da'  the desired color value for this channel.
+
+   Da' in in the follow formula as 'gamma'  The resulting alpla value.
+
+   Most functions use a blending mode of over (X=1,Y=1,Z=1) this results in
+   the following optimizations...
+      gamma = Sa+Da-Sa*Da;
+      gamma = 1 - QuantiumScale*alpha * QuantiumScale*beta;
+      opacity = QuantiumScale*alpha*beta;  // over blend, optimized 1-Gamma
+
+   The above SVG definitions also definate that Mathematical Composition
+   methods should use a 'Over' blending mode for Alpha Channel.
+   It however was not applied for composition modes of 'Plus', 'Minus',
+   the modulus versions of 'Add' and 'Subtract'.
+
+   Mathematical operator changes to be applied from IM v6.7...
+
+    1) Modulus modes 'Add' and 'Subtract' are obsoleted and renamed
+       'ModulusAdd' and 'ModulusSubtract' for clarity.
+
+    2) All mathematical compositions work as per the SVG specification
+       with regard to blending.  This now includes 'ModulusAdd' and
+       'ModulusSubtract'.
+
+    3) When the special channel flag 'sync' (syncronize channel updates)
+       is turned off (enabled by default) then mathematical compositions are
+       only performed on the channels specified, and are applied
+       independantally of each other.  In other words the mathematics is
+       performed as 'pure' mathematical operations, rather than as image
+       operations.
+*/
+static void CompositeHSB(const double red,const double green,
+  const double blue,double *hue,double *saturation,double *brightness)
 {
   double
-    delta;
-
-  Quantum
+    delta,
     max,
     min;
 
@@ -261,6 +299,7 @@ static inline double MagickMin(const double x,const double y)
     return(x);
   return(y);
 }
+
 static inline double MagickMax(const double x,const double y)
 {
   if (x > y)
@@ -269,8 +308,8 @@ static inline double MagickMax(const double x,const double y)
 }
 
 static MagickBooleanType CompositeOverImage(Image *image,
-  const Image *composite_image,const ssize_t x_offset,const ssize_t y_offset,
-  ExceptionInfo *exception)
+  const Image *composite_image,const MagickBooleanType clip_to_self,
+  const ssize_t x_offset,const ssize_t y_offset,ExceptionInfo *exception)
 {
 #define CompositeImageTag  "Composite/Image"
 
@@ -278,11 +317,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
     *composite_view,
     *image_view;
 
-  const char
-    *value;
-
   MagickBooleanType
-    modify_outside_overlay,
     status;
 
   MagickOffsetType
@@ -292,21 +327,15 @@ static MagickBooleanType CompositeOverImage(Image *image,
     y;
 
   /*
-    Prepare composite image.
-  */
-  modify_outside_overlay=MagickFalse;
-  value=GetImageArtifact(composite_image,"compose:outside-overlay");
-  if (value != (const char *) NULL)
-    modify_outside_overlay=IsMagickTrue(value);
-  /*
     Composite image.
   */
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
-  composite_view=AcquireCacheView(composite_image);
+  composite_view=AcquireVirtualCacheView(composite_image,exception);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -327,7 +356,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
 
     if (status == MagickFalse)
       continue;
-    if (modify_outside_overlay == MagickFalse)
+    if (clip_to_self != MagickFalse)
       {
         if (y < y_offset)
           continue;
@@ -371,7 +400,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
       register ssize_t
         i;
 
-      if (modify_outside_overlay == MagickFalse)
+      if (clip_to_self != MagickFalse)
         {
           if (x < x_offset)
             {
@@ -473,7 +502,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
         */
         Sc=(MagickRealType) GetPixelChannel(composite_image,channel,p);
         Dc=(MagickRealType) q[i];
-        gamma=1.0/(fabs(alpha) <= MagickEpsilon ? 1.0 : alpha);
+        gamma=MagickEpsilonReciprocal(alpha);
         q[i]=ClampToQuantum(gamma*(Sa*Sc-Sa*Da*Dc+Da*Dc));
       }
       p+=GetPixelChannels(composite_image);
@@ -490,7 +519,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp critical (MagickCore_CompositeImage)
+        #pragma omp critical (MagickCore_CompositeImage)
 #endif
         proceed=SetImageProgress(image,CompositeImageTag,progress++,
           image->rows);
@@ -504,17 +533,15 @@ static MagickBooleanType CompositeOverImage(Image *image,
 }
 
 MagickExport MagickBooleanType CompositeImage(Image *image,
-  const CompositeOperator compose,const Image *composite_image,
-  const ssize_t x_offset,const ssize_t y_offset,ExceptionInfo *exception)
+  const Image *composite_image,const CompositeOperator compose,
+  const MagickBooleanType clip_to_self,const ssize_t x_offset,
+  const ssize_t y_offset,ExceptionInfo *exception)
 {
 #define CompositeImageTag  "Composite/Image"
 
   CacheView
     *composite_view,
     *image_view;
-
-  const char
-    *value;
 
   GeometryInfo
     geometry_info;
@@ -523,7 +550,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     *destination_image;
 
   MagickBooleanType
-    modify_outside_overlay,
     status;
 
   MagickOffsetType
@@ -544,53 +570,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
   ssize_t
     y;
 
-  /*
-     Composition based on the SVG specification:
-
-     A Composition is defined by...
-        Color Function :  f(Sc,Dc)  where Sc and Dc are the normizalized colors
-        Blending areas :  X = 1     for area of overlap, ie: f(Sc,Dc)
-                          Y = 1     for source preserved
-                          Z = 1     for destination preserved
-
-     Conversion to transparency (then optimized)
-        Dca' = f(Sc, Dc)*Sa*Da + Y*Sca*(1-Da) + Z*Dca*(1-Sa)
-        Da'  = X*Sa*Da + Y*Sa*(1-Da) + Z*Da*(1-Sa)
-
-     Where...
-        Sca = Sc*Sa     normalized Source color divided by Source alpha
-        Dca = Dc*Da     normalized Dest color divided by Dest alpha
-        Dc' = Dca'/Da'  the desired color value for this channel.
-
-     Da' in in the follow formula as 'gamma'  The resulting alpla value.
-
-     Most functions use a blending mode of over (X=1,Y=1,Z=1) this results in
-     the following optimizations...
-        gamma = Sa+Da-Sa*Da;
-        gamma = 1 - QuantiumScale*alpha * QuantiumScale*beta;
-        opacity = QuantiumScale*alpha*beta;  // over blend, optimized 1-Gamma
-
-     The above SVG definitions also definate that Mathematical Composition
-     methods should use a 'Over' blending mode for Alpha Channel.
-     It however was not applied for composition modes of 'Plus', 'Minus',
-     the modulus versions of 'Add' and 'Subtract'.
-
-     Mathematical operator changes to be applied from IM v6.7...
-
-      1) Modulus modes 'Add' and 'Subtract' are obsoleted and renamed
-         'ModulusAdd' and 'ModulusSubtract' for clarity.
-
-      2) All mathematical compositions work as per the SVG specification
-         with regard to blending.  This now includes 'ModulusAdd' and
-         'ModulusSubtract'.
-
-      3) When the special channel flag 'sync' (syncronize channel updates)
-         is turned off (enabled by default) then mathematical compositions are
-         only performed on the channels specified, and are applied
-         independantally of each other.  In other words the mathematics is
-         performed as 'pure' mathematical operations, rather than as image
-         operations.
-  */
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
@@ -599,37 +578,24 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
   assert(composite_image->signature == MagickSignature);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
+  if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
+      (IsGrayColorspace(composite_image->colorspace) == MagickFalse))
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   if ((compose == OverCompositeOp) || (compose == SrcOverCompositeOp))
     {
-      status=CompositeOverImage(image,composite_image,x_offset,y_offset,
-        exception);
+      status=CompositeOverImage(image,composite_image,clip_to_self,x_offset,
+        y_offset,exception);
       return(status);
     }
   destination_image=(Image *) NULL;
   amount=0.5;
   destination_dissolve=1.0;
-  modify_outside_overlay=MagickFalse;
   percent_brightness=100.0;
   percent_saturation=100.0;
   source_dissolve=1.0;
   threshold=0.05f;
   switch (compose)
   {
-    case ClearCompositeOp:
-    case DstAtopCompositeOp:
-    case DstInCompositeOp:
-    case InCompositeOp:
-    case OutCompositeOp:
-    case SrcCompositeOp:
-    case SrcInCompositeOp:
-    case SrcOutCompositeOp:
-    {
-      /*
-        Modify destination outside the overlaid region.
-      */
-      modify_outside_overlay=MagickTrue;
-      break;
-    }
     case CopyCompositeOp:
     {
       if ((x_offset < 0) || (y_offset < 0))
@@ -639,10 +605,11 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       if ((y_offset+(ssize_t) composite_image->rows) >= (ssize_t) image->rows)
         break;
       status=MagickTrue;
-      image_view=AcquireCacheView(image);
-      composite_view=AcquireCacheView(composite_image);
+      composite_view=AcquireVirtualCacheView(composite_image,exception);
+      image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(status)
+      #pragma omp parallel for schedule(static,4) shared(status) \
+        dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) composite_image->rows; y++)
       {
@@ -674,7 +641,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           register ssize_t
             i;
 
-          if (GetPixelMask(image,p) != 0)
+          if (GetPixelMask(composite_image,p) != 0)
             {
               p+=GetPixelChannels(composite_image);
               q+=GetPixelChannels(image);
@@ -731,7 +698,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       */
       if (image->matte == MagickFalse)
         (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
-      modify_outside_overlay=MagickTrue;
       break;
     }
     case BlurCompositeOp:
@@ -739,6 +705,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       CacheView
         *composite_view,
         *destination_view;
+
+      const char
+        *value;
 
       PixelInfo
         pixel;
@@ -756,6 +725,8 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         blur;
 
       /*
+        Blur Image by resampling.
+
         Blur Image dictated by an overlay gradient map: X = red_channel;
           Y = green_channel; compose:args =  x_scale[,y_scale[,angle]].
       */
@@ -764,28 +735,35 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       if (destination_image == (Image *) NULL)
         return(MagickFalse);
       /*
-        Determine the horizontal and vertical maximim blur.
+        Gather the maximum blur sigma values from user.
       */
       SetGeometryInfo(&geometry_info);
       flags=NoValue;
       value=GetImageArtifact(composite_image,"compose:args");
       if (value != (char *) NULL)
         flags=ParseGeometry(value,&geometry_info);
-      if ((flags & WidthValue) == 0 )
-        {
+      if ((flags & WidthValue) == 0 ) {
+          (void) ThrowMagickException(exception,GetMagickModule(),
+               OptionWarning,"InvalidSetting","'%s' '%s'",
+               "compose:args",value);
           destination_image=DestroyImage(destination_image);
           return(MagickFalse);
         }
-      width=geometry_info.rho;
-      height=geometry_info.sigma;
-      blur.x1=geometry_info.rho;
+      /*
+        Users input sigma now needs to be converted to the EWA ellipse size.
+        The filter defaults to a sigma of 0.5 so to make this match the
+        users input the ellipse size needs to be doubled.
+      */
+      width=height=geometry_info.rho*2.0;
+      if ((flags & HeightValue) != 0 )
+        height=geometry_info.sigma*2.0;
+
+      /* default the unrotated ellipse width and height axis vectors */
+      blur.x1=width;
       blur.x2=0.0;
       blur.y1=0.0;
-      blur.y2=geometry_info.sigma;
-      angle_start=0.0;
-      angle_range=0.0;
-      if ((flags & HeightValue) == 0)
-        blur.y2=blur.x1;
+      blur.y2=height;
+      /* rotate vectors if a rotation angle is given */
       if ((flags & XValue) != 0 )
         {
           MagickRealType
@@ -797,18 +775,32 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           blur.y1=(-height*sin(angle));
           blur.y2=height*cos(angle);
         }
+      /* Otherwise lets set a angle range and calculate in the loop */
+      angle_start=0.0;
+      angle_range=0.0;
       if ((flags & YValue) != 0 )
         {
           angle_start=DegreesToRadians(geometry_info.xi);
           angle_range=DegreesToRadians(geometry_info.psi)-angle_start;
         }
       /*
-        Blur Image by resampling.
+        Set up a gaussian cylindrical filter for EWA Bluring.
+
+        As the minimum ellipse radius of support*1.0 the EWA algorithm
+        can only produce a minimum blur of 0.5 for Gaussian (support=2.0)
+        This means that even 'No Blur' will be still a little blurry!
+
+        The solution (as well as the problem of preventing any user
+        expert filter settings, is to set our own user settings, then
+        restore them afterwards.
       */
       resample_filter=AcquireResampleFilter(image,exception);
-      SetResampleFilter(resample_filter,CubicFilter,2.0);
-      destination_view=AcquireCacheView(destination_image);
-      composite_view=AcquireCacheView(composite_image);
+      SetResampleFilter(resample_filter,GaussianFilter);
+
+      /* do the variable blurring of each pixel in image */
+      GetPixelInfo(image,&pixel);
+      composite_view=AcquireVirtualCacheView(composite_image,exception);
+      destination_view=AcquireAuthenticCacheView(destination_image,exception);
       for (y=0; y < (ssize_t) composite_image->rows; y++)
       {
         MagickBooleanType
@@ -850,13 +842,20 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               blur.y1=(-height*sin(angle));
               blur.y2=height*cos(angle);
             }
-          ScaleResampleFilter(resample_filter,blur.x1*QuantumScale*
-            GetPixelRed(composite_image,p),blur.y1*QuantumScale*
-            GetPixelGreen(composite_image,p),blur.x2*QuantumScale*
-            GetPixelRed(composite_image,p),blur.y2*QuantumScale*
-            GetPixelGreen(composite_image,p));
+#if 0
+          if ( x == 10 && y == 60 ) {
+            fprintf(stderr, "blur.x=%lf,%lf, blur.y=%lf,%lf\n",
+                blur.x1, blur.x2, blur.y1, blur.y2);
+            fprintf(stderr, "scaled by=%lf,%lf\n",
+                QuantumScale*GetPixelRed(p), QuantumScale*GetPixelGreen(p));
+#endif
+          ScaleResampleFilter(resample_filter,
+            blur.x1*QuantumScale*GetPixelRed(composite_image,p),
+            blur.y1*QuantumScale*GetPixelGreen(composite_image,p),
+            blur.x2*QuantumScale*GetPixelRed(composite_image,p),
+            blur.y2*QuantumScale*GetPixelGreen(composite_image,p) );
           (void) ResamplePixelColor(resample_filter,(double) x_offset+x,
-            (double) y_offset+y,&pixel);
+            (double) y_offset+y,&pixel,exception);
           SetPixelInfoPixel(destination_image,&pixel,q);
           p+=GetPixelChannels(composite_image);
           q+=GetPixelChannels(destination_image);
@@ -878,6 +877,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         *composite_view,
         *destination_view,
         *image_view;
+
+      const char
+        *value;
 
       PixelInfo
         pixel;
@@ -977,9 +979,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         displacement/distortion map.  -- Like a lens...
       */
       GetPixelInfo(image,&pixel);
-      image_view=AcquireCacheView(image);
-      destination_view=AcquireCacheView(destination_image);
-      composite_view=AcquireCacheView(composite_image);
+      image_view=AcquireVirtualCacheView(image,exception);
+      composite_view=AcquireVirtualCacheView(composite_image,exception);
+      destination_view=AcquireAuthenticCacheView(destination_image,exception);
       for (y=0; y < (ssize_t) composite_image->rows; y++)
       {
         MagickBooleanType
@@ -1044,6 +1046,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     }
     case DissolveCompositeOp:
     {
+      const char
+        *value;
+
       /*
         Geometry arguments to dissolve factors.
       */
@@ -1064,17 +1069,22 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             destination_dissolve=geometry_info.sigma/100.0;
           if ((destination_dissolve-MagickEpsilon) < 0.0)
             destination_dissolve=0.0;
-          modify_outside_overlay=MagickTrue;
+       /* posible speed up?  -- from IMv6 update
+          clip_to_self=MagickFalse;
           if ((destination_dissolve+MagickEpsilon) > 1.0 )
             {
               destination_dissolve=1.0;
-              modify_outside_overlay=MagickFalse;
+              clip_to_self=MagickTrue;
             }
+        */
         }
       break;
     }
     case BlendCompositeOp:
     {
+      const char
+        *value;
+
       value=GetImageArtifact(composite_image,"compose:args");
       if (value != (char *) NULL)
         {
@@ -1083,14 +1093,14 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           destination_dissolve=1.0-source_dissolve;
           if ((flags & SigmaValue) != 0)
             destination_dissolve=geometry_info.sigma/100.0;
-          modify_outside_overlay=MagickTrue;
-          if ((destination_dissolve+MagickEpsilon) > 1.0)
-            modify_outside_overlay=MagickFalse;
         }
       break;
     }
     case MathematicsCompositeOp:
     {
+      const char
+        *value;
+
       /*
         Just collect the values from "compose:args", setting.
         Unused values are set to zero automagically.
@@ -1107,6 +1117,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     }
     case ModulateCompositeOp:
     {
+      const char
+        *value;
+
       /*
         Determine the brightness and saturation scale.
       */
@@ -1122,6 +1135,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     }
     case ThresholdCompositeOp:
     {
+      const char
+        *value;
+
       /*
         Determine the amount and threshold.
       */
@@ -1140,19 +1156,17 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     default:
       break;
   }
-  value=GetImageArtifact(composite_image,"compose:outside-overlay");
-  if (value != (const char *) NULL)
-    modify_outside_overlay=IsMagickTrue(value);
   /*
     Composite image.
   */
   status=MagickTrue;
   progress=0;
   midpoint=((MagickRealType) QuantumRange+1.0)/2;
-  image_view=AcquireCacheView(image);
-  composite_view=AcquireCacheView(composite_image);
+  composite_view=AcquireVirtualCacheView(composite_image,exception);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1167,6 +1181,10 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       red,
       saturation;
 
+    PixelInfo
+      destination_pixel,
+      source_pixel;
+
     register const Quantum
       *restrict p;
 
@@ -1178,7 +1196,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
 
     if (status == MagickFalse)
       continue;
-    if (modify_outside_overlay == MagickFalse)
+    if (clip_to_self != MagickFalse)
       {
         if (y < y_offset)
           continue;
@@ -1212,6 +1230,8 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     hue=0.0;
     saturation=0.0;
     brightness=0.0;
+    GetPixelInfo(image,&destination_pixel);
+    GetPixelInfo(composite_image,&source_pixel);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       MagickRealType
@@ -1230,7 +1250,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       size_t
         channels;
 
-      if (modify_outside_overlay == MagickFalse)
+      if (clip_to_self != MagickFalse)
         {
           if (x < x_offset)
             {
@@ -1431,6 +1451,21 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           q+=GetPixelChannels(image);
           continue;
         }
+      switch (compose)
+      {
+        case ColorizeCompositeOp:
+        case HueCompositeOp:
+        case LuminizeCompositeOp:
+        case ModulateCompositeOp:
+        case SaturateCompositeOp:
+        {
+          GetPixelInfoPixel(composite_image,p,&source_pixel);
+          GetPixelInfoPixel(image,q,&destination_pixel);
+          break;
+        }
+        default:
+          break;
+      }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
@@ -1542,8 +1577,14 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=QuantumRange*Sa;
                 break;
               }
-              case CopyCompositeOp:
               case CopyAlphaCompositeOp:
+              {
+                pixel=QuantumRange*Sa;
+                if (composite_image->matte == MagickFalse)
+                  pixel=GetPixelIntensity(composite_image,p);
+                break;
+              }
+              case CopyCompositeOp:
               case DisplaceCompositeOp:
               case DistortCompositeOp:
               case DstAtopCompositeOp:
@@ -1608,7 +1649,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           default:
             break;
         }
-        gamma=1.0/(fabs(alpha) <= MagickEpsilon ? 1.0 : alpha);
+        gamma=MagickEpsilonReciprocal(alpha);
         pixel=Dc;
         switch (compose)
         {
@@ -1705,10 +1746,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=Sc;
                 break;
               }
-            CompositeHSB(GetPixelRed(image,q),GetPixelGreen(image,q),
-              GetPixelBlue(image,q),&sans,&sans,&brightness);
-            CompositeHSB(GetPixelRed(composite_image,p),
-              GetPixelGreen(composite_image,p),GetPixelBlue(composite_image,p),
+            CompositeHSB(destination_pixel.red,destination_pixel.green,
+              destination_pixel.blue,&sans,&sans,&brightness);
+            CompositeHSB(source_pixel.red,source_pixel.green,source_pixel.blue,
               &hue,&saturation,&sans);
             HSBComposite(hue,saturation,brightness,&red,&green,&blue);
             switch (channel)
@@ -1723,8 +1763,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           case CopyAlphaCompositeOp:
           case IntensityCompositeOp:
           {
-            if (channel == AlphaPixelChannel)
-              pixel=(MagickRealType) GetPixelAlpha(composite_image,p);
+            pixel=Dc;
             break;
           }
           case CopyBlackCompositeOp:
@@ -1872,10 +1911,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=Sc;
                 break;
               }
-            CompositeHSB(GetPixelRed(image,q),GetPixelGreen(image,q),
-              GetPixelBlue(image,q),&hue,&saturation,&brightness);
-            CompositeHSB(GetPixelRed(composite_image,p),
-              GetPixelGreen(composite_image,p),GetPixelBlue(composite_image,p),
+            CompositeHSB(destination_pixel.red,destination_pixel.green,
+              destination_pixel.blue,&hue,&saturation,&brightness);
+            CompositeHSB(source_pixel.red,source_pixel.green,source_pixel.blue,
               &hue,&sans,&sans);
             HSBComposite(hue,saturation,brightness,&red,&green,&blue);
             switch (channel)
@@ -1924,10 +1962,10 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           {
             if (Sc > Dc)
               {
-                pixel=QuantumRange*gamma*(Sa*Sc-Sa*Da*Dc+Da*Dc);
+                pixel=gamma*(Sa*Sc-Sa*Da*Dc+Da*Dc);
                 break;
               }
-            pixel=QuantumRange*gamma*(Da*Dc-Da*Sa*Sc+Sa*Sc);
+            pixel=gamma*(Da*Dc-Da*Sa*Sc+Sa*Sc);
             break;
           }
           case LightenIntensityCompositeOp:
@@ -1953,10 +1991,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=Sc;
                 break;
               }
-            CompositeHSB(GetPixelRed(image,q),GetPixelGreen(image,q),
-              GetPixelBlue(image,q),&hue,&saturation,&brightness);
-            CompositeHSB(GetPixelRed(composite_image,p),
-              GetPixelGreen(composite_image,p),GetPixelBlue(composite_image,p),
+            CompositeHSB(destination_pixel.red,destination_pixel.green,
+              destination_pixel.blue,&hue,&saturation,&brightness);
+            CompositeHSB(source_pixel.red,source_pixel.green,source_pixel.blue,
               &sans,&sans,&brightness);
             HSBComposite(hue,saturation,brightness,&red,&green,&blue);
             switch (channel)
@@ -2025,8 +2062,8 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=Dc;
                 break;
               }
-            CompositeHSB(GetPixelRed(image,q),GetPixelGreen(image,q),
-              GetPixelBlue(image,q),&hue,&saturation,&brightness);
+            CompositeHSB(destination_pixel.red,destination_pixel.green,
+              destination_pixel.blue,&hue,&saturation,&brightness);
             brightness+=(0.01*percent_brightness*offset)/midpoint;
             saturation*=0.01*percent_saturation;
             HSBComposite(hue,saturation,brightness,&red,&green,&blue);
@@ -2126,7 +2163,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           }
           case PlusCompositeOp:
           {
-            pixel=QuantumRange*gamma*(Sa*Sc+Da*Dc);
+            pixel=gamma*(Sa*Sc+Da*Dc);
             break;
           }
           case SaturateCompositeOp:
@@ -2141,10 +2178,9 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                 pixel=Sc;
                 break;
               }
-            CompositeHSB(GetPixelRed(image,q),GetPixelGreen(image,q),
-              GetPixelBlue(image,q),&hue,&saturation,&brightness);
-            CompositeHSB(GetPixelRed(composite_image,p),
-              GetPixelGreen(composite_image,p),GetPixelBlue(composite_image,p),
+            CompositeHSB(destination_pixel.red,destination_pixel.green,
+              destination_pixel.blue,&hue,&saturation,&brightness);
+            CompositeHSB(source_pixel.red,source_pixel.green,source_pixel.blue,
               &sans,&saturation,&sans);
             HSBComposite(hue,saturation,brightness,&red,&green,&blue);
             switch (channel)
@@ -2322,6 +2358,8 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
   texture_image=CloneImage(texture,0,0,MagickTrue,exception);
   if (texture_image == (const Image *) NULL)
     return(MagickFalse);
+  if (IsGrayColorspace(texture_image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(texture_image,sRGBColorspace,exception);
   (void) SetImageVirtualPixelMethod(texture_image,TileVirtualPixelMethod,
     exception);
   status=MagickTrue;
@@ -2333,7 +2371,8 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
         Tile texture onto the image background.
       */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(status)
+      #pragma omp parallel for schedule(static) shared(status) \
+        dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) texture_image->rows)
       {
@@ -2347,9 +2386,9 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
           MagickBooleanType
             thread_status;
 
-          thread_status=CompositeImage(image,image->compose,texture_image,x+
-            texture_image->tile_offset.x,y+texture_image->tile_offset.y,
-            exception);
+          thread_status=CompositeImage(image,texture_image,image->compose,
+            MagickFalse,x+texture_image->tile_offset.x,y+
+            texture_image->tile_offset.y,exception);
           if (thread_status == MagickFalse)
             {
               status=thread_status;
@@ -2379,10 +2418,11 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
     Tile texture onto the image background (optimized).
   */
   status=MagickTrue;
-  image_view=AcquireCacheView(image);
-  texture_view=AcquireCacheView(texture_image);
+  texture_view=AcquireVirtualCacheView(texture_image,exception);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status)
+  #pragma omp parallel for schedule(static) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

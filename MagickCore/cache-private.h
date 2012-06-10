@@ -23,18 +23,10 @@ extern "C" {
 #endif
 
 #include <time.h>
+#include "MagickCore/cache.h"
 #include "MagickCore/random_.h"
 #include "MagickCore/thread-private.h"
 #include "MagickCore/semaphore.h"
-
-typedef enum
-{
-  UndefinedCache,
-  MemoryCache,
-  MapCache,
-  DiskCache,
-  PingCache
-} CacheType;
 
 typedef void
   *Cache;
@@ -205,9 +197,6 @@ extern MagickPrivate Cache
   DestroyPixelCache(Cache),
   ReferencePixelCache(Cache);
 
-extern MagickPrivate CacheType
-  GetPixelCacheType(const Image *);
-
 extern MagickPrivate ClassType
   GetPixelCacheStorageClass(const Cache);
 
@@ -226,7 +215,8 @@ extern MagickPrivate const void
 
 extern MagickPrivate MagickBooleanType
   CacheComponentGenesis(void),
-  SyncAuthenticPixelCacheNexus(Image *,NexusInfo *,ExceptionInfo *) magick_hot_spot,
+  SyncAuthenticPixelCacheNexus(Image *,NexusInfo *,ExceptionInfo *)
+    magick_hot_spot,
   SyncImagePixelCache(Image *,ExceptionInfo *);
 
 extern MagickPrivate MagickSizeType

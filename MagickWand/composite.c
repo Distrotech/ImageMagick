@@ -193,8 +193,8 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
               columns=composite_image->columns;
               for (y=0; y < (ssize_t) (*image)->rows; y+=(ssize_t) composite_image->rows)
                 for (x=0; x < (ssize_t) (*image)->columns; x+=(ssize_t) columns)
-                  status&=CompositeImage(*image,composite_options->compose,
-                    composite_image,x,y,exception);
+                  status&=CompositeImage(*image,composite_image,
+                    composite_options->compose,MagickTrue,x,y,exception);
             }
           else
             {
@@ -215,8 +215,9 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
               /*
                 Digitally composite image.
               */
-              status&=CompositeImage(*image,composite_options->compose,
-                composite_image,geometry.x,geometry.y,exception);
+              status&=CompositeImage(*image,composite_image,
+                composite_options->compose,MagickTrue,geometry.x,geometry.y,
+                exception);
             }
     }
   (void) SetPixelChannelMapMask(composite_image,channel_mask);
@@ -355,7 +356,7 @@ static MagickBooleanType CompositeUsage(void)
   for (p=miscellaneous; *p != (char *) NULL; p++)
     (void) printf("  %s\n",*p);
   (void) printf(
-    "\nBy default, the image format of `file' is determined by its magic\n");
+    "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
     "number.  To specify a particular image format, precede the filename\n");
   (void) printf(
@@ -394,7 +395,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
 }
 #define ThrowCompositeException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
      option == (char *) NULL ? GetExceptionMessage(errno) : option); \
   DestroyComposite(); \
   return(MagickFalse); \
@@ -402,7 +403,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
 #define ThrowCompositeInvalidArgumentException(option,argument) \
 { \
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError, \
-    "InvalidArgument","`%s': %s",option,argument); \
+    "InvalidArgument","'%s': %s",option,argument); \
   DestroyComposite(); \
   return(MagickFalse); \
 }
@@ -1637,8 +1638,8 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
           /*
             Merge Y displacement into X displacement image.
           */
-          (void) CompositeImage(composite_image,CopyGreenCompositeOp,mask_image,
-            0,0,exception);
+          (void) CompositeImage(composite_image,mask_image,CopyGreenCompositeOp,
+            MagickTrue,0,0,exception);
           mask_image=DestroyImage(mask_image);
         }
       else

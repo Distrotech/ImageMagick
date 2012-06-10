@@ -72,9 +72,6 @@ struct _PixelIterator
   ExceptionInfo
     *exception;
 
-  Image
-    *image;
-
   CacheView
     *view;
 
@@ -112,7 +109,7 @@ struct _PixelIterator
 %
 %  The format of the ClearPixelIterator method is:
 %
-%      PixelIterator *ClearPixelIterator(PixelIterator *iterator)
+%      void ClearPixelIterator(PixelIterator *iterator)
 %
 %  A description of each parameter follows:
 %
@@ -176,8 +173,6 @@ WandExport PixelIterator *ClonePixelIterator(const PixelIterator *iterator)
     PixelIteratorId,(double) clone_iterator->id);
   clone_iterator->exception=AcquireExceptionInfo();
   InheritException(clone_iterator->exception,iterator->exception);
-  clone_iterator->image=CloneImage(iterator->image,0,0,MagickTrue,
-    iterator->exception);
   clone_iterator->view=CloneCacheView(iterator->view);
   clone_iterator->region=iterator->region;
   clone_iterator->active=iterator->active;
@@ -220,7 +215,6 @@ WandExport PixelIterator *DestroyPixelIterator(PixelIterator *iterator)
   assert(iterator->signature == WandSignature);
   if (iterator->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",iterator->name);
-  iterator->image=DestroyImage(iterator->image);
   iterator->view=DestroyCacheView(iterator->view);
   iterator->pixel_wands=DestroyPixelWands(iterator->pixel_wands,
     iterator->region.width);
@@ -296,6 +290,9 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
   const char
     *quantum;
 
+  ExceptionInfo
+    *exception;
+
   Image
     *image;
 
@@ -316,7 +313,8 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
   image=GetImageFromMagickWand(wand);
   if (image == (Image *) NULL)
     return((PixelIterator *) NULL);
-  view=AcquireCacheView(image);
+  exception=AcquireExceptionInfo();
+  view=AcquireVirtualCacheView(image,exception);
   if (view == (CacheView *) NULL)
     return((PixelIterator *) NULL);
   iterator=(PixelIterator *) AcquireMagickMemory(sizeof(*iterator));
@@ -327,8 +325,7 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MaxTextExtent,"%s-%.20g",
     PixelIteratorId,(double) iterator->id);
-  iterator->exception=AcquireExceptionInfo();
-  iterator->image=CloneImage(image,0,0,MagickTrue,iterator->exception);
+  iterator->exception=exception;
   iterator->view=view;
   SetGeometry(image,&iterator->region);
   iterator->region.width=image->columns;
@@ -360,11 +357,11 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
 %
 %  The format of the PixelClearIteratorException method is:
 %
-%      MagickBooleanType PixelClearIteratorException(PixelIterator *wand)
+%      MagickBooleanType PixelClearIteratorException(PixelIterator *iterator)
 %
 %  A description of each parameter follows:
 %
-%    o wand: the pixel wand.
+%    o iterator: the pixel iterator.
 %
 */
 WandExport MagickBooleanType PixelClearIteratorException(
@@ -393,7 +390,7 @@ WandExport MagickBooleanType PixelClearIteratorException(
 %
 %  The format of the NewPixelRegionIterator method is:
 %
-%      PixelIterator NewPixelRegionIterator(MagickWand *wand,const ssize_t x,
+%      PixelIterator *NewPixelRegionIterator(MagickWand *wand,const ssize_t x,
 %        const ssize_t y,const size_t width,const size_t height)
 %
 %  A description of each parameter follows:
@@ -412,6 +409,9 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
 
   const char
     *quantum;
+
+  ExceptionInfo
+    *exception;
 
   Image
     *image;
@@ -432,7 +432,8 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
   image=GetImageFromMagickWand(wand);
   if (image == (Image *) NULL)
     return((PixelIterator *) NULL);
-  view=AcquireCacheView(image);
+  exception=AcquireExceptionInfo();
+  view=AcquireVirtualCacheView(image,exception);
   if (view == (CacheView *) NULL)
     return((PixelIterator *) NULL);
   iterator=(PixelIterator *) AcquireMagickMemory(sizeof(*iterator));
@@ -443,7 +444,7 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MaxTextExtent,"%s-%.20g",
     PixelIteratorId,(double) iterator->id);
-  iterator->exception=AcquireExceptionInfo();
+  iterator->exception=exception;
   iterator->view=view;
   SetGeometry(image,&iterator->region);
   iterator->region.width=width;
@@ -507,8 +508,9 @@ WandExport PixelWand **PixelGetCurrentIteratorRow(PixelIterator *iterator,
     return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
-    PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
-    pixels+=GetPixelChannels(iterator->image);
+    PixelSetQuantumPixel(GetCacheViewImage(iterator->view),pixels,
+      iterator->pixel_wands[x]);
+    pixels+=GetPixelChannels(GetCacheViewImage(iterator->view));
   }
   *number_wands=iterator->region.width;
   return(iterator->pixel_wands);
@@ -530,7 +532,7 @@ WandExport PixelWand **PixelGetCurrentIteratorRow(PixelIterator *iterator,
 %
 %  The format of the PixelGetIteratorException method is:
 %
-%      char *PixelGetIteratorException(const Pixeliterator *iterator,
+%      char *PixelGetIteratorException(const PixelIterator *iterator,
 %        ExceptionType *severity)
 %
 %  A description of each parameter follows:
@@ -583,26 +585,27 @@ WandExport char *PixelGetIteratorException(const PixelIterator *iterator,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  PixelGetIteratorExceptionType() the exception type associated with the wand.
-%  If no exception has occurred, UndefinedExceptionType is returned.
+%  PixelGetIteratorExceptionType() the exception type associated with the
+%  iterator.  If no exception has occurred, UndefinedExceptionType is returned.
 %
 %  The format of the PixelGetIteratorExceptionType method is:
 %
-%      ExceptionType PixelGetIteratorExceptionType(const PixelWand *wand)
+%      ExceptionType PixelGetIteratorExceptionType(
+%        const PixelIterator *iterator)
 %
 %  A description of each parameter follows:
 %
-%    o wand: the magick wand.
+%    o iterator: the pixel iterator.
 %
 */
 WandExport ExceptionType PixelGetIteratorExceptionType(
-  const PixelIterator *wand)
+  const PixelIterator *iterator)
 {
-  assert(wand != (const PixelIterator *) NULL);
-  assert(wand->signature == WandSignature);
-  if (wand->debug != MagickFalse)
-    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  return(wand->exception->severity);
+  assert(iterator != (const PixelIterator *) NULL);
+  assert(iterator->signature == WandSignature);
+  if (iterator->debug != MagickFalse)
+    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",iterator->name);
+  return(iterator->exception->severity);
 }
 
 /*
@@ -687,8 +690,9 @@ WandExport PixelWand **PixelGetNextIteratorRow(PixelIterator *iterator,
     return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
-    PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
-    pixels+=GetPixelChannels(iterator->image);
+    PixelSetQuantumPixel(GetCacheViewImage(iterator->view),pixels,
+      iterator->pixel_wands[x]);
+    pixels+=GetPixelChannels(GetCacheViewImage(iterator->view));
   }
   *number_wands=iterator->region.width;
   return(iterator->pixel_wands);
@@ -745,8 +749,9 @@ WandExport PixelWand **PixelGetPreviousIteratorRow(PixelIterator *iterator,
     return((PixelWand **) NULL);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
-    PixelSetQuantumPixel(iterator->image,pixels,iterator->pixel_wands[x]);
-    pixels+=GetPixelChannels(iterator->image);
+    PixelSetQuantumPixel(GetCacheViewImage(iterator->view),pixels,
+      iterator->pixel_wands[x]);
+    pixels+=GetPixelChannels(GetCacheViewImage(iterator->view));
   }
   *number_wands=iterator->region.width;
   return(iterator->pixel_wands);
@@ -935,8 +940,9 @@ WandExport MagickBooleanType PixelSyncIterator(PixelIterator *iterator)
     return(MagickFalse);
   for (x=0; x < (ssize_t) iterator->region.width; x++)
   {
-    PixelGetQuantumPixel(iterator->image,iterator->pixel_wands[x],pixels);
-    pixels+=GetPixelChannels(iterator->image);
+    PixelGetQuantumPixel(GetCacheViewImage(iterator->view),
+      iterator->pixel_wands[x],pixels);
+    pixels+=GetPixelChannels(GetCacheViewImage(iterator->view));
   }
   if (SyncCacheViewAuthenticPixels(iterator->view,iterator->exception) == MagickFalse)
     return(MagickFalse);

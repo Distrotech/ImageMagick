@@ -681,7 +681,7 @@ static Image *ReadPCDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         }
         image->colorspace=YCCColorspace;
         if (LocaleCompare(image_info->magick,"PCDS") == 0)
-          image->colorspace=sRGBColorspace;
+          SetImageColorspace(image,sRGBColorspace,exception);
         if (j < (ssize_t) number_images)
           {
             /*
@@ -835,7 +835,7 @@ static Image *ReadPCDImage(const ImageInfo *image_info,ExceptionInfo *exception)
   image->gamma=1.000f/2.200f;
   image->colorspace=YCCColorspace;
   if (LocaleCompare(image_info->magick,"PCDS") == 0)
-    image->colorspace=sRGBColorspace;
+    SetImageColorspace(image,sRGBColorspace,exception);
   return(GetFirstImageInList(image));
 }
 
@@ -981,7 +981,7 @@ static MagickBooleanType WritePCDTile(Image *image,const char *page_geometry,
   if ((geometry.height % 2) != 0)
     geometry.height--;
   tile_image=ResizeImage(image,geometry.width,geometry.height,TriangleFilter,
-    1.0,exception);
+    exception);
   if (tile_image == (Image *) NULL)
     return(MagickFalse);
   flags=ParseGeometry(page_geometry,&geometry_info);
@@ -1011,10 +1011,10 @@ static MagickBooleanType WritePCDTile(Image *image,const char *page_geometry,
       tile_image=bordered_image;
     }
   (void) TransformImage(&tile_image,(char *) NULL,tile_geometry,exception);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(tile_image,YCCColorspace,exception);
   downsample_image=ResizeImage(tile_image,tile_image->columns/2,
-    tile_image->rows/2,TriangleFilter,1.0,exception);
+    tile_image->rows/2,TriangleFilter,exception);
   if (downsample_image == (Image *) NULL)
     return(MagickFalse);
   /*
@@ -1099,8 +1099,8 @@ static MagickBooleanType WritePCDImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,pcd_image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
-    (void) TransformImageColorspace(pcd_image,RGBColorspace,exception);
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    (void) TransformImageColorspace(pcd_image,sRGBColorspace,exception);
   /*
     Write PCD image header.
   */

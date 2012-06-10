@@ -416,13 +416,13 @@ static Image *ReadFITSImage(const ImageInfo *image_info,
       fits_info.bits_per_pixel;
     image->endian=fits_info.endian;
     image->scene=(size_t) scene;
-    image->colorspace=GRAYColorspace;
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
     /*
       Initialize image structure.
     */
+    SetImageColorspace(image,GRAYColorspace,exception);
     if ((fits_info.min_data != 0.0) || (fits_info.max_data != 0.0))
       {
         if ((fits_info.bits_per_pixel != 0) && (fits_info.max_data == 0.0))
@@ -636,7 +636,7 @@ static MagickBooleanType WriteFITSImage(const ImageInfo *image_info,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Allocate image memory.

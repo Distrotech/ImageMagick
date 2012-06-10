@@ -213,7 +213,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   transparent=MagickFalse;
   i=0;
@@ -304,7 +304,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
       Define UIL color.
     */
     pixel=image->colormap[i];
-    pixel.colorspace=RGBColorspace;
+    pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
     pixel.alpha=(MagickRealType) OpaqueAlpha;
     GetColorTuple(&pixel,MagickTrue,name);

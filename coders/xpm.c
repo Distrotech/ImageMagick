@@ -631,12 +631,12 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   SetGeometry(image,&geometry);
   (void) ParseMetaGeometry(PiconGeometry,&geometry.x,&geometry.y,
     &geometry.width,&geometry.height);
-  picon=ResizeImage(image,geometry.width,geometry.height,TriangleFilter,1.0,
+  picon=ResizeImage(image,geometry.width,geometry.height,TriangleFilter,
     exception);
   blob_info=CloneImageInfo(image_info);
   (void) AcquireUniqueFilename(blob_info->filename);
@@ -738,7 +738,7 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
       Define XPM color.
     */
     pixel=picon->colormap[i];
-    pixel.colorspace=RGBColorspace;
+    pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
     pixel.alpha=(MagickRealType) OpaqueAlpha;
     (void) QueryColorname(image,&pixel,XPMCompliance,name,exception);
@@ -878,7 +878,7 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   opacity=(-1);
   if (image->matte == MagickFalse)
@@ -974,7 +974,7 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
       Define XPM color.
     */
     pixel=image->colormap[i];
-    pixel.colorspace=RGBColorspace;
+    pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
     pixel.alpha=(MagickRealType) OpaqueAlpha;
     (void) QueryColorname(image,&pixel,XPMCompliance,name,exception);

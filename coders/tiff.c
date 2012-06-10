@@ -79,6 +79,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/thread_.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #if defined(MAGICKCORE_TIFF_DELEGATE)
 # if defined(MAGICKCORE_HAVE_TIFFCONF_H)
@@ -648,7 +649,7 @@ static void TIFFGetEXIFProperties(TIFF *tiff,Image *image,
         ascii=(char *) NULL;
         if ((TIFFGetField(tiff,exif_info[i].tag,&ascii,&sans,&sans) != 0) &&
             (ascii != (char *) NULL) && (*ascii != '\0'))
-          (void) CopyMagickMemory(value,ascii,MaxTextExtent);
+          (void) CopyMagickString(value,ascii,MaxTextExtent);
         break;
       }
       case TIFF_SHORT:
@@ -1011,11 +1012,11 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
       image->endian=LSBEndian;
     if ((photometric == PHOTOMETRIC_MINISBLACK) ||
         (photometric == PHOTOMETRIC_MINISWHITE))
-      image->colorspace=GRAYColorspace;
+      SetImageColorspace(image,GRAYColorspace,exception);
     if (photometric == PHOTOMETRIC_SEPARATED)
-      image->colorspace=CMYKColorspace;
+      SetImageColorspace(image,CMYKColorspace,exception);
     if (photometric == PHOTOMETRIC_CIELAB)
-      image->colorspace=LabColorspace;
+      SetImageColorspace(image,LabColorspace,exception);
     (void) TIFFGetFieldDefaulted(tiff,TIFFTAG_SAMPLESPERPIXEL,
       &samples_per_pixel);
     (void) TIFFGetFieldDefaulted(tiff,TIFFTAG_RESOLUTIONUNIT,&units);
@@ -1105,8 +1106,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
     TIFFGetProfiles(tiff,image,exception);
     TIFFGetProperties(tiff,image,exception);
     option=GetImageOption(image_info,"tiff:exif-properties");
-    if ((option == (const char *) NULL) ||
-        (IsMagickTrue(option) != MagickFalse))
+    if (IfMagickTrue(IsStringNotFalse(option))) /* enabled by default */
       TIFFGetEXIFProperties(tiff,image,exception);
     /*
       Allocate memory for the image and pixel buffer.
@@ -2167,8 +2167,7 @@ static MagickBooleanType WritePTIFImage(const ImageInfo *image_info,
       rows/=2;
       resolution.x/=2;
       resolution.y/=2;
-      pyramid_image=ResizeImage(next,columns,rows,image->filter,image->blur,
-        exception);
+      pyramid_image=ResizeImage(next,columns,rows,image->filter,exception);
       if (pyramid_image == (Image *) NULL)
         break;
       pyramid_image->resolution=resolution;
@@ -2804,11 +2803,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
               (void) SetImageDepth(image,8,exception);
             }
           else
-            {
-              if (IsRGBColorspace(image->colorspace) == MagickFalse)
-                (void) TransformImageColorspace(image,sRGBColorspace,exception);
-              photometric=PHOTOMETRIC_RGB;
-            }
+            photometric=PHOTOMETRIC_RGB;
         (void) TIFFSetField(tiff,TIFFTAG_SAMPLESPERPIXEL,3);
         if ((image_info->type != TrueColorType) &&
             (image_info->type != TrueColorMatteType))
@@ -2850,6 +2845,9 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
                 }
           }
       }
+    if ((photometric == PHOTOMETRIC_RGB) &&
+        (IssRGBColorspace(image->colorspace) == MagickFalse))
+      (void) TransformImageColorspace(image,sRGBColorspace,exception);
     switch (image->endian)
     {
       case LSBEndian:
@@ -2973,7 +2971,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
         if (image_info->quality != UndefinedCompressionQuality)
           (void) TIFFSetField(tiff,TIFFTAG_JPEGQUALITY,image_info->quality);
         (void) TIFFSetField(tiff,TIFFTAG_JPEGCOLORMODE,JPEGCOLORMODE_RAW);
-        if (IsRGBColorspace(image->colorspace) == MagickTrue)
+        if (IssRGBColorspace(image->colorspace) == MagickTrue)
           {
             const char
               *value;

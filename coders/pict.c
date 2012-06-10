@@ -1241,8 +1241,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
             if (jpeg == MagickFalse)
               if ((code == 0x9a) || (code == 0x9b) ||
                   ((bytes_per_line & 0x8000) != 0))
-                (void) CompositeImage(image,CopyCompositeOp,tile_image,
-                  destination.left,destination.top,exception);
+                (void) CompositeImage(image,tile_image,CopyCompositeOp,
+                  MagickTrue,destination.left,destination.top,exception);
             tile_image=DestroyImage(tile_image);
             break;
           }
@@ -1385,11 +1385,11 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
         (void) SetImageExtent(image,
           MagickMax(image->columns,tile_image->columns),
           MagickMax(image->rows,tile_image->rows),exception);
-        if (IsRGBColorspace(image->colorspace) == MagickFalse)
+        if (IssRGBColorspace(image->colorspace) == MagickFalse)
           (void) TransformImageColorspace(image,tile_image->colorspace,
             exception);
-        (void) CompositeImage(image,CopyCompositeOp,tile_image,frame.left,
-          frame.right,exception);
+        (void) CompositeImage(image,tile_image,CopyCompositeOp,MagickTrue,
+          frame.left,frame.right,exception);
         image->compression=tile_image->compression;
         tile_image=DestroyImage(tile_image);
         continue;
@@ -1603,7 +1603,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Initialize image info.

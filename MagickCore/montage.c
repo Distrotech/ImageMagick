@@ -496,9 +496,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
       */
       flags=GetGeometry(montage_info->geometry,&extract_info.x,&extract_info.y,
         &extract_info.width,&extract_info.height);
-      if ((extract_info.x == 0) && (extract_info.y == 0))
-        concatenate=((flags & RhoValue) == 0) && ((flags & SigmaValue) == 0) ?
-          MagickTrue : MagickFalse;
+      concatenate=((flags & RhoValue) == 0) && ((flags & SigmaValue) == 0) ?
+        MagickTrue : MagickFalse;
     }
   border_width=montage_info->border_width;
   bevel_width=0;
@@ -820,17 +819,17 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
               */
               (void) QueryColorCompliance("#0000",AllCompliance,
                 &image->background_color,exception);
-              shadow_image=ShadowImage(image,80.0,2.0,0.0,5,5,exception);
+              shadow_image=ShadowImage(image,80.0,2.0,5,5,exception);
               if (shadow_image != (Image *) NULL)
                 {
-                  (void) CompositeImage(shadow_image,OverCompositeOp,image,0,0,
-                    exception);
+                  (void) CompositeImage(shadow_image,image,OverCompositeOp,
+                    MagickTrue,0,0,exception);
                   image=DestroyImage(image);
                   image=shadow_image;
                 }
           }
-          (void) CompositeImage(montage,image->compose,image,x_offset+x,
-            y_offset+y,exception);
+          (void) CompositeImage(montage,image,image->compose,MagickTrue,
+            x_offset+x,y_offset+y,exception);
           value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
             {

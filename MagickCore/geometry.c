@@ -115,7 +115,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
         (void) CopyMagickString(p,p+1,MaxTextExtent);
         continue;
       }
-    c=(int) ((unsigned int) *p);
+    c=(int)*p;
     switch (c)
     {
       case '%':
@@ -210,7 +210,6 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
       if (p != q)
         flags|=WidthValue;
     }
-  c=(*p);
   c=(int) ((unsigned char) *p);
   if ((c == 215) || (*p == 'x') || (*p == 'X'))
     {
@@ -443,7 +442,6 @@ MagickExport void GravityAdjustGeometry(const size_t width,
     case NorthGravity:
     case SouthGravity:
     case CenterGravity:
-    case StaticGravity:
     {
       region->x+=(ssize_t) (width/2-region->width/2);
       break;
@@ -467,7 +465,6 @@ MagickExport void GravityAdjustGeometry(const size_t width,
     case EastGravity:
     case WestGravity:
     case CenterGravity:
-    case StaticGravity:
     {
       region->y+=(ssize_t) (height/2-region->height/2);
       break;
@@ -516,8 +513,6 @@ MagickExport MagickBooleanType IsGeometry(const char *geometry)
   if (geometry == (const char *) NULL)
     return(MagickFalse);
   flags=ParseGeometry(geometry,&geometry_info);
-  if (flags == NoValue)
-    flags=ParseGeometry(geometry+1,&geometry_info);  /* i.e. +-4+-4 */
   return(flags != NoValue ? MagickTrue : MagickFalse);
 }
 
@@ -913,7 +908,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       /*
         Parse xi value.
       */
-      if ((*p == ',') || (*p == '/') || (*p == ':'))
+      if ((*p == '+') || (*p == ',') || (*p == '/') || (*p == ':') )
         p++;
       q=p;
       value=StringToDouble(p,&p);
@@ -932,7 +927,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
           /*
             Parse psi value.
           */
-          if ((*p == ',') || (*p == '/') || (*p == ':'))
+          if ((*p == '+') || (*p == ',') || (*p == '/') || (*p == ':'))
             p++;
           q=p;
           value=StringToDouble(p,&p);
@@ -952,7 +947,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
           /*
             Parse chi value.
           */
-          if ((*p == ',') || (*p == '/') || (*p == ':'))
+          if ((*p == '+') || (*p == ',') || (*p == '/') || (*p == ':'))
             p++;
           q=p;
           value=StringToDouble(p,&p);
@@ -1045,7 +1040,7 @@ MagickExport MagickStatusType ParseGravityGeometry(const Image *image,
   if (flags == NoValue)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "InvalidGeometry","`%s'",geometry);
+        "InvalidGeometry","'%s'",geometry);
       return(flags);
     }
   if ((flags & PercentValue) != 0)
@@ -1336,7 +1331,7 @@ MagickExport MagickStatusType ParsePageGeometry(const Image *image,
   if (flags == NoValue)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "InvalidGeometry","`%s'",geometry);
+        "InvalidGeometry","'%s'",geometry);
       return(flags);
     }
   if ((flags & PercentValue) != 0)
@@ -1393,7 +1388,7 @@ MagickExport MagickStatusType ParseRegionGeometry(const Image *image,
     &region_info->width,&region_info->height);
   if (flags == NoValue)
     (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-      "InvalidGeometry","`%s'",geometry);
+      "InvalidGeometry","'%s'",geometry);
   return(flags);
 }
 

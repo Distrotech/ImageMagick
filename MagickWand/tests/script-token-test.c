@@ -57,6 +57,7 @@
 #include <assert.h>
 #include <errno.h>
 
+/* Defines to replace MagickWand / MagickCore defintions */
 #define MaxTextExtent     4096
 #define MagickFalse       0
 #define MagickTrue        1
@@ -70,12 +71,13 @@
 #define LocaleCompare(p,q)        strcasecmp(p,q)
 #define LocaleNCompare(p,q,l)     strncasecmp(p,q,l)
 #define WandSignature             0xabacadabUL
+#define fopen_utf8(p,q)           fopen(p,q)
 #define WandExport
 
 /* Include the actual code for ScriptToken functions */
 #define SCRIPT_TOKEN_TESTING  1 /* Prevent MagickWand Includes */
-#include "script-token.h"
-#include "script-token.c"
+#include "../script-token.h"
+#include "../script-token.c"
 
 /* Test program to report what tokens it finds in given input file/stream */
 

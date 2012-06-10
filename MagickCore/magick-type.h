@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 #if (MAGICKCORE_QUANTUM_DEPTH == 8)
-#define MagickEpsilon  1.0e-6
+#define MagickEpsilon  ((MagickRealType) 1.0e-7)
 #define MaxColormapSize  256UL
 #define MaxMap  255UL
 
@@ -56,7 +56,7 @@ typedef unsigned char Quantum;
 #define QuantumFormat  "%u"
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 16)
-#define MagickEpsilon  1.0e-10
+#define MagickEpsilon  ((MagickRealType) 1.0e-16)
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
@@ -75,7 +75,7 @@ typedef unsigned short Quantum;
 #define QuantumFormat  "%u"
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 32)
-#define MagickEpsilon  1.0e-10
+#define MagickEpsilon  ((MagickRealType) 1.0e-16)
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
@@ -90,7 +90,7 @@ typedef unsigned int Quantum;
 #define QuantumFormat  "%u"
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 64) && defined(MAGICKCORE_HAVE_LONG_DOUBLE_WIDER)
-#define MagickEpsilon  1.0e-10
+#define MagickEpsilon  ((MagickRealType) 1.0e-16)
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
@@ -103,7 +103,7 @@ typedef double Quantum;
 # error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
 #endif
-#define MagickHuge  3.402823466E+38F
+#define MagickHuge  ((MagickRealType) 1.0/MagickEpsilon)
 #define MagickPI  3.14159265358979323846264338327950288419716939937510L
 #define QuantumScale  ((double) 1.0/(double) QuantumRange)
 
@@ -158,6 +158,42 @@ typedef enum
   MagickFalse = 0,
   MagickTrue = 1
 } MagickBooleanType;
+
+/*
+   Define some short-hand macros for handling MagickBooleanType
+   and uses fast C typing with C boolean operations
+
+     Is  -- returns a MagickBooleanType (for storage)
+     If  -- returns C integer boolean (for if's and while's)
+
+   IfMagickTrue()     converts MagickBooleanType to C integer Boolean
+   IfMagickFalse()    Not the MagickBooleanType to C integer Boolean
+
+   IsMagickTrue()     converts a C integer boolean to a MagickBooleanType
+   IsMagickFalse()    converts and is also a MagickBooleanType 'not' operation
+
+   IsMagickNULL()
+   IsMagickNotNULL()  converts C pointers tests MagickBooleanType
+*/
+#if 1
+/* Fast C typing method assumes MagickBooleanType uses match 0,1 values */
+#  define IfMagickTrue(v)  ((int)(v))
+#  define IfMagickFalse(v) (!(int)(v))
+#  define IsMagickTrue(v)  ((MagickBooleanType)((int)(v)!=0))
+#  define IsMagickFalse(v) ((MagickBooleanType)(!(int)(v)))
+#  define IsMagickNot(v)   ((MagickBooleanType)(!(int)(v)))
+#else
+/* Do not depend MagickBooleanValues */
+#  define IfMagickTrue(v)  ((v) != MagickFalse)
+#  define IfMagickFalse(v) ((v) == MagickFalse)
+#  define IsMagickTrue(v)  ((v)?MagickTrue:MagickFalse)
+#  define IsMagickFalse(v) ((v)?MagickFalse:MagickTrue)
+#  define IsMagickNot(v)   (IfMagickTrue(v)?MagickFalse:MagickTrue)
+#endif
+#define IfStringTrue(v)       IfMagickTrue(IsStringTrue(v))
+#define IfStringNotFalse(v)   IfMagickTrue(IsStringNotFalse(v))
+#define IsMagickNULL(v)       (((void *)(v) == NULL)?MagickTrue:MagickFalse)
+#define IsMagickNotNULL(v)    (((void *)(v) != NULL)?MagickTrue:MagickFalse)
 
 typedef struct _BlobInfo BlobInfo;
 

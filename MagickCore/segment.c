@@ -49,14 +49,14 @@
 %
 %    o For each histogram, successively apply the scale-space filter and
 %      build an interval tree of zero crossings in the second derivative
-%      at each scale.  Analyze this scale-space ``fingerprint'' to
+%      at each scale.  Analyze this scale-space ''fingerprint'' to
 %      determine which peaks and valleys in the histogram are most
 %      predominant.
 %
 %    o The fingerprint defines intervals on the axis of the histogram.
 %      Each interval contains either a minima or a maxima in the original
 %      signal.  If each color component lies within the maxima interval,
-%      that pixel is considered ``classified'' and is assigned an unique
+%      that pixel is considered ''classified'' and is assigned an unique
 %      class number.
 %
 %    o Any pixel that fails to be classified in the above thresholding
@@ -96,11 +96,14 @@
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/pixel-private.h"
 #include "MagickCore/quantize.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/segment.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/thread-private.h"
 
 /*
   Define declarations.
@@ -352,7 +355,7 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   status=MagickTrue;
   count=0;
   progress=0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     register const Quantum
@@ -528,9 +531,10 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   /*
     Do course grain classes.
   */
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1002,7 +1006,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
           histogram[i]=(ssize_t *) RelinquishMagickMemory(histogram[i]);
         }
         (void) ThrowMagickException(exception,GetMagickModule(),
-          ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+          ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
         return(MagickFalse);
       }
   }
@@ -1049,7 +1053,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
         if (cluster == (Cluster *) NULL)
           {
             (void) ThrowMagickException(exception,GetMagickModule(),
-              ResourceLimitError,"MemoryAllocationFailed","`%s'",
+              ResourceLimitError,"MemoryAllocationFailed","'%s'",
               image->filename);
             return(MagickFalse);
           }
@@ -1073,7 +1077,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
       if (cluster == (Cluster *) NULL)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
+            ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
           return(MagickFalse);
         }
       /*
@@ -1727,8 +1731,8 @@ static void ScaleSpace(const ssize_t *histogram,const MagickRealType tau,
   if (gamma == (MagickRealType *) NULL)
     ThrowFatalException(ResourceLimitFatalError,
       "UnableToAllocateGammaMap");
-  alpha=1.0/(tau*sqrt(2.0*MagickPI));
-  beta=(-1.0/(2.0*tau*tau));
+  alpha=MagickEpsilonReciprocal(tau*sqrt(2.0*MagickPI));
+  beta=(-1.0*MagickEpsilonReciprocal(2.0*tau*tau));
   for (x=0; x <= 255; x++)
     gamma[x]=0.0;
   for (x=0; x <= 255; x++)
@@ -1828,7 +1832,7 @@ MagickExport MagickBooleanType SegmentImage(Image *image,
           image->filename)
       }
   }
-  if (IsRGBColorspace(colorspace) == MagickFalse)
+  if (IssRGBColorspace(colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,colorspace,exception);
   /*
     Initialize histogram.
@@ -1845,7 +1849,7 @@ MagickExport MagickBooleanType SegmentImage(Image *image,
   */
   status=Classify(image,extrema,cluster_threshold,WeightingExponent,verbose,
     exception);
-  if (IsRGBColorspace(colorspace) == MagickFalse)
+  if (IssRGBColorspace(colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,colorspace,exception);
   /*
     Relinquish resources.

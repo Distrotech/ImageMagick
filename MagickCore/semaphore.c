@@ -45,6 +45,7 @@
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/semaphore-private.h"
 #include "MagickCore/string_.h"
@@ -121,6 +122,21 @@ MagickExport void AcquireSemaphoreInfo(SemaphoreInfo **semaphore_info)
 %      SemaphoreInfo *AllocateSemaphoreInfo(void)
 %
 */
+
+static void *AcquireSemaphoreMemory(const size_t size)
+{
+#if defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
+  {
+    void
+      *memory;
+
+    if (posix_memalign(&memory,CACHE_LINE_SIZE,CacheAlign(size)) == 0)
+      return(memory);
+  }
+#endif
+  return(malloc(CacheAlign(size)));
+}
+
 MagickExport SemaphoreInfo *AllocateSemaphoreInfo(void)
 {
   SemaphoreInfo
@@ -129,7 +145,8 @@ MagickExport SemaphoreInfo *AllocateSemaphoreInfo(void)
   /*
     Allocate semaphore.
   */
-  semaphore_info=(SemaphoreInfo *) malloc(sizeof(SemaphoreInfo));
+  semaphore_info=(SemaphoreInfo *) AcquireSemaphoreMemory(
+    sizeof(*semaphore_info));
   if (semaphore_info == (SemaphoreInfo *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   (void) ResetMagickMemory(semaphore_info,0,sizeof(SemaphoreInfo));

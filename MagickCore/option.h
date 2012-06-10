@@ -112,6 +112,41 @@ typedef enum
   AllValidate = 0x7fffffff
 } ValidateType;
 
+/*
+  Flags to describe classes of image processing options.
+  These are used to determine how a option should be processed, and
+  allow use to avoid attempting to process each option in every way posible.
+*/
+typedef enum
+{
+  UndefinedOptionFlag       = 0x0000,  /* option flag is not in use */
+
+  ImageInfoOptionFlag       = 0x0001,  /* Setting stored in ImageInfo */
+  DrawInfoOptionFlag        = 0x0002,  /* Setting stored in DrawInfo */
+  QuantizeInfoOptionFlag    = 0x0004,  /* Setting stored in QuantizeInfo */
+  GlobalOptionFlag          = 0x0008,  /* Global Setting or Control */
+  SettingOptionFlags        = 0x000F,  /* mask any setting option */
+
+  NoImageOperatorFlag       = 0x0010,  /* Images not required operator */
+  SimpleOperatorFlag        = 0x0020,  /* Simple Image processing operator */
+  ListOperatorFlag          = 0x0040,  /* Multi-Image processing operator */
+  GenesisOptionFlag         = 0x0080,  /* MagickCommandGenesis() Only Option */
+
+  SpecialOptionFlag         = 0x0100,  /* Operator with Special Requirements */
+                                       /* EG: for specific CLI commands */
+
+  AlwaysInterpretArgsFlag   = 0x0400,  /* Always Interpret escapes in Args */
+                                       /* CF: "convert" compatibility mode */
+  NeverInterpretArgsFlag    = 0x0800,  /* Never Interpret escapes in Args */
+                                       /* Typical because it's a filename */
+
+  NonMagickOptionFlag       = 0x1000,  /* Option not used by Magick Command */
+  FireOptionFlag            = 0x2000,  /* Convert operation seq firing point */
+  DeprecateOptionFlag       = 0x4000,  /* Deprecate option (no code) */
+  ReplacedOptionFlag        = 0x8800   /* Replaced Option (but still works) */
+
+} CommandOptionFlags;
+
 typedef struct _OptionInfo
 {
   const char
@@ -124,32 +159,6 @@ typedef struct _OptionInfo
   MagickBooleanType
     stealth;
 } OptionInfo;
-
-/*
-  Flags to describe classes of image processing options.
-  These are used to determine how a option should be processed, and
-  allow use to avoid attempting to process each option in every way posible.
-*/
-typedef enum
-{
-  UndefinedOptionFlag       = 0x0000,  /* option flag is not in use */
-
-  ImageInfoOptionFlag       = 0x0001,  /* Setting for ImageInfo */
-  DrawInfoOptionFlag        = 0x0002,  /* Setting for DrawInfo */
-  QuantizeInfoOptionFlag    = 0x0004,  /* Setting for QuantizeInfo */
-  GlobalOptionFlag          = 0x0008,  /* Setting for Global Option */
-  SettingOptionFlags        = 0x000F,  /* mask for all setting options */
-
-  SimpleOperatorOptionFlag  = 0x0010,  /* Simple Image processing operator */
-  ListOperatorOptionFlag    = 0x0020,  /* Multi-Image processing operator */
-  SpecialOptionFlag         = 0x0040,  /* Special handled Option */
-  GenesisOptionFlag         = 0x0080,  /* Genesis Command Wrapper Option  */
-
-  NonMagickOptionFlag       = 0x1000,  /* Option not used by Magick Command */
-  FireOptionFlag            = 0x4000,  /* Convert operation seq firing point */
-  DeprecateOptionFlag       = 0x8000   /* Deprecate option, give warning */
-
-} CommandOptionFlags;
 
 
 extern MagickExport char

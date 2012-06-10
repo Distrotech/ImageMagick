@@ -894,6 +894,9 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         }
         bmp_colormap=(unsigned char *) RelinquishMagickMemory(bmp_colormap);
       }
+    image->resolution.x=(double) bmp_info.x_pixels/100.0;
+    image->resolution.y=(double) bmp_info.y_pixels/100.0;
+    image->units=PixelsPerCentimeterResolution;
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
@@ -938,12 +941,6 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
               "UnableToRunlengthDecodeImage");
           }
       }
-    /*
-      Initialize image structure.
-    */
-    image->resolution.x=(double) bmp_info.x_pixels/100.0;
-    image->resolution.y=(double) bmp_info.y_pixels/100.0;
-    image->units=PixelsPerCentimeterResolution;
     /*
       Convert BMP raster image to pixel packets.
     */
@@ -1526,7 +1523,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
     /*
       Initialize BMP raster file header.
     */
-    if (IsRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     (void) ResetMagickMemory(&bmp_info,0,sizeof(bmp_info));
     bmp_info.file_size=14+12;
@@ -1959,7 +1956,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         (void) WriteBlobLSBLong(image,0x0000ff00U);  /* Green mask */
         (void) WriteBlobLSBLong(image,0x000000ffU);  /* Blue mask */
         (void) WriteBlobLSBLong(image,0xff000000U);  /* Alpha mask */
-        (void) WriteBlobLSBLong(image,0x00000001U);  /* CSType==Calib. RGB */
+        (void) WriteBlobLSBLong(image,0x73524742U);  /* sRGB */
         (void) WriteBlobLSBLong(image,(unsigned int)
           image->chromaticity.red_primary.x*0x3ffffff);
         (void) WriteBlobLSBLong(image,(unsigned int)

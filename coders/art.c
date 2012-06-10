@@ -132,7 +132,6 @@ static Image *ReadARTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
-  image->colorspace=GRAYColorspace;
   image->depth=1;
   image->endian=MSBEndian;
   (void) ReadBlobLSBShort(image);
@@ -147,6 +146,7 @@ static Image *ReadARTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Convert bi-level image to pixel packets.
   */
+  SetImageColorspace(image,GRAYColorspace,exception);
   quantum_info=AcquireQuantumInfo(image_info,image);
   if (quantum_info == (QuantumInfo *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -308,7 +308,7 @@ static MagickBooleanType WriteARTImage(const ImageInfo *image_info,Image *image,
     return(status);
   if ((image->columns > 65535UL) || (image->rows > 65535UL))
     ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   (void) SetImageType(image,BilevelType,exception);
   image->endian=MSBEndian;

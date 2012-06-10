@@ -304,13 +304,13 @@
             impossible de décompresser l'image
           </message>
           <message name="UnexpectedEndOfFile">
-            Fin de fichier inattendue
+            fin de fichier inattendue
           </message>
           <message name="UnexpectedSamplingFactor">
-            Facteur d'échantillonnage inattendu
+            facteur d'échantillonnage inattendu
           </message>
           <message name="UnknownPatternType">
-            Type de motif inconnu
+            type de motif inconnu
           </message>
           <message name="UnrecognizedBitsPerPixel">
             bits par pixel non reconnus
@@ -329,7 +329,7 @@
         </fatalerror>
         <warning>
           <message name="InsufficientImageDataInFile">
-            Pas assez de données d'image dans le fichier
+            pas assez de données d'image dans le fichier
           </message>
           <message name="LengthAndFilesizeDoNotMatch">
             Longueur et taille du fichier ne correspondent pas
@@ -495,8 +495,8 @@
         <message name="ImageDepthNotSupported">
           profondeur d'image non supportée
         </message>
-        <message name="ImageSequenceRequired">
-          une séquence d'images est requise
+        <message name="ImageListRequired">
+          une liste d'images est requise
         </message>
         <message name="ImageSizeDiffers">
           différences dans la taille de l'image
@@ -549,6 +549,9 @@
           <message name="DelegateLibrarySupportNotBuiltIn">
             delegate library support not built-in
           </message>
+          <message name="NoEncodeDelegateForThisImageFormat">
+            pas de délégué pour encoder ce format d'image
+          </message>
         </warning>
       </delegate>
     </missing>
@@ -580,11 +583,17 @@
     </module>
     <option>
       <error>
+        <message name="ClutImageRequired">
+          color lookup table image requise
+        </message>
         <message name="CompositeImageRequired">
           image composite requise
         </message>
-        <message name="DepreciatedOption">
-          option est obsolète
+        <message name="CurlyBrasesNestedTooDeeply">
+          trop d'imbrication de curly braces
+        </message>
+        <message name="DepreciatedOptionNoCode">
+          l'option dépréciée, incapable d'exécuter
         </message>
         <message name="DivideByZero">
           division par zéro
@@ -598,8 +607,26 @@
         <message name="GeometryDoesNotContainImage">
           image non incluse dans la géométrie
         </message>
+        <message name="InterpretPropertyFailure">
+          l'échec d'interpréter s'échappe de propriété d'image
+        </message>
+        <message name="InvalidArgument">
+          argument invalide pour l'option
+        </message>
         <message name="InvalidUseOfOption">
           Invalide utilisation de l'option
+        </message>
+        <message name="InvalidGeometry">
+          géométrie invalide
+        </message>
+        <message name="InvalidImageIndex">
+          index de l'image non valide
+        </message>
+        <message name="InvalidNumberList">
+          liste des numéros non valide
+        </message>
+        <message name="InvalidSetting">
+          invalide de réglage
         </message>
         <message name="ImagesAreNotTheSameSize">
           images diffèrent par la taille
@@ -609,12 +636,6 @@
         </message>
         <message name="ImageWidthsOrHeightsDiffer">
           différences dans la hauteur ou la largeur de l'image
-        </message>
-        <message name="InvalidArgument">
-          argument invalide pour l'option
-        </message>
-        <message name="InvalidGeometry">
-          géométrie invalide
         </message>
         <message name="KernelWidthMustBeAnOddNumber">
           la largeur du grain doit être un nombre impair
@@ -650,11 +671,11 @@
         <message name="NoClipPathDefined">
           pas de chemin de coupe défini
         </message>
-        <message name="NoImagesDefined">
-          pas d'images définies
+        <message name="NoImagesForWrite">
+          pas d'images pour écriture
         </message>
-        <message name="NoImagesForFinalWrite">
-          pas d'images for final write
+        <message name="NoImagesFound">
+          pas d'image pour un fonctionnement
         </message>
         <message name="NoImageVectorGraphics">
           pas de graphiques vectoriels
@@ -680,6 +701,9 @@
         <message name="ReferenceIsNotMyType">
           référence de type erroné
         </message>
+        <message name="SetReadOnlyProperty">
+          tenter d'établir propriété en lecture seule
+        </message>
         <message name="SteganoImageRequired">
           image stégano requise
         </message>
@@ -689,6 +713,12 @@
         <message name="SubimageSpecificationReturnsNoImages">
           la spécification de sous-image ne permet pas de fournir des images
         </message>
+        <message name="TwoOrMoreImagesRequired">
+          deux ou plusieurs images nécessaires
+        </message>
+        <message name="UnableToAccessPath">
+          incapables d'accéder chemin du fichier
+        </message>
         <message name="UnableToOpenFile">
           impossible d'ouvrir le fichier
         </message>
@@ -697,6 +727,9 @@
         </message>
         <message name="UnableToParseKernel">
           impossible d'analyser l'kernel string
+        </message>
+        <message name="UnbalancedBraces">
+          brace non fermée
         </message>
         <message name="UnbalancedParenthesis">
           parenthèse non fermée
@@ -812,6 +845,9 @@
         <message name="UnrecognizedStretchType">
           type de stretch non reconnu
         </message>
+        <message name="UnrecognizedStyleType">
+          type de style non reconnu
+        </message>
         <message name="UnrecognizedType">
           type non reconnu
         </message>
@@ -856,6 +892,9 @@
         <message name="ScriptUnbalancedQuotes">
           de script token avec des citations asymétriques
         </message>
+        <message name="UnableToOpenScript">
+          impossible d'ouvrir le script
+        </message>
         <message name="UnrecognizedColormapType">
           type de table de couleurs non reconnnu
         </message>
@@ -891,11 +930,23 @@
         </message>
       </fatalerror>
       <warning>
+        <message name="DepreciatedOption">
+          Option a été remplacée
+        </message>
         <message name="GeometryDoesNotContainImage">
           image non incluse dans la géométrie
         </message>
+        <message name="InterpretPropertyFailure">
+          *** failure in interpret image property escapes ***
+        </message>
+        <message name="InvalidSetting">
+          invalide de réglage
+        </message>
         <message name="NoSuchElement">
           élément absent de la liste
+        </message>
+        <message name="UnknownImageProperty">
+          image propriété non reconnus
         </message>
         <message name="UnrecognizedColor">
           couleur non reconnue

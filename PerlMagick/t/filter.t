@@ -33,7 +33,7 @@ $fuzz=int(0.0*QuantumRange);
 testFilterCompare('input.miff',  q//, 'reference/filter/AdaptiveThreshold.miff', 'AdaptiveThreshold', q/'5x5+5%'/, 0.0, 0.0);
 ++$test;
 
-testFilterCompare('input.miff',  q//, 'reference/filter/Annotate.miff', 'Annotate', q/text=>'Magick',geometry=>'+0+20',font=>'Generic.ttf',fill=>'gold',gravity=>'North',pointsize=>14/, 0.0, 0.0);
+testFilterCompare('input.miff',  q//, 'reference/filter/Annotate.miff', 'Annotate', q/text=>'Magick',geometry=>'+0+20',font=>'Generic.ttf',fill=>'gold',gravity=>'North',pointsize=>14/, 0.003, 0.70);
 ++$test;
 
 testFilterCompare('input.miff',  q//, 'reference/filter/Blur.miff', 'Blur', q/'5x2'/, 0.00001, 0.004);
@@ -60,7 +60,7 @@ testFilterCompare('input.miff', "fuzz=>$fuzz", 'reference/filter/Colorize.miff',
 testFilterCompare('input.miff',  q//, 'reference/filter/Contrast.miff', 'Contrast', q//, 0.0, 0.0);
 ++$test;
 
-testFilterCompare('input.miff',  q//, 'reference/filter/Convolve.miff', 'Convolve', q/[0.125, 0.125, 0.125, 0.125, 1, 0.125, 0.125, 0.125, 0.125]/, 0.09, 0.0);
+testFilterCompare('input.miff',  q//, 'reference/filter/Convolve.miff', 'Convolve', q/[0.0625, 0.0625, 0.0625, 0.0625, 0.5, 0.0625, 0.0625, 0.0625, 0.0625]/, 0.09, 0.0);
 ++$test;
 
 testFilterCompare('input.miff',  q//, 'reference/filter/Crop.miff', 'Crop', q/geometry=>'80x80+5+10'/, 0.0, 0.0);
@@ -111,7 +111,7 @@ testFilterCompare('input.miff',  q//, 'reference/filter/Level.miff', 'Level', q/
 testFilterCompare('input.miff',  q//, 'reference/filter/Magnify.miff', 'Magnify', q//, 0.00001, 0.004);
 ++$test;
 
-testFilterCompare('input.miff', "fuzz=>$fuzz", 'reference/filter/MatteFloodfill.miff', 'MatteFloodfill', q/geometry=>"+25+45"/, 0.0, 0.0);
+testFilterCompare('input.miff', "fuzz=>$fuzz", 'reference/filter/MatteFloodfill.miff', 'MatteFloodfill', q/geometry=>"+25+45"/, 0.25, 1.0);
 ++$test;
 
 testFilterCompare('input.miff',  q//, 'reference/filter/MedianFilter.miff', 'MedianFilter', q//, 0.0, 0.0);
@@ -123,7 +123,7 @@ testFilterCompare('input.miff',  q//, 'reference/filter/Minify.miff', 'Minify', 
 testFilterCompare('input.miff',  q//, 'reference/filter/Modulate.miff', 'Modulate', q/brightness=>110,saturation=>110,hue=>110/, 0.00001, 0.004);
 ++$test;
 
-testFilterCompare('input.miff',  q//, 'reference/filter/QuantizeMono.miff', 'Quantize', q/colors=>256/, 0.0006, 0.2);
+testFilterCompare('input.miff',  q//, 'reference/filter/QuantizeMono.miff', 'Quantize', q/colors=>256/, 0.07, 0.5);
 ++$test;
 
 testFilterCompare('input.miff',  q//, 'reference/filter/MotionBlur.miff', 'MotionBlur', q/'0x13+10-10'/, 0.002, 0.04);
@@ -141,7 +141,7 @@ testFilterCompare('input.miff',  q//, 'reference/filter/OilPaint.miff', 'OilPain
 testFilterCompare('input.miff', "fuzz=>$fuzz", 'reference/filter/Opaque.miff', 'Opaque', q/color=>"#e23834", fill=>"green"/, 0.0, 0.0);
 ++$test;
 
-testFilterCompare('input.miff',  q//, 'reference/filter/Quantize.miff', 'Quantize', q//, 0.0006, 0.2);
+testFilterCompare('input.miff',  q//, 'reference/filter/Quantize.miff', 'Quantize', q//, 0.07, 0.5);
 ++$test;
 
 testFilterCompare('input.miff',  q//, 'reference/filter/RadialBlur.miff', 'RadialBlur', q/10/, 0.0, 0.0);

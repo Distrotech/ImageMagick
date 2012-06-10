@@ -57,7 +57,7 @@
  \
   message=GetExceptionMessage(errno); \
   (void) ThrowMagickException(exception,GetMagickModule(),severity, \
-    tag == (const char *) NULL ? "unknown" : tag,"`%s': %s",context,message); \
+    tag == (const char *) NULL ? "unknown" : tag,"'%s': %s",context,message); \
   message=DestroyString(message); \
 }
 
@@ -139,6 +139,7 @@ static MagickBooleanType ConvertUsage(void)
     {
       "-channel-fx expression",
       "                     exchange, extract, or transfer one or more image channels",
+      "-separate            separate an image channel into a grayscale image",
       (char *) NULL
     },
     *miscellaneous[]=
@@ -185,7 +186,7 @@ static MagickBooleanType ConvertUsage(void)
       "-color-matrix matrix apply color correction to the image",
       "-contrast            enhance or reduce the image contrast",
       "-contrast-stretch geometry",
-      "                     improve contrast by `stretching' the intensity range",
+      "                     improve contrast by 'stretching' the intensity range",
       "-convolve coefficients",
       "                     apply a convolution kernel to the image",
       "-cycle amount        cycle the image colormap",
@@ -227,7 +228,7 @@ static MagickBooleanType ConvertUsage(void)
       "-level-colors color,color",
       "                     level image with the given colors",
       "-linear-stretch geometry",
-      "                     improve contrast by `stretching with saturation'",
+      "                     improve contrast by 'stretching with saturation'",
       "-liquid-rescale geometry",
       "                     rescale image with seam-carving",
       "-median geometry     apply a median filter to the image",
@@ -322,7 +323,6 @@ static MagickBooleanType ConvertUsage(void)
       "-mosaic              create a mosaic from an image sequence",
       "-print string        interpret string and print to console",
       "-process arguments   process the image with a custom image filter",
-      "-separate            separate an image channel into a grayscale image",
       "-smush geometry      smush an image sequence together",
       "-write filename      write images to this file",
       (char *) NULL
@@ -460,7 +460,7 @@ static MagickBooleanType ConvertUsage(void)
   for (p=miscellaneous; *p != (char *) NULL; p++)
     (void) printf("  %s\n",*p);
   (void) printf(
-    "\nBy default, the image format of `file' is determined by its magic\n");
+    "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
     "number.  To specify a particular image format, precede the filename\n");
   (void) printf(
@@ -484,7 +484,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
 }
 #define ThrowConvertException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
     option); \
   DestroyConvert(); \
   return(MagickFalse); \
@@ -492,7 +492,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
 #define ThrowConvertInvalidArgumentException(option,argument) \
 { \
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError, \
-    "InvalidArgument","`%s': %s",option,argument); \
+    "InvalidArgument","'%s': %s",option,argument); \
   DestroyConvert(); \
   return(MagickFalse); \
 }
@@ -951,9 +951,8 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             clone_images=image;
             if (k != 0)
               clone_images=image_stack[k-1].image;
-            /* FUTURE: Change error report to something more meaningful */
             if (clone_images == (Image *) NULL)
-              ThrowConvertException(ImageError,"ImageSequenceRequired",option);
+              ThrowConvertException(ImageError,"UnableToCloneImage",option);
             FireImageStack(MagickTrue,MagickTrue,MagickTrue);
             if (*option == '+')
               clone_images=CloneImages(clone_images,"-1",exception);
@@ -1836,15 +1835,6 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertException(OptionError,"MissingArgument",option);
             break;
           }
-        if (LocaleCompare("liquid-rescale",option+1) == 0)
-          {
-            i++;
-            if (i == (ssize_t) (argc-1))
-              ThrowConvertException(OptionError,"MissingArgument",option);
-            if (IsGeometry(argv[i]) == MagickFalse)
-              ThrowConvertInvalidArgumentException(option,argv[i]);
-            break;
-          }
         if (LocaleCompare("limit",option+1) == 0)
           {
             char
@@ -1876,6 +1866,15 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("linear-stretch",option+1) == 0)
+          {
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("liquid-rescale",option+1) == 0)
           {
             i++;
             if (i == (ssize_t) (argc-1))
@@ -2752,7 +2751,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertException(OptionError,"MissingArgument",option);
             break;
           }
-        if (LocaleCompare("thumbnail",option+1) == 0)
+        if (LocaleCompare("threshold",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -2763,7 +2762,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
-        if (LocaleCompare("threshold",option+1) == 0)
+        if (LocaleCompare("thumbnail",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -3020,10 +3019,12 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
     ThrowConvertException(OptionError,"UnbalancedParenthesis",argv[i]);
   if (i-- != (ssize_t) (argc-1))
     ThrowConvertException(OptionError,"MissingAnImageFilename",argv[argc-1]);
-  if (image == (Image *) NULL)
-    ThrowConvertException(OptionError,"MissingAnImageFilename",argv[argc-1]);
   FinalizeImageSettings(image_info,image,MagickTrue);
   if (image == (Image *) NULL)
+    ThrowConvertException(OptionError,"NoImagesDefined",argv[argc-1]);
+  if (IsCommandOption(argv[argc-1]))
+    ThrowConvertException(OptionError,"MissingAnImageFilename",argv[argc-1]);
+  if (LocaleCompare(" ",argv[argc-1])==0) /* common line continuation error */
     ThrowConvertException(OptionError,"MissingAnImageFilename",argv[argc-1]);
   status&=WriteImages(image_info,image,argv[argc-1],exception);
   if (metadata != (char **) NULL)

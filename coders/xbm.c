@@ -322,8 +322,8 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     Read hex image data.
   */
   padding=0;
-  if (((image->columns % 16) != 0) &&
-      ((image->columns % 16) < 9) && (version == 10))
+  if (((image->columns % 16) != 0) && ((image->columns % 16) < 9) &&
+      (version == 10))
     padding=1;
   bytes_per_line=(image->columns+7)/8+padding;
   length=(size_t) image->rows;
@@ -361,7 +361,7 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     {
       if (bit == 0)
         byte=(size_t) (*p++);
-      SetPixelIndex(image,(byte & 0x01) != 0 ? 0x01 : 0x00,q);
+      SetPixelIndex(image,(Quantum) ((byte & 0x01) != 0 ? 0x01 : 0x00),q);
       bit++;
       byte>>=1;
       if (bit == 8)
@@ -510,7 +510,7 @@ static MagickBooleanType WriteXBMImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IsRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Write X bitmap header.
@@ -546,7 +546,7 @@ static MagickBooleanType WriteXBMImage(const ImageInfo *image_info,Image *image,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       byte>>=1;
-      if (GetPixelIntensity(image,p) < ((MagickRealType) QuantumRange/2.0))
+      if (GetPixelIntensity(image,p) < (QuantumRange/2))
         byte|=0x80;
       bit++;
       if (bit == 8)

@@ -60,7 +60,7 @@
 
 /* Directory where ImageMagick documents live. */
 #ifndef MAGICKCORE_DOCUMENTATION_PATH
-#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick//"
+#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick-7.0.0/"
 #endif
 
 /* Define if you have Display Postscript */
@@ -1229,7 +1229,7 @@
 
 /* Define to the system default library search path. */
 #ifndef MAGICKCORE_LT_DLSEARCH_PATH
-#define MAGICKCORE_LT_DLSEARCH_PATH "/lib64:/usr/lib64:/lib:/usr/lib:/usr/lib64/atlas:/usr/lib/llvm:/usr/lib64/llvm:/usr/local/lib:/usr/lib64/mysql:/usr/lib64/qt-3.3/lib:/usr/lib64/tcl8.5/tclx8.4:/usr/lib64/tcl8.5:/usr/lib64/tracker-0.12:/usr/lib/wine/:/usr/lib64/wine/:/usr/lib64/xulrunner-2"
+#define MAGICKCORE_LT_DLSEARCH_PATH "/lib64:/usr/lib64:/lib:/usr/lib:/usr/lib64/atlas:/usr/lib/llvm:/usr/lib64/llvm:/usr/local/lib:/usr/lib64/mysql:/usr/lib64/nvidia:/usr/lib64/qt-3.3/lib:/usr/lib64/tcl8.5/tclx8.4:/usr/lib64/tcl8.5:/usr/lib64/tracker-0.14:/usr/lib/wine/:/usr/lib64/wine/:/usr/lib64/xulrunner-2"
 #endif
 
 /* The archive extension */
@@ -1283,7 +1283,9 @@
 /* #undef NO_MINUS_C_MINUS_O */
 
 /* Define if you have OPENEXR library */
-/* #undef OPENEXR_DELEGATE */
+#ifndef MAGICKCORE_OPENEXR_DELEGATE
+#define MAGICKCORE_OPENEXR_DELEGATE 1
+#endif
 
 /* Name of package */
 #ifndef MAGICKCORE_PACKAGE
@@ -1320,9 +1322,9 @@
 #define MAGICKCORE_PACKAGE_VERSION "7.0.0-0"
 #endif
 
-/* Define if you have PANGOFT2 library */
-#ifndef MAGICKCORE_PANGOFT2_DELEGATE
-#define MAGICKCORE_PANGOFT2_DELEGATE 1
+/* Define if you have PANGOCAIRO library */
+#ifndef MAGICKCORE_PANGOCAIRO_DELEGATE
+#define MAGICKCORE_PANGOCAIRO_DELEGATE 1
 #endif
 
 /* Define if you have PANGO library */
@@ -1561,6 +1563,11 @@
 /* Define if you have zlib compression library */
 #ifndef MAGICKCORE_ZLIB_DELEGATE
 #define MAGICKCORE_ZLIB_DELEGATE 1
+#endif
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

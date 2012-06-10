@@ -55,6 +55,7 @@
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/paint.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/statistic.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/thread-private.h"
@@ -171,7 +172,9 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     return(MagickFalse);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if ((target->matte != MagickFalse) && (image->matte == MagickFalse))
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
+  if ((image->matte == MagickFalse) && (draw_info->fill.matte != MagickFalse))
     (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
     Set floodfill state.
@@ -180,8 +183,11 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     exception);
   if (floodplane_image == (Image *) NULL)
     return(MagickFalse);
+  floodplane_image->matte=MagickFalse;
   floodplane_image->colorspace=GRAYColorspace;
-  (void) EvaluateImage(floodplane_image,SetEvaluateOperator,0.0,exception);
+  (void) QueryColorCompliance("#000",AllCompliance,
+    &floodplane_image->background_color,exception);
+  (void) SetImageBackgroundColor(floodplane_image,exception);
   segment_stack=(SegmentInfo *) AcquireQuantumMemory(MaxStacksize,
     sizeof(*segment_stack));
   if (segment_stack == (SegmentInfo *) NULL)
@@ -201,8 +207,8 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
   PushSegmentStack(y,x,x,1);
   PushSegmentStack(y+1,x,x,-1);
   GetPixelInfo(image,&pixel);
-  image_view=AcquireCacheView(image);
-  floodplane_view=AcquireCacheView(floodplane_image);
+  image_view=AcquireVirtualCacheView(image,exception);
+  floodplane_view=AcquireAuthenticCacheView(floodplane_image,exception);
   while (s > segment_stack)
   {
     register const Quantum
@@ -497,7 +503,7 @@ static size_t **DestroyHistogramThreadSet(size_t **histogram)
     i;
 
   assert(histogram != (size_t **) NULL);
-  for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+  for (i=0; i < (ssize_t) GetMagickResourceLimit(ThreadResource); i++)
     if (histogram[i] != (size_t *) NULL)
       histogram[i]=(size_t *) RelinquishMagickMemory(histogram[i]);
   histogram=(size_t **) RelinquishMagickMemory(histogram);
@@ -585,10 +591,11 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
   progress=0;
   center=(ssize_t) GetPixelChannels(image)*(image->columns+width)*(width/2L)+
     GetPixelChannels(image)*(width/2L);
-  image_view=AcquireCacheView(image);
-  paint_view=AcquireCacheView(paint_image);
+  image_view=AcquireVirtualCacheView(image,exception);
+  paint_view=AcquireAuthenticCacheView(paint_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -653,6 +660,12 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
         }
         k+=(ssize_t) (image->columns+width);
       }
+      if (GetPixelMask(image,p) != 0)
+        {
+          p+=GetPixelChannels(image);
+          q+=GetPixelChannels(paint_image);
+          continue;
+        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -668,8 +681,7 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
         if ((traits == UndefinedPixelTrait) ||
             (paint_traits == UndefinedPixelTrait))
           continue;
-        if (((paint_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+        if ((paint_traits & CopyPixelTrait) != 0)
           {
             SetPixelChannel(paint_image,channel,p[center+i],q);
             continue;
@@ -770,6 +782,9 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
+  if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
+      (IsPixelInfoGray(fill) != MagickFalse))
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   if ((fill->matte != MagickFalse) && (image->matte == MagickFalse))
     (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
@@ -778,9 +793,10 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
   status=MagickTrue;
   progress=0;
   GetPixelInfo(image,&zero);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -904,9 +920,10 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
   status=MagickTrue;
   progress=0;
   GetPixelInfo(image,&zero);
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1030,9 +1047,10 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
   */
   status=MagickTrue;
   progress=0;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

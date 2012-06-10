@@ -73,12 +73,6 @@ APIs, you need to install ImageMagick-devel as well as ImageMagick.
 You do not need to install it if you just want to use ImageMagick,
 however.
 
-
-%package doc
-Summary: ImageMagick HTML documentation
-Group: Documentation
-
-
 %package djvu
 Summary: DjVu plugin for ImageMagick
 Group: Applications/Multimedia
@@ -88,6 +82,10 @@ Requires: %{name} = %{version}-%{release}
 This packages contains a plugin for ImageMagick which makes it possible to
 save and load DjvU files from ImageMagick and libMagickCore using applications.
 
+
+%package doc
+Summary: ImageMagick HTML documentation
+Group: Documentation
 
 %description doc
 ImageMagick documentation, this package contains usage (for the
@@ -180,7 +178,7 @@ make
 rm -rf %{buildroot}
 
 make install DESTDIR=%{buildroot} INSTALL="install -p"
-cp -a www/source %{buildroot}%{_datadir}/doc/%{name}
+cp -a www/source %{buildroot}%{_datadir}/doc/%{name}-%{VERSION}
 rm %{buildroot}%{_libdir}/*.la
 
 # fix weird perl Magick.so permissions
@@ -251,14 +249,13 @@ rm -rf %{buildroot}
 %doc README.txt LICENSE NOTICE AUTHORS.txt NEWS.txt
 %{_libdir}/libMagickCore.so*
 %{_libdir}/libMagickWand.so*
-%{_libdir}/%{name}-%{VERSION}
 %{_bindir}/[a-z]*
-%{_sysconfdir}/%{name}
 %{_libdir}/%{name}-%{VERSION}
 %{_datadir}/%{name}-%{VERSION}
-%{_mandir}/man[145]/[a-zA-Z]*
+%{_mandir}/man[145]/[a-z]*
 %{_mandir}/man1/%{name}.*
 %exclude %{_libdir}/%{name}-%{VERSION}/modules-Q16/coders/djvu.*
+%{_sysconfdir}/%{name}
 
 
 %files devel
@@ -282,7 +279,7 @@ rm -rf %{buildroot}
 
 %files doc
 %defattr(-,root,root,-)
-%doc %{_datadir}/doc/%{name}
+%doc %{_datadir}/doc/%{name}-%{VERSION}
 %doc LICENSE
 
 %files c++

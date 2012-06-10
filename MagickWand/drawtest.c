@@ -447,7 +447,7 @@ int main(int argc,char **argv)
   if (status == MagickFalse)
     ThrowWandException(canvas);
   /*
-    Set RLE compression.
+    Set output as RLE compressed.
   */
   status=MagickSetImageCompression(canvas,RLECompression);
   if (status == MagickFalse)

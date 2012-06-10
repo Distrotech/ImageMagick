@@ -269,15 +269,16 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     exception);
   if (coalesce_image == (Image *) NULL)
     return((Image *) NULL);
+  (void) SetImageBackgroundColor(coalesce_image,exception);
+  coalesce_image->matte=next->matte;
   coalesce_image->page=bounds;
   coalesce_image->dispose=NoneDispose;
-  (void) SetImageBackgroundColor(coalesce_image,exception);
   /*
     Coalesce rest of the images.
   */
   dispose_image=CloneImage(coalesce_image,0,0,MagickTrue,exception);
-  (void) CompositeImage(coalesce_image,CopyCompositeOp,next,next->page.x,
-    next->page.y,exception);
+  (void) CompositeImage(coalesce_image,next,CopyCompositeOp,MagickTrue,
+    next->page.x,next->page.y,exception);
   next=GetNextImageInList(next);
   for ( ; next != (Image *) NULL; next=GetNextImageInList(next))
   {
@@ -327,8 +328,8 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     coalesce_image->next->previous=coalesce_image;
     previous=coalesce_image;
     coalesce_image=GetNextImageInList(coalesce_image);
-    (void) CompositeImage(coalesce_image,next->matte != MagickFalse ?
-      OverCompositeOp : CopyCompositeOp,next,next->page.x,next->page.y,
+    (void) CompositeImage(coalesce_image,next,next->matte != MagickFalse ?
+      OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     (void) CloneImageProfiles(coalesce_image,next);
     (void) CloneImageProperties(coalesce_image,next);
@@ -368,19 +369,20 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
-%    o image: the image sequence.
+%    o images: the image sequence.
 %
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *DisposeImages(const Image *image,ExceptionInfo *exception)
+MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
 {
   Image
     *dispose_image,
     *dispose_images;
 
   register Image
-    *curr;
+    *image,
+    *next;
 
   RectangleInfo
     bounds;
@@ -388,25 +390,25 @@ MagickExport Image *DisposeImages(const Image *image,ExceptionInfo *exception)
   /*
     Run the image through the animation sequence
   */
-  assert(image != (Image *) NULL);
-  assert(image->signature == MagickSignature);
-  if (image->debug != MagickFalse)
-    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  assert(images != (Image *) NULL);
+  assert(images->signature == MagickSignature);
+  if (images->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  curr=GetFirstImageInList(image);
-  dispose_image=CloneImage(curr,curr->page.width,curr->page.height,MagickTrue,
-    exception);
+  image=GetFirstImageInList(images);
+  dispose_image=CloneImage(image,image->page.width,image->page.height,
+    MagickTrue,exception);
   if (dispose_image == (Image *) NULL)
     return((Image *) NULL);
-  dispose_image->page=curr->page;
+  dispose_image->page=image->page;
   dispose_image->page.x=0;
   dispose_image->page.y=0;
   dispose_image->dispose=NoneDispose;
   dispose_image->background_color.alpha=(Quantum) TransparentAlpha;
   (void) SetImageBackgroundColor(dispose_image,exception);
   dispose_images=NewImageList();
-  for ( ; curr != (Image *) NULL; curr=GetNextImageInList(curr))
+  for (next=image; image != (Image *) NULL; image=GetNextImageInList(image))
   {
     Image
       *current_image;
@@ -421,17 +423,17 @@ MagickExport Image *DisposeImages(const Image *image,ExceptionInfo *exception)
         dispose_image=DestroyImage(dispose_image);
         return((Image *) NULL);
       }
-    (void) CompositeImage(current_image,curr->matte != MagickFalse ?
-      OverCompositeOp : CopyCompositeOp,curr,curr->page.x,curr->page.y,
+    (void) CompositeImage(current_image,next,next->matte != MagickFalse ?
+      OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     /*
       Handle Background dispose: image is displayed for the delay period.
     */
-    if (curr->dispose == BackgroundDispose)
+    if (next->dispose == BackgroundDispose)
       {
-        bounds=curr->page;
-        bounds.width=curr->columns;
-        bounds.height=curr->rows;
+        bounds=next->page;
+        bounds.width=next->columns;
+        bounds.height=next->rows;
         if (bounds.x < 0)
           {
             bounds.width+=bounds.x;
@@ -451,7 +453,7 @@ MagickExport Image *DisposeImages(const Image *image,ExceptionInfo *exception)
     /*
       Select the appropriate previous/disposed image.
     */
-    if (curr->dispose == PreviousDispose)
+    if (next->dispose == PreviousDispose)
       current_image=DestroyImage(current_image);
     else
       {
@@ -473,12 +475,12 @@ MagickExport Image *DisposeImages(const Image *image,ExceptionInfo *exception)
           dispose_image=DestroyImage(dispose_image);
           return((Image *) NULL);
         }
-      (void) CloneImageProfiles(dispose,curr);
-      (void) CloneImageProperties(dispose,curr);
-      (void) CloneImageArtifacts(dispose,curr);
+      (void) CloneImageProfiles(dispose,next);
+      (void) CloneImageProperties(dispose,next);
+      (void) CloneImageArtifacts(dispose,next);
       dispose->page.x=0;
       dispose->page.y=0;
-      dispose->dispose=curr->dispose;
+      dispose->dispose=next->dispose;
       AppendImageToList(&dispose_images,dispose);
     }
   }
@@ -793,8 +795,8 @@ MagickExport Image *CompareImagesLayers(const Image *image,
   image_a->page=next->page;
   image_a->page.x=0;
   image_a->page.y=0;
-  (void) CompositeImage(image_a,CopyCompositeOp,next,next->page.x,next->page.y,
-    exception);
+  (void) CompositeImage(image_a,next,CopyCompositeOp,MagickTrue,next->page.x,
+    next->page.y,exception);
   /*
     Compute the bounding box of changes for the later images
   */
@@ -809,7 +811,7 @@ MagickExport Image *CompareImagesLayers(const Image *image,
         bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
         return((Image *) NULL);
       }
-    (void) CompositeImage(image_a,CopyCompositeOp,next,next->page.x,
+    (void) CompositeImage(image_a,next,CopyCompositeOp,MagickTrue,next->page.x,
       next->page.y,exception);
     bounds[i]=CompareImagesBounds(image_b,image_a,method,exception);
 
@@ -1497,8 +1499,8 @@ MagickExport void OptimizeImageTransparency(const Image *image,
         dispose_image=DestroyImage(dispose_image);
         return;
       }
-    (void) CompositeImage(current_image,next->matte != MagickFalse ?
-      OverCompositeOp : CopyCompositeOp, next,next->page.x,next->page.y,
+    (void) CompositeImage(current_image,next,next->matte != MagickFalse ?
+      OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     /*
       At this point the image would be displayed, for the delay period
@@ -1540,9 +1542,9 @@ MagickExport void OptimizeImageTransparency(const Image *image,
       Optimize Transparency of the next frame (if present)
     */
     next=GetNextImageInList(next);
-    if ( next != (Image *) NULL ) {
-      (void) CompositeImage(next, ChangeMaskCompositeOp,
-        dispose_image, -(next->page.x), -(next->page.y), exception );
+    if (next != (Image *) NULL) {
+      (void) CompositeImage(next,dispose_image,ChangeMaskCompositeOp,
+        MagickTrue,-(next->page.x),-(next->page.y),exception);
     }
   }
   dispose_image=DestroyImage(dispose_image);
@@ -1679,7 +1681,7 @@ MagickExport void RemoveZeroDelayLayers(Image **images,
     if ( i->delay != 0L ) break;
   if ( i == (Image *) NULL ) {
     (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
-       "ZeroTimeAnimation","`%s'",GetFirstImageInList(*images)->filename);
+       "ZeroTimeAnimation","'%s'",GetFirstImageInList(*images)->filename);
     return;
   }
   i=GetFirstImageInList(*images);
@@ -1757,8 +1759,8 @@ static inline void CompositeCanvas(Image *destination,
 {
   x_offset+=source->page.x-destination->page.x;
   y_offset+=source->page.y-destination->page.y;
-  (void) CompositeImage(destination,compose,source,x_offset,y_offset,
-    exception);
+  (void) CompositeImage(destination,source,compose,MagickTrue,x_offset,
+    y_offset,exception);
 }
 
 MagickExport void CompositeLayers(Image *destination,
@@ -2031,7 +2033,7 @@ MagickExport Image *MergeImageLayers(Image *image,const ImageLayerMethod method,
   number_images=GetImageListLength(image);
   for (scene=0; scene < (ssize_t) number_images; scene++)
   {
-    (void) CompositeImage(canvas,image->compose,image,image->page.x-
+    (void) CompositeImage(canvas,image,image->compose,MagickTrue,image->page.x-
       canvas->page.x,image->page.y-canvas->page.y,exception);
     proceed=SetImageProgress(image,MergeLayersTag,(MagickOffsetType) scene,
       number_images);

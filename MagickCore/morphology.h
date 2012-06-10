@@ -111,16 +111,13 @@ typedef struct _KernelInfo
     x,
     y;
 
-  MagickRealType
-    *values;
-
   double
+    *values,
     minimum,
     maximum,
     negative_range,
     positive_range,
-    angle,
-    bias;
+    angle;
 
   struct _KernelInfo
     *next;

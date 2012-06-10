@@ -243,8 +243,11 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
           for (p=comment; comment != (char *) NULL; p++)
           {
             c=ReadBlobByte(image);
-            if ((c == EOF) || (c == (int) '}'))
-              break;
+            if (c == (int) '\\')
+              c=ReadBlobByte(image);
+            else
+              if ((c == EOF) || (c == (int) '}'))
+                break;
             if ((size_t) (p-comment+1) >= length)
               {
                 *p='\0';
@@ -306,6 +309,15 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
                       "MemoryAllocationFailed");
                   *p++=(char) c;
                   c=ReadBlobByte(image);
+                  if (c == '\\')
+                    {
+                      c=ReadBlobByte(image);
+                      if (c == (int) '}')
+                        {
+                          *p++=(char) c;
+                          c=ReadBlobByte(image);
+                        }
+                    }
                   if (*options != '{')
                     if (isspace((int) ((unsigned char) c)) != 0)
                       break;
@@ -313,7 +325,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
               }
             *p='\0';
             if (*options == '{')
-              (void) CopyMagickString(options,options+1,MaxTextExtent);
+              (void) strcpy(options,options+1);
             /*
               Assign a value to the specified keyword.
             */
@@ -1286,14 +1298,29 @@ static MagickBooleanType WriteMPCImage(const ImageInfo *image_info,Image *image,
       value=GetImageProperty(image,property,exception);
       if (value != (const char *) NULL)
         {
-          for (i=0; i < (ssize_t) strlen(value); i++)
+          size_t
+            length;
+
+          length=strlen(value);
+          for (i=0; i < (ssize_t) length; i++)
             if (isspace((int) ((unsigned char) value[i])) != 0)
               break;
-          if (i <= (ssize_t) strlen(value))
-            (void) WriteBlobByte(image,'{');
-          (void) WriteBlob(image,strlen(value),(unsigned char *) value);
-          if (i <= (ssize_t) strlen(value))
-            (void) WriteBlobByte(image,'}');
+          if (i == (ssize_t) length)
+            (void) WriteBlob(image,length,(const unsigned char *) value);
+          else
+            {
+              (void) WriteBlobByte(image,'{');
+              if (strchr(value,'}') == (char *) NULL)
+                (void) WriteBlob(image,length,(const unsigned char *) value);
+              else
+                for (i=0; i < (ssize_t) length; i++)
+                {
+                  if (value[i] == (int) '}')
+                    (void) WriteBlobByte(image,'\\');
+                  (void) WriteBlobByte(image,value[i]);
+                }
+              (void) WriteBlobByte(image,'}');
+            }
         }
       (void) WriteBlobByte(image,'\n');
       property=GetNextImageProperty(image);

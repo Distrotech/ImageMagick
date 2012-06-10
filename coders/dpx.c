@@ -729,6 +729,7 @@ static Image *ReadDPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     offset+=ReadBlob(image,sizeof(dpx.image.image_element[i].description),
       (unsigned char *) dpx.image.image_element[i].description);
   }
+  SetImageColorspace(image,RGBColorspace,exception);
   SetPrimaryChromaticity((DPXColorimetric)
     dpx.image.image_element[0].colorimetric,&image->chromaticity);
   offset+=ReadBlob(image,sizeof(dpx.image.reserve),(unsigned char *)
@@ -1046,21 +1047,21 @@ static Image *ReadDPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     case CbYACrYA4224ComponentType:
     case CbYCr444ComponentType:
     {
-      image->colorspace=Rec709YCbCrColorspace;
+      SetImageColorspace(image,Rec709YCbCrColorspace,exception);
       break;
     }
     case LumaComponentType:
     {
-      image->colorspace=RGBColorspace;
+      SetImageColorspace(image,sRGBColorspace,exception);
       break;
     }
     default:
     {
-      image->colorspace=RGBColorspace;
+      SetImageColorspace(image,sRGBColorspace,exception);
       if (dpx.image.image_element[0].transfer == LogarithmicColorimetric)
-        image->colorspace=LogColorspace;
+        SetImageColorspace(image,LogColorspace,exception);
       if (dpx.image.image_element[0].transfer == PrintingDensityColorimetric)
-        image->colorspace=LogColorspace;
+        SetImageColorspace(image,LogColorspace,exception);
       break;
     }
   }

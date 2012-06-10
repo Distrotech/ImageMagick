@@ -62,8 +62,10 @@
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantize.h"
 #include "MagickCore/quantum.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/thread-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/xml-tree.h"
@@ -140,6 +142,8 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
       pixel;
 
     pixel=(double) (i*(QuantumRange/MagickMax(colors-1,1)));
+    GetPixelInfo(image,image->colormap+i);
+    image->colormap[i].matte=MagickTrue;
     image->colormap[i].red=pixel;
     image->colormap[i].green=pixel;
     image->colormap[i].blue=pixel;
@@ -199,9 +203,10 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
   if (image->storage_class == DirectClass)
     (void) SetImageType(image,PaletteType,exception);
   status=MagickTrue;
-  image_view=AcquireCacheView(image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT) 
-  #pragma omp parallel for schedule(static,4) shared(status)
+  image_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -325,7 +330,8 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
     Assign index values to colormap entries.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    dynamic_number_threads(image,image->columns,1,1)
 #endif
   for (i=0; i < (ssize_t) image->colors; i++)
     image->colormap[i].alpha=(double) i;
@@ -343,7 +349,7 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
   for (i=0; i < (ssize_t) image->colors; i++)
     pixels[(ssize_t) image->colormap[i].alpha]=(unsigned short) i;
   status=MagickTrue;
-  image_view=AcquireCacheView(image);
+  image_view=AcquireAuthenticCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     Quantum

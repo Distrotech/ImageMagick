@@ -113,7 +113,7 @@ WandExport void ClearPixelWand(PixelWand *wand)
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
   ClearMagickException(wand->exception);
-  wand->pixel.colorspace=RGBColorspace;
+  wand->pixel.colorspace=sRGBColorspace;
   wand->debug=IsEventLogging();
 }
 
@@ -1752,7 +1752,7 @@ WandExport void PixelSetColorCount(PixelWand *wand,const size_t count)
 %
 %  The format of the PixelSetColorFromWand method is:
 %
-%      PixelSetColorFromWand(PixelWand *wand,const PixelWand *color)
+%      void PixelSetColorFromWand(PixelWand *wand,const PixelWand *color)
 %
 %  A description of each parameter follows:
 %
@@ -2098,7 +2098,7 @@ WandExport void PixelSetMagentaQuantum(PixelWand *wand,const Quantum magenta)
 %
 %  The format of the PixelSetPixelColor method is:
 %
-%      PixelSetPixelColor(PixelWand *wand,const PixelInfo *color)
+%      void PixelSetPixelColor(PixelWand *wand,const PixelInfo *color)
 %
 %  A description of each parameter follows:
 %
@@ -2132,7 +2132,7 @@ WandExport void PixelSetPixelColor(PixelWand *wand,const PixelInfo *color)
 %
 %  The format of the PixelSetQuantumPixel method is:
 %
-%      PixelSetQuantumPixel(const Image *image,const QixelPixel *pixel,
+%      void PixelSetQuantumPixel(const Image *image,const Quantum *pixel,
 %        PixelWand *wand)
 %
 %  A description of each parameter follows:

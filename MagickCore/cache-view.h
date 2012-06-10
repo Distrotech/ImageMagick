@@ -49,7 +49,8 @@ typedef struct _CacheView
   CacheView;
 
 extern MagickExport CacheView
-  *AcquireCacheView(const Image *),
+  *AcquireAuthenticCacheView(const Image *,ExceptionInfo *),
+  *AcquireVirtualCacheView(const Image *,ExceptionInfo *),
   *CloneCacheView(const CacheView *),
   *DestroyCacheView(CacheView *);
 
@@ -58,6 +59,9 @@ extern MagickExport ClassType
 
 extern MagickExport ColorspaceType
   GetCacheViewColorspace(const CacheView *);
+
+extern MagickExport const Image
+  *GetCacheViewImage(const CacheView *);
 
 extern MagickExport const Quantum
   *GetCacheViewVirtualPixels(const CacheView *,const ssize_t,const ssize_t,

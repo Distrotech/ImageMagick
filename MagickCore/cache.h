@@ -24,6 +24,18 @@ extern "C" {
 
 #include "MagickCore/blob.h"
 
+typedef enum
+{
+  UndefinedCache,
+  MemoryCache,
+  MapCache,
+  DiskCache,
+  PingCache
+} CacheType;
+
+extern MagickExport CacheType
+  GetImagePixelCacheType(const Image *);
+
 extern MagickExport const Quantum
   *GetVirtualPixels(const Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,ExceptionInfo *) magick_hot_spot,

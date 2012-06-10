@@ -1,6 +1,10 @@
 #
 # Comments should be ignored
 #
+: Shell script launcher comment ignore
+@ DOS script launcher comment ignore
+
+
 -option key  # end of line comment
 +reset   imbedded#hash   # <- not a comment, thought this is
 
@@ -31,10 +35,19 @@ Back\ slash\ escapes
 "µ  ¶  ⨀  ⨁  ⨂"
 测试用的汉字
 
-Lines__\
+Line__\
 __Continuation
 
-'quoted_newlines__
+"Double_Quoted_Line__\
+__Continuation"
+
+'Single_Quoted_Line__\
+__Continuation_NOT!'
+
+"double_quoted_newlines__
+__are_part_of_token"
+
+'single_quoted_newlines__
 __are_part_of_token'
 
 "Last Token before EOF"
