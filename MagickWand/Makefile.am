@@ -1,4 +1,4 @@
-#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -126,38 +126,23 @@ MAGICKWAND_LIBS = MagickWand/libMagickWand.la
 
 MagickWand_libMagickWand_la_SOURCES = $(MAGICKWAND_SOURCES)
 MagickWand_libMagickWand_la_CPPFLAGS = $(LIBRARY_EXTRA_CPPFLAGS)
-MagickWand_libMagickWand_la_LDFLAGS = -no-undefined -export-symbols-regex ".*" \
-	-version-info \
+
+if HAVE_LD_VERSION_SCRIPT
+MagickWand_libMagickWand_la_LDFLAGS_VERSION =  -Wl,--version-script=$(top_srcdir)/MagickWand/libMagickWand.map
+else
+MagickWand_libMagickWand_la_LDFLAGS_VERSION = -export-symbols-regex ".*"
+endif
+
+MagickWand_libMagickWand_la_LDFLAGS = -no-undefined \
+  $(MagickWand_libMagickWand_la_LDFLAGS_VERSION) $(MAGICK_LT_RELEASE_OPTS) \
+  -release $(MAGICK_ABI_SUFFIX) -version-info \
 	$(MAGICK_LIBRARY_CURRENT):$(MAGICK_LIBRARY_REVISION):$(MAGICK_LIBRARY_AGE)
 MagickWand_libMagickWand_la_LIBADD = $(MAGICKCORE_LIBS) $(X11_LIBS) $(GOMP_LIBS) $(MATH_LIBS)
 
 MAGICKWAND_EXTRA_DIST = \
 	MagickWand/ChangeLog \
-	MagickWand/input_256c.miff \
-	MagickWand/input_bilevel.miff \
-	MagickWand/input_gray.miff \
-	MagickWand/input_truecolor.miff \
+	MagickWand/libMagickWand.map \
 	MagickWand/MagickWand-config.1 \
-	MagickWand/MagickWand.pc.in \
-	MagickWand/sequence.miff \
-	MagickWand/common.sh \
-	$(MAGICKWAND_TESTS)
+	MagickWand/MagickWand.pc.in
 
-MagickWand_drawtest_SOURCES      = MagickWand/drawtest.c
-MagickWand_drawtest_LDFLAGS      = $(LDFLAGS)
-MagickWand_drawtest_LDADD        = $(MAGICKWAND_LIBS)
-
-MagickWand_wandtest_SOURCES      = MagickWand/wandtest.c
-MagickWand_wandtest_LDFLAGS      = $(LDFLAGS)
-MagickWand_wandtest_LDADD        = $(MAGICKWAND_LIBS)
-
-MAGICKWAND_CHECK_PGRMS = \
-	MagickWand/drawtest \
-	MagickWand/wandtest
-
-MAGICKWAND_TESTS = \
-	MagickWand/drawtest.sh \
-	MagickWand/wandtest.sh
-
-MAGICKWAND_CLEANFILES = \
-	MagickWand/*_out.*
+MAGICKWAND_CLEANFILES =

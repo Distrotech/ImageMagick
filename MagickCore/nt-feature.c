@@ -18,7 +18,7 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -179,7 +179,7 @@ MagickExport void *CropImageToHBITMAP(Image *image,
   bitmap_bits=(RGBQUAD *) GlobalLock((HGLOBAL) bitmap_bitsH);
   if ( bitmap.bmBits == NULL )
     bitmap.bmBits = bitmap_bits;
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Extract crop image.
@@ -287,7 +287,6 @@ MagickExport MagickBooleanType NTLoadTypeLists(SplayTreeInfo *type_list,
 
   LONG
     res;
-
 
   int
     list_entries = 0;

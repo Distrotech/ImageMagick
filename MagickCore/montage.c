@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -759,9 +759,9 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           if ((montage_info->frame != (char *) NULL) &&
               (image->compose == DstOutCompositeOp))
             {
-              SetPixelChannelMapMask(image,AlphaChannel);
+              SetPixelChannelMask(image,AlphaChannel);
               (void) NegateImage(image,MagickFalse,exception);
-              SetPixelChannelMapMask(image,DefaultChannels);
+              SetPixelChannelMask(image,DefaultChannels);
             }
         }
       /*
@@ -793,8 +793,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           extract_info.height=height+2*frame_info.height;
           value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
-            extract_info.height+=(size_t) ((metrics.ascent-
-              metrics.descent+4)*MultilineCensus(value));
+            extract_info.height+=(size_t) ((metrics.ascent-metrics.descent+4)*
+              MultilineCensus(value));
           frame_image=FrameImage(image,&extract_info,image->compose,exception);
           if (frame_image != (Image *) NULL)
             {
@@ -896,6 +896,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   tile_image=DestroyImage(tile_image);
   if (texture != (Image *) NULL)
     texture=DestroyImage(texture);
+  title=DestroyString(title);
   master_list=(Image **) RelinquishMagickMemory(master_list);
   draw_info=DestroyDrawInfo(draw_info);
   clone_info=DestroyImageInfo(clone_info);

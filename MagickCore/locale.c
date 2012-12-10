@@ -17,7 +17,7 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1418,6 +1418,8 @@ MagickPrivate void LocaleComponentTerminus(void)
   if (locale_semaphore == (SemaphoreInfo *) NULL)
     AcquireSemaphoreInfo(&locale_semaphore);
   LockSemaphoreInfo(locale_semaphore);
+  if (locale_list != (SplayTreeInfo *) NULL)
+    locale_list=DestroySplayTree(locale_list);
 #if defined(MAGICKCORE_HAVE_STRTOD_L)
   DestroyCLocale();
 #endif

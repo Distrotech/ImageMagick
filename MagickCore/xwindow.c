@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -206,7 +206,7 @@ static MagickBooleanType
 static const char
   *XVisualClassName(const int);
 
-static MagickRealType
+static double
   blue_gamma = 1.0,
   green_gamma = 1.0,
   red_gamma = 1.0;
@@ -479,8 +479,8 @@ MagickPrivate MagickBooleanType XAnnotateImage(Display *display,
     x,
     y;
 
-  MagickBooleanType
-    matte;
+  PixelTrait
+    alpha_trait;
 
   Pixmap
     annotate_pixmap;
@@ -560,7 +560,7 @@ MagickPrivate MagickBooleanType XAnnotateImage(Display *display,
   (void) GetOneVirtualPixelInfo(image,UndefinedVirtualPixelMethod,(ssize_t) x,
     (ssize_t) y,&annotate_image->background_color,exception);
   if (annotate_info->stencil == ForegroundStencil)
-    annotate_image->matte=MagickTrue;
+    annotate_image->alpha_trait=BlendPixelTrait;
   annotate_view=AcquireAuthenticCacheView(annotate_image,exception);
   for (y=0; y < (int) annotate_image->rows; y++)
   {
@@ -639,7 +639,7 @@ MagickPrivate MagickBooleanType XAnnotateImage(Display *display,
       int
         rotations;
 
-      MagickRealType
+      double
         normalized_degrees;
 
       /*
@@ -695,11 +695,11 @@ MagickPrivate MagickBooleanType XAnnotateImage(Display *display,
     Composite text onto the image.
   */
   (void) XParseGeometry(annotate_info->geometry,&x,&y,&width,&height);
-  matte=image->matte;
+  alpha_trait=image->alpha_trait;
   (void) CompositeImage(image,annotate_image,
-    annotate_image->matte != MagickFalse ? OverCompositeOp : CopyCompositeOp,
-    MagickTrue,(ssize_t) x,(ssize_t) y,exception);
-  image->matte=matte;
+    annotate_image->alpha_trait == BlendPixelTrait ? OverCompositeOp :
+    CopyCompositeOp,MagickTrue,(ssize_t) x,(ssize_t) y,exception);
+  image->alpha_trait=alpha_trait;
   annotate_image=DestroyImage(annotate_image);
   return(MagickTrue);
 }
@@ -904,7 +904,7 @@ MagickPrivate void XBestIconSize(Display *display,XWindowInfo *window,
     i,
     number_sizes;
 
-  MagickRealType
+  double
     scale_factor;
 
   unsigned int
@@ -965,9 +965,9 @@ MagickPrivate void XBestIconSize(Display *display,XWindowInfo *window,
   /*
     Look for an icon size that maintains the aspect ratio of image.
   */
-  scale_factor=(MagickRealType) icon_size->max_width/width;
-  if (scale_factor > ((MagickRealType) icon_size->max_height/height))
-    scale_factor=(MagickRealType) icon_size->max_height/height;
+  scale_factor=(double) icon_size->max_width/width;
+  if (scale_factor > ((double) icon_size->max_height/height))
+    scale_factor=(double) icon_size->max_height/height;
   icon_width=(unsigned int) icon_size->min_width;
   while ((int) icon_width < icon_size->max_width)
   {
@@ -1034,10 +1034,10 @@ MagickPrivate void XBestPixel(Display *display,const Colormap colormap,
   PixelInfo
     pixel;
 
-  MagickRealType
+  double
     min_distance;
 
-  register MagickRealType
+  register double
     distance;
 
   register int
@@ -1075,20 +1075,20 @@ MagickPrivate void XBestPixel(Display *display,const Colormap colormap,
         number_colors=256;
       (void) XQueryColors(display,colormap,colors,(int) number_colors);
     }
-  min_distance=3.0*((MagickRealType) QuantumRange+1.0)*((MagickRealType)
+  min_distance=3.0*((double) QuantumRange+1.0)*((double)
     QuantumRange+1.0);
   j=0;
   for (i=0; i < (int) number_colors; i++)
   {
-    pixel.red=colors[i].red-(MagickRealType) color->red;
+    pixel.red=colors[i].red-(double) color->red;
     distance=pixel.red*pixel.red;
     if (distance > min_distance)
       continue;
-    pixel.green=colors[i].green-(MagickRealType) color->green;
+    pixel.green=colors[i].green-(double) color->green;
     distance+=pixel.green*pixel.green;
     if (distance > min_distance)
       continue;
-    pixel.blue=colors[i].blue-(MagickRealType) color->blue;
+    pixel.blue=colors[i].blue-(double) color->blue;
     distance+=pixel.blue*pixel.blue;
     if (distance > min_distance)
       continue;
@@ -2236,11 +2236,11 @@ static void XDitherImage(Image *image,XImage *ximage,ExceptionInfo *exception)
       break;
     for (x=0; x < (int) image->columns; x++)
     {
-      color.red=(double) ClampToQuantum((MagickRealType) (red_map[i][j][
+      color.red=(double) ClampToQuantum((double) (red_map[i][j][
         (int) ScaleQuantumToChar(GetPixelRed(image,p))] << 8));
-      color.green=(double) ClampToQuantum((MagickRealType) (green_map[i][j][
+      color.green=(double) ClampToQuantum((double) (green_map[i][j][
         (int) ScaleQuantumToChar(GetPixelGreen(image,p))] << 8));
-      color.blue=(double) ClampToQuantum((MagickRealType) (blue_map[i][j][
+      color.blue=(double) ClampToQuantum((double) (blue_map[i][j][
         (int) ScaleQuantumToChar(GetPixelBlue(image,p))] << 8));
       pixel=(size_t) (((size_t) color.red & 0xe0) |
         (((size_t) color.green & 0xe0) >> 3) |
@@ -2318,8 +2318,8 @@ MagickPrivate MagickBooleanType XDrawImage(Display *display,
     x,
     y;
 
-  MagickBooleanType
-    matte;
+  PixelTrait
+    alpha_trait;
 
   Pixmap
     draw_pixmap;
@@ -2483,7 +2483,7 @@ MagickPrivate MagickBooleanType XDrawImage(Display *display,
     (ssize_t) y,&draw_image->background_color,exception);
   if (SetImageStorageClass(draw_image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  draw_image->matte=MagickTrue;
+  draw_image->alpha_trait=BlendPixelTrait;
   draw_view=AcquireAuthenticCacheView(draw_image,exception);
   for (y=0; y < (int) draw_image->rows; y++)
   {
@@ -2555,7 +2555,7 @@ MagickPrivate MagickBooleanType XDrawImage(Display *display,
       int
         rotations;
 
-      MagickRealType
+      double
         normalized_degrees;
 
       /*
@@ -2639,10 +2639,10 @@ MagickPrivate MagickBooleanType XDrawImage(Display *display,
       (ssize_t) x,(ssize_t) y,exception);
   else
     {
-      matte=image->matte;
+      alpha_trait=image->alpha_trait;
       (void) CompositeImage(image,draw_image,OverCompositeOp,MagickTrue,
         (ssize_t) x,(ssize_t) y,exception);
-      image->matte=matte;
+      image->alpha_trait=alpha_trait;
     }
   draw_image=DestroyImage(draw_image);
   return(MagickTrue);
@@ -3159,33 +3159,33 @@ MagickPrivate void XGetPixelInfo(Display *display,
   /*
     Set shadow color.
   */
-  pixel->shadow_color.red=(unsigned short) (((MagickRealType)
+  pixel->shadow_color.red=(unsigned short) (((double)
     pixel->matte_color.red*ScaleQuantumToShort(ShadowModulate))/65535L);
-  pixel->shadow_color.green=(unsigned short) (((MagickRealType)
+  pixel->shadow_color.green=(unsigned short) (((double)
     pixel->matte_color.green*ScaleQuantumToShort(ShadowModulate))/65535L);
-  pixel->shadow_color.blue=(unsigned short) (((MagickRealType)
+  pixel->shadow_color.blue=(unsigned short) (((double)
     pixel->matte_color.blue*ScaleQuantumToShort(ShadowModulate))/65535L);
   pixel->shadow_color.pixel=XStandardPixel(map_info,&pixel->shadow_color);
   pixel->shadow_color.flags=(char) (DoRed | DoGreen | DoBlue);
   /*
     Set depth color.
   */
-  pixel->depth_color.red=(unsigned short) (((MagickRealType)
+  pixel->depth_color.red=(unsigned short) (((double)
     pixel->matte_color.red*ScaleQuantumToShort(DepthModulate))/65535L);
-  pixel->depth_color.green=(unsigned short) (((MagickRealType)
+  pixel->depth_color.green=(unsigned short) (((double)
     pixel->matte_color.green*ScaleQuantumToShort(DepthModulate))/65535L);
-  pixel->depth_color.blue=(unsigned short) (((MagickRealType)
+  pixel->depth_color.blue=(unsigned short) (((double)
     pixel->matte_color.blue*ScaleQuantumToShort(DepthModulate))/65535L);
   pixel->depth_color.pixel=XStandardPixel(map_info,&pixel->depth_color);
   pixel->depth_color.flags=(char) (DoRed | DoGreen | DoBlue);
   /*
     Set trough color.
   */
-  pixel->trough_color.red=(unsigned short) (((MagickRealType)
+  pixel->trough_color.red=(unsigned short) (((double)
     pixel->matte_color.red*ScaleQuantumToShort(TroughModulate))/65535L);
-  pixel->trough_color.green=(unsigned short) (((MagickRealType)
+  pixel->trough_color.green=(unsigned short) (((double)
     pixel->matte_color.green*ScaleQuantumToShort(TroughModulate))/65535L);
-  pixel->trough_color.blue=(unsigned short) (((MagickRealType)
+  pixel->trough_color.blue=(unsigned short) (((double)
     pixel->matte_color.blue*ScaleQuantumToShort(TroughModulate))/65535L);
   pixel->trough_color.pixel=XStandardPixel(map_info,&pixel->trough_color);
   pixel->trough_color.flags=(char) (DoRed | DoGreen | DoBlue);
@@ -3565,7 +3565,7 @@ MagickExport void XGetResourceInfo(const ImageInfo *image_info,
   resource_info->foreground_color=XGetResourceInstance(database,client_name,
     "foreground",ForegroundColor);
   resource_value=XGetResourceClass(database,client_name,"gammaCorrect",
-    (char *) "True");
+    (char *) "False");
   resource_info->gamma_correct=IsStringTrue(resource_value);
   resource_info->image_geometry=ConstantString(XGetResourceClass(database,
     client_name,"geometry",(char *) NULL));
@@ -3626,7 +3626,7 @@ MagickExport void XGetResourceInfo(const ImageInfo *image_info,
   resource_info->title=XGetResourceClass(database,client_name,"title",
     (char *) NULL);
   resource_value=XGetResourceClass(database,client_name,"undoCache",
-    (char *) "16");
+    (char *) "256");
   resource_info->undo_cache=(unsigned int) StringToUnsignedLong(resource_value);
   resource_value=XGetResourceClass(database,client_name,"update",
     (char *) "False");
@@ -5732,7 +5732,7 @@ MagickPrivate MagickBooleanType XMakeImage(Display *display,
   window->ximage=ximage;
   matte_image=(XImage *) NULL;
   if ((window->shape != MagickFalse) && (window->image != (Image *) NULL))
-    if ((window->image->matte != MagickFalse) &&
+    if ((window->image->alpha_trait == BlendPixelTrait) &&
         ((int) width <= XDisplayWidth(display,window->screen)) &&
         ((int) height <= XDisplayHeight(display,window->screen)))
       {
@@ -5918,7 +5918,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   canvas=image;
   if ((window->immutable == MagickFalse) &&
-      (image->storage_class == DirectClass) && (image->matte != MagickFalse))
+      (image->storage_class == DirectClass) && (image->alpha_trait == BlendPixelTrait))
     {
       char
         size[MaxTextExtent];
@@ -5974,7 +5974,7 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
         (XPixelIntensity(&window->pixel_info->background_color) <
          XPixelIntensity(&window->pixel_info->foreground_color) ? 0x80 : 0x00);
       polarity=(unsigned short) ((GetPixelInfoIntensity(
-        &canvas->colormap[0])) < ((Quantum) QuantumRange/2) ? 1 : 0);
+        &canvas->colormap[0])) < (QuantumRange/2) ? 1 : 0);
       if (canvas->colors == 2)
         polarity=GetPixelInfoIntensity(&canvas->colormap[0]) <
           GetPixelInfoIntensity(&canvas->colormap[1]);
@@ -6331,12 +6331,9 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
                   }
                 for (x=(int) canvas->columns-1; x >= 0; x--)
                 {
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelBlue(canvas,p));
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelGreen(canvas,p));
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelRed(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelBlue(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelGreen(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelRed(canvas,p));
                   *q++=0;
                   p+=GetPixelChannels(canvas);
                 }
@@ -6378,12 +6375,9 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
                     }
                   for (x=(int) canvas->columns-1; x >= 0; x--)
                   {
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelRed(canvas,p));
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelGreen(canvas,p));
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelBlue(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelRed(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelGreen(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelBlue(canvas,p));
                     *q++=0;
                     p+=GetPixelChannels(canvas);
                   }
@@ -6550,7 +6544,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   canvas=image;
   if ((window->immutable != MagickFalse) &&
-      (image->storage_class == DirectClass) && (image->matte != MagickFalse))
+      (image->storage_class == DirectClass) && (image->alpha_trait == BlendPixelTrait))
     {
       char
         size[MaxTextExtent];
@@ -6606,7 +6600,7 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
         (XPixelIntensity(&window->pixel_info->background_color) <
          XPixelIntensity(&window->pixel_info->foreground_color) ?  0x01 : 0x00);
       polarity=(unsigned short) ((GetPixelInfoIntensity(
-        &canvas->colormap[0])) < ((Quantum) QuantumRange/2) ? 1 : 0);
+        &canvas->colormap[0])) < (QuantumRange/2) ? 1 : 0);
       if (canvas->colors == 2)
         polarity=GetPixelInfoIntensity(&canvas->colormap[0]) <
           GetPixelInfoIntensity(&canvas->colormap[1]);
@@ -6967,12 +6961,9 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
                 for (x=(int) canvas->columns-1; x >= 0; x--)
                 {
                   *q++=0;
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelRed(canvas,p));
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelGreen(canvas,p));
-                  *q++=ScaleQuantumToChar((Quantum)
-                    GetPixelBlue(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelRed(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelGreen(canvas,p));
+                  *q++=ScaleQuantumToChar((Quantum) GetPixelBlue(canvas,p));
                   p+=GetPixelChannels(canvas);
                 }
               }
@@ -7014,12 +7005,9 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
                   for (x=(int) canvas->columns-1; x >= 0; x--)
                   {
                     *q++=0;
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelBlue(canvas,p));
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelGreen(canvas,p));
-                    *q++=ScaleQuantumToChar((Quantum)
-                      GetPixelRed(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelBlue(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelGreen(canvas,p));
+                    *q++=ScaleQuantumToChar((Quantum) GetPixelRed(canvas,p));
                     p+=GetPixelChannels(canvas);
                   }
                 }
@@ -7538,7 +7526,7 @@ MagickPrivate void XMakeMagnifyImage(Display *display,XWindows *windows,
       (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
       ConcatenateColorComponent(&pixel,BlackPixelChannel,X11Compliance,tuple);
     }
-  if (pixel.matte != MagickFalse)
+  if (pixel.alpha_trait == BlendPixelTrait)
     {
       (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
       ConcatenateColorComponent(&pixel,AlphaPixelChannel,X11Compliance,tuple);
@@ -7707,13 +7695,13 @@ static MagickBooleanType XMakePixmap(Display *display,
 extern "C" {
 #endif
 
-static inline MagickRealType DiversityPixelIntensity(
+static inline double DiversityPixelIntensity(
   const DiversityPacket *pixel)
 {
-  MagickRealType
+  double
     intensity;
 
-  intensity=0.299*pixel->red+0.587*pixel->green+0.114*pixel->blue;
+  intensity=0.298839f*pixel->red+0.586811f*pixel->green+0.114350f*pixel->blue;
   return(intensity);
 }
 
@@ -7751,7 +7739,7 @@ static int PopularityCompare(const void *x,const void *y)
 static inline Quantum ScaleXToQuantum(const size_t x,
   const size_t scale)
 {
-  return((Quantum) (((MagickRealType) QuantumRange*x)/scale+0.5));
+  return((Quantum) (((double) QuantumRange*x)/scale+0.5));
 }
 
 MagickPrivate void XMakeStandardColormap(Display *display,
@@ -7795,7 +7783,7 @@ MagickPrivate void XMakeStandardColormap(Display *display,
       number_colors=(unsigned int) (map_info->base_pixel+
         (map_info->red_max+1)*(map_info->green_max+1)*(map_info->blue_max+1));
       if ((map_info->red_max*map_info->green_max*map_info->blue_max) != 0)
-        if ((image->matte == MagickFalse) &&
+        if ((image->alpha_trait != BlendPixelTrait) &&
             (resource_info->color_recovery == MagickFalse) &&
             (resource_info->quantize_info->dither_method != NoDitherMethod) &&
             (number_colors < MaxColormapSize))

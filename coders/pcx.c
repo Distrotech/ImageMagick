@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -125,7 +125,6 @@ static MagickBooleanType
 %
 %    o length: Specifies the length of the magick string.
 %
-%
 */
 static MagickBooleanType IsDCX(const unsigned char *magick,const size_t length)
 {
@@ -159,7 +158,6 @@ static MagickBooleanType IsDCX(const unsigned char *magick,const size_t length)
 %    o magick: compare image format pattern against these bytes.
 %
 %    o length: Specifies the length of the magick string.
-%
 %
 */
 static MagickBooleanType IsPCX(const unsigned char *magick,const size_t length)
@@ -402,7 +400,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         packet=(unsigned char) ReadBlobByte(image);
         if (EOFBlob(image) != MagickFalse)
-          break;
+          ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
         *p++=packet;
         pcx_packets--;
       }
@@ -411,7 +409,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         packet=(unsigned char) ReadBlobByte(image);
         if (EOFBlob(image) != MagickFalse)
-          break;
+          ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
         if ((packet & 0xc0) != 0xc0)
           {
             *p++=packet;
@@ -421,7 +419,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         count=(ssize_t) (packet & 0x3f);
         packet=(unsigned char) ReadBlobByte(image);
         if (EOFBlob(image) != MagickFalse)
-          break;
+          ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
         for ( ; count != 0; count--)
         {
           *p++=packet;
@@ -431,7 +429,8 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         }
       }
     if (image->storage_class == DirectClass)
-      image->matte=pcx_info.planes > 3 ? MagickTrue : MagickFalse;
+      image->alpha_trait=pcx_info.planes > 3 ? BlendPixelTrait :
+        UndefinedPixelTrait;
     else
       if ((pcx_info.version == 5) ||
           ((pcx_info.bits_per_pixel*pcx_info.planes) == 1))
@@ -449,9 +448,9 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
               image->colormap[0].red=(Quantum) 0;
               image->colormap[0].green=(Quantum) 0;
               image->colormap[0].blue=(Quantum) 0;
-              image->colormap[1].red=(Quantum) QuantumRange;
-              image->colormap[1].green=(Quantum) QuantumRange;
-              image->colormap[1].blue=(Quantum) QuantumRange;
+              image->colormap[1].red=QuantumRange;
+              image->colormap[1].green=QuantumRange;
+              image->colormap[1].blue=QuantumRange;
             }
           else
             if (image->colors > 16)
@@ -607,7 +606,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
             SetPixelRed(image,ScaleCharToQuantum(*r++),q);
             SetPixelGreen(image,ScaleCharToQuantum(*r++),q);
             SetPixelBlue(image,ScaleCharToQuantum(*r++),q);
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               SetPixelAlpha(image,ScaleCharToQuantum(*r++),q);
           }
         q+=GetPixelChannels(image);
@@ -879,7 +878,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   page_table=(MagickOffsetType *) NULL;
   if ((LocaleCompare(image_info->magick,"DCX") == 0) ||
@@ -940,7 +939,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
     if ((image->storage_class == DirectClass) || (image->colors > 256))
       {
         pcx_info.planes=3;
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           pcx_info.planes++;
       }
     pcx_info.bytes_per_line=(unsigned short) (((size_t) image->columns*
@@ -1095,7 +1094,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
               Convert PseudoClass image to a PCX monochrome image.
             */
             polarity=(Quantum) (GetPixelInfoIntensity(
-              &image->colormap[0]) < ((Quantum) QuantumRange/2) ? 1 : 0);
+              &image->colormap[0]) < (QuantumRange/2) ? 1 : 0);
             if (image->colors == 2)
               polarity=(Quantum) (GetPixelInfoIntensity(&image->colormap[0]) <
                 GetPixelInfoIntensity(&image->colormap[1]) ? 1 : 0);

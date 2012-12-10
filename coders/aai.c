@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -182,7 +182,7 @@ static Image *ReadAAIImage(const ImageInfo *image_info,ExceptionInfo *exception)
           *p=255;
         SetPixelAlpha(image,ScaleCharToQuantum(*p++),q);
         if (GetPixelAlpha(image,q) != OpaqueAlpha)
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
         q+=GetPixelChannels(image);
       }
       if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -364,7 +364,7 @@ static MagickBooleanType WriteAAIImage(const ImageInfo *image_info,Image *image,
     /*
       Write AAI header.
     */
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     (void) WriteBlobLSBLong(image,(unsigned int) image->columns);
     (void) WriteBlobLSBLong(image,(unsigned int) image->rows);
@@ -389,7 +389,7 @@ static MagickBooleanType WriteAAIImage(const ImageInfo *image_info,Image *image,
         *q++=ScaleQuantumToChar(GetPixelBlue(image,p));
         *q++=ScaleQuantumToChar(GetPixelGreen(image,p));
         *q++=ScaleQuantumToChar(GetPixelRed(image,p));
-        *q=ScaleQuantumToChar((Quantum) (image->matte != MagickFalse ?
+        *q=ScaleQuantumToChar((Quantum) (image->alpha_trait == BlendPixelTrait ?
           GetPixelAlpha(image,p) : OpaqueAlpha));
         if (*q == 255)
           *q=254;

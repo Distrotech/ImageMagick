@@ -23,7 +23,7 @@
 %                                March 2002                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -401,11 +401,12 @@ static void MvgAppendColor(DrawingWand *wand,const PixelInfo *packet)
 
       GetPixelInfo(wand->image,&pixel);
       pixel.colorspace=sRGBColorspace;
-      pixel.matte=packet->alpha != OpaqueAlpha ? MagickTrue : MagickFalse;
-      pixel.red=(MagickRealType) packet->red;
-      pixel.green=(MagickRealType) packet->green;
-      pixel.blue=(MagickRealType) packet->blue;
-      pixel.alpha=(MagickRealType) packet->alpha;
+      pixel.alpha_trait=packet->alpha != OpaqueAlpha ? BlendPixelTrait :
+        UndefinedPixelTrait;
+      pixel.red=(double) packet->red;
+      pixel.green=(double) packet->green;
+      pixel.blue=(double) packet->blue;
+      pixel.alpha=(double) packet->alpha;
       GetColorTuple(&pixel,MagickTrue,tuple);
       (void) MvgPrintf(wand,"%s",tuple);
     }
@@ -2464,8 +2465,8 @@ WandExport char *DrawGetVectorGraphics(DrawingWand *wand)
   if (child != (XMLTreeInfo *) NULL)
     {
       if (CurrentContext->fill.alpha != OpaqueAlpha)
-        pixel.matte=CurrentContext->fill.alpha != OpaqueAlpha ?
-          MagickTrue : MagickFalse;
+        pixel.alpha_trait=CurrentContext->fill.alpha != OpaqueAlpha ?
+          BlendPixelTrait : UndefinedPixelTrait;
       pixel=CurrentContext->fill;
       GetColorTuple(&pixel,MagickTrue,value);
       (void) SetXMLTreeContent(child,value);
@@ -2530,8 +2531,8 @@ WandExport char *DrawGetVectorGraphics(DrawingWand *wand)
   if (child != (XMLTreeInfo *) NULL)
     {
       if (CurrentContext->stroke.alpha != OpaqueAlpha)
-        pixel.matte=CurrentContext->stroke.alpha != OpaqueAlpha ?
-          MagickTrue : MagickFalse;
+        pixel.alpha_trait=CurrentContext->stroke.alpha != OpaqueAlpha ?
+          BlendPixelTrait : UndefinedPixelTrait;
       pixel=CurrentContext->stroke;
       GetColorTuple(&pixel,MagickTrue,value);
       (void) SetXMLTreeContent(child,value);
@@ -2623,8 +2624,8 @@ WandExport char *DrawGetVectorGraphics(DrawingWand *wand)
   if (child != (XMLTreeInfo *) NULL)
     {
       if (CurrentContext->undercolor.alpha != OpaqueAlpha)
-        pixel.matte=CurrentContext->undercolor.alpha != OpaqueAlpha ?
-          MagickTrue : MagickFalse;
+        pixel.alpha_trait=CurrentContext->undercolor.alpha != OpaqueAlpha ?
+          BlendPixelTrait : UndefinedPixelTrait;
       pixel=CurrentContext->undercolor;
       GetColorTuple(&pixel,MagickTrue,value);
       (void) SetXMLTreeContent(child,value);
@@ -4734,7 +4735,7 @@ WandExport void DrawSetFillAlpha(DrawingWand *wand,const double fill_alpha)
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  alpha=(double) ClampToQuantum((double) QuantumRange*(1.0-fill_alpha));
+  alpha=(double) ClampToQuantum(QuantumRange*(1.0-fill_alpha));
   if ((wand->filter_off != MagickFalse) ||
       (CurrentContext->fill.alpha != alpha))
     {
@@ -4820,7 +4821,7 @@ WandExport void DrawSetAlpha(DrawingWand *wand,const double alpha)
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  quantum_alpha=ClampToQuantum((double) QuantumRange*(1.0-alpha));
+  quantum_alpha=ClampToQuantum(QuantumRange*(1.0-alpha));
   if ((wand->filter_off != MagickFalse) ||
       (CurrentContext->alpha != quantum_alpha))
     {
@@ -5701,7 +5702,7 @@ WandExport void DrawSetStrokeAlpha(DrawingWand *wand,
   assert(wand->signature == WandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  alpha=(double) ClampToQuantum((double) QuantumRange*(1.0-stroke_alpha));
+  alpha=(double) ClampToQuantum(QuantumRange*(1.0-stroke_alpha));
   if ((wand->filter_off != MagickFalse) ||
       (CurrentContext->stroke.alpha != alpha))
     {
@@ -6188,8 +6189,8 @@ WandExport MagickBooleanType DrawSetVectorGraphics(DrawingWand *wand,
     {
       value=GetXMLTreeContent(child);
       if (value != (const char *) NULL)
-        CurrentContext->fill.alpha=(double) ClampToQuantum((MagickRealType)
-          QuantumRange*(1.0-StringToDouble(value,(char **) NULL)));
+        CurrentContext->fill.alpha=(double) ClampToQuantum(QuantumRange*
+          (1.0-StringToDouble(value,(char **) NULL)));
     }
   child=GetXMLTreeChild(xml_info,"fill-rule");
   if (child != (XMLTreeInfo *) NULL)
@@ -6352,8 +6353,8 @@ WandExport MagickBooleanType DrawSetVectorGraphics(DrawingWand *wand,
     {
       value=GetXMLTreeContent(child);
       if (value != (const char *) NULL)
-        CurrentContext->stroke.alpha=(double) ClampToQuantum((MagickRealType)
-          QuantumRange*(1.0-StringToDouble(value,(char **) NULL)));
+        CurrentContext->stroke.alpha=(double) ClampToQuantum(QuantumRange*
+          (1.0-StringToDouble(value,(char **) NULL)));
     }
   child=GetXMLTreeChild(xml_info,"stroke-width");
   if (child != (XMLTreeInfo *) NULL)

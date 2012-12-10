@@ -17,7 +17,7 @@
 %                               February 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -171,7 +171,7 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
       for ( ; ; )
       {
         text=AcquireString(caption);
-        i=FormatMagickCaption(image,draw_info,MagickFalse,&metrics,&text,
+        i=FormatMagickCaption(image,draw_info,MagickTrue,&metrics,&text,
           exception);
         (void) CloneString(&draw_info->text,text);
         text=DestroyString(text);
@@ -193,7 +193,7 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
       {
         draw_info->pointsize=(low+high)/2.0;
         text=AcquireString(caption);
-        i=FormatMagickCaption(image,draw_info,MagickFalse,&metrics,&text,
+        i=FormatMagickCaption(image,draw_info,MagickTrue,&metrics,&text,
           exception);
         (void) CloneString(&draw_info->text,text);
         text=DestroyString(text);
@@ -209,10 +209,10 @@ static Image *ReadCAPTIONImage(const ImageInfo *image_info,
         else
           high=draw_info->pointsize-1.0;
       }
-      for (draw_info->pointsize=(low+high)/2.0; ; )
+      for (draw_info->pointsize=(low+high)/2.0; (high-low) > 1.0; )
       {
         text=AcquireString(caption);
-        i=FormatMagickCaption(image,draw_info,MagickFalse,&metrics,&text,
+        i=FormatMagickCaption(image,draw_info,MagickTrue,&metrics,&text,
           exception);
         (void) CloneString(&draw_info->text,text);
         text=DestroyString(text);

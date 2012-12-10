@@ -17,7 +17,7 @@
 %                               November 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -881,7 +881,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
         scene;
 
       scene=inDocInfo->number_layers-layer-1;
-      if (scene > (image_info->scene+image_info->number_scenes-1))
+      if (scene > (ssize_t) (image_info->scene+image_info->number_scenes-1))
         {
           outLayer->image=CloneImage(image,0,0,MagickTrue,exception);
           if (outLayer->image == (Image *) NULL)
@@ -1063,7 +1063,7 @@ static Image *ReadXCFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (image_type == GIMP_INDEXED)
         ThrowReaderException(CoderError,"ColormapTypeNotSupported");
   (void) SetImageBackgroundColor(image,exception);
-  image->matte=MagickTrue;
+  image->alpha_trait=BlendPixelTrait;
   /*
     Read properties.
   */

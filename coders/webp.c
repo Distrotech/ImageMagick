@@ -17,7 +17,7 @@
 %                                 March 2011                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -163,7 +163,7 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   image->columns=(size_t) width;
   image->rows=(size_t) height;
-  image->matte=MagickTrue;
+  image->alpha_trait=BlendPixelTrait;
   p=pixels;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -346,13 +346,10 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   picture.stats=(&statistics);
   picture.width=(int) image->columns;
   picture.height=(int) image->rows;
-  if (image->quality != UndefinedCompressionQuality)
-    configure.quality=(float) image->quality;
   if (WebPConfigInit(&configure) == 0)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
-  /*
-    Future: set custom configuration parameters here.
-  */
+  if (image->quality != UndefinedCompressionQuality)
+    configure.quality=(float) image->quality;
   if (WebPValidateConfig(&configure) == 0)
     ThrowWriterException(ResourceLimitError,"UnableToEncodeImageFile");
   /*
@@ -376,7 +373,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
       *q++=ScaleQuantumToChar(GetPixelRed(image,p));
       *q++=ScaleQuantumToChar(GetPixelGreen(image,p));
       *q++=ScaleQuantumToChar(GetPixelBlue(image,p));
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         *q++=ScaleQuantumToChar(GetPixelAlpha(image,p));
       p+=GetPixelChannels(image);
     }
@@ -385,12 +382,13 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
     if (status == MagickFalse)
       break;
   }
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     webp_status=WebPPictureImportRGB(&picture,pixels,3*picture.width);
   else
     webp_status=WebPPictureImportRGBA(&picture,pixels,4*picture.width);
   pixels=(unsigned char *) RelinquishMagickMemory(pixels);
   webp_status=WebPEncode(&configure,&picture);
+  WebPPictureFree(&picture);
   (void) CloseBlob(image);
   return(webp_status == 0 ? MagickFalse : MagickTrue);
 }

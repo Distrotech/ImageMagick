@@ -23,6 +23,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #if defined(MAGICKCORE_HAVE_SYS_TYPES_H)
 # include <sys/types.h>
@@ -364,8 +365,24 @@ namespace Magick
   using MagickCore::PartitionInterlace;
 
   // Layer method
+  using MagickCore::LayerMethod;
+  using MagickCore::UndefinedLayer;
+  using MagickCore::CoalesceLayer;
+  using MagickCore::CompareAnyLayer;
+  using MagickCore::CompareClearLayer;
+  using MagickCore::CompareOverlayLayer;
+  using MagickCore::DisposeLayer;
+  using MagickCore::OptimizeLayer;
+  using MagickCore::OptimizeImageLayer;
+  using MagickCore::OptimizePlusLayer;
+  using MagickCore::OptimizeTransLayer;
+  using MagickCore::RemoveDupsLayer;
+  using MagickCore::RemoveZeroLayer;
+  using MagickCore::CompositeLayer;
+  using MagickCore::MergeLayer;
   using MagickCore::FlattenLayer;
   using MagickCore::MosaicLayer;
+  using MagickCore::TrimBoundsLayer;
 
   // Line cap types
   using MagickCore::LineCap;
@@ -409,6 +426,10 @@ namespace Magick
   using MagickCore::FloodfillMethod;
   using MagickCore::FillToBorderMethod;
   using MagickCore::ResetMethod;
+
+  // Pixel traits
+  using MagickCore::UndefinedPixelTrait;
+  using MagickCore::BlendPixelTrait;
 
   // Preview types.  Not currently used by Magick++
   using MagickCore::PreviewType;
@@ -554,6 +575,7 @@ namespace Magick
   //
   // ImageMagick symbols used in implementation code
   //
+  using MagickCore::AcquireAlignedMemory;
   using MagickCore::AcquireAuthenticCacheView;
   using MagickCore::AcquireExceptionInfo;
   using MagickCore::AcquireVirtualCacheView;
@@ -894,8 +916,8 @@ namespace Magick
   using MagickCore::SetMagickInfo;
   using MagickCore::SetMagickResourceLimit;
   using MagickCore::SetImageVirtualPixelMethod;
-  using MagickCore::SetPixelChannelMap;
-  using MagickCore::SetPixelChannelMask;
+  using MagickCore::SetPixelChannel;
+  using MagickCore::SetImageChannelMask;
   using MagickCore::SetStringInfoDatum;
   using MagickCore::ShadeImage;
   using MagickCore::ShadowImage;

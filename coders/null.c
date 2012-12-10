@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -126,9 +126,9 @@ static Image *ReadNULLImage(const ImageInfo *image_info,
     image->columns=1;
   if (image->rows == 0)
     image->rows=1;
-  image->matte=MagickTrue;
+  image->alpha_trait=BlendPixelTrait;
   GetPixelInfo(image,&background);
-  background.alpha=(MagickRealType) TransparentAlpha;
+  background.alpha=(double) TransparentAlpha;
   if (image->colorspace == CMYKColorspace)
     ConvertRGBToCMYK(&background);
   for (y=0; y < (ssize_t) image->rows; y++)

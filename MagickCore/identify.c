@@ -326,9 +326,11 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
       if (image->type != UndefinedType)
         (void) FormatLocaleFile(file,"%s ",CommandOptionToMnemonic(
           MagickTypeOptions,(ssize_t) image->type));
+     if (image->colorspace != UndefinedColorspace)
+        (void) FormatLocaleFile(file,"%s ",CommandOptionToMnemonic(
+          MagickColorspaceOptions,(ssize_t) image->colorspace));
       if (image->storage_class == DirectClass)
         {
-          (void) FormatLocaleFile(file,"DirectClass ");
           if (image->total_colors != 0)
             {
               (void) FormatMagickSize(image->total_colors,MagickFalse,format);
@@ -337,10 +339,10 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         }
       else
         if (image->total_colors <= image->colors)
-          (void) FormatLocaleFile(file,"PseudoClass %.20gc ",(double)
+          (void) FormatLocaleFile(file,"%.20gc ",(double)
             image->colors);
         else
-          (void) FormatLocaleFile(file,"PseudoClass %.20g=>%.20gc ",(double)
+          (void) FormatLocaleFile(file,"%.20g=>%.20gc ",(double)
             image->total_colors,(double) image->colors);
       if (image->error.mean_error_per_pixel != 0.0)
         (void) FormatLocaleFile(file,"%.20g/%f/%fdb ",(double)
@@ -474,7 +476,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           break;
         }
       }
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         (void) FormatLocaleFile(file,"    alpha: %.20g-bit\n",(double)
           channel_statistics[AlphaPixelChannel].depth);
       scale=1;
@@ -517,7 +519,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           break;
         }
       }
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         (void) PrintChannelStatistics(file,AlphaPixelChannel,"Alpha",1.0/
           scale,channel_statistics);
       if (colorspace != GRAYColorspace)
@@ -565,7 +567,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           break;
         }
       }
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         (void) PrintChannelFeatures(file,AlphaPixelChannel,"Alpha",
           channel_features);
       channel_features=(ChannelFeatures *) RelinquishMagickMemory(
@@ -577,7 +579,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         (void) FormatLocaleFile(file,"  Total ink density: %.0f%%\n",100.0*
           GetImageTotalInkDensity(image,exception)/(double) QuantumRange);
       x=0;
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         {
           register const Quantum
             *p;
@@ -621,7 +623,8 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
           (void) FormatLocaleFile(file,"  Histogram:\n");
           (void) GetNumberColors(image,file,exception);
         }
-      else {
+      else
+        {
           artifact=GetImageArtifact(image,"identify:unique-colors");
           if (IfMagickTrue(IsStringTrue(artifact)))
             (void) FormatLocaleFile(file,"  Colors: %.20g\n",(double)
@@ -630,8 +633,9 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
     }
   if (image->storage_class == PseudoClass)
     {
-      (void) FormatLocaleFile(file,"  Colormap: %.20g\n",(double)
+      (void) FormatLocaleFile(file,"  Colormap entries: %.20g\n",(double)
         image->colors);
+      (void) FormatLocaleFile(file,"  Colormap:\n");
       if (image->colors <= 1024)
         {
           char
@@ -665,7 +669,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
                 ConcatenateColorComponent(&pixel,BlackPixelChannel,
                   X11Compliance,tuple);
               }
-            if (pixel.matte != MagickFalse)
+            if (pixel.alpha_trait == BlendPixelTrait)
               {
                 (void) ConcatenateMagickString(tuple,",",MaxTextExtent);
                 ConcatenateColorComponent(&pixel,AlphaPixelChannel,

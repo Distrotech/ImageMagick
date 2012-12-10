@@ -18,7 +18,7 @@
 %                                 June 2007                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -105,7 +105,7 @@ static void InvertAffineCoefficients(const double *coeff,double *inverse)
   /* From "Digital Image Warping" by George Wolberg, page 50 */
   double determinant;
 
-  determinant=MagickEpsilonReciprocal(coeff[0]*coeff[4]-coeff[1]*coeff[3]);
+  determinant=PerceptibleReciprocal(coeff[0]*coeff[4]-coeff[1]*coeff[3]);
   inverse[0]=determinant*coeff[4];
   inverse[1]=determinant*(-coeff[1]);
   inverse[2]=determinant*(coeff[1]*coeff[5]-coeff[2]*coeff[4]);
@@ -120,7 +120,7 @@ static void InvertPerspectiveCoefficients(const double *coeff,
   /* From "Digital Image Warping" by George Wolberg, page 53 */
   double determinant;
 
-  determinant=MagickEpsilonReciprocal(coeff[0]*coeff[4]-coeff[3]*coeff[1]);
+  determinant=PerceptibleReciprocal(coeff[0]*coeff[4]-coeff[3]*coeff[1]);
   inverse[0]=determinant*(coeff[4]-coeff[7]*coeff[5]);
   inverse[1]=determinant*(coeff[7]*coeff[2]-coeff[1]);
   inverse[2]=determinant*(coeff[1]*coeff[5]-coeff[4]*coeff[2]);
@@ -1503,7 +1503,7 @@ MagickExport Image *DistortResizeImage(const Image *image,
   (void) SetImageVirtualPixelMethod(tmp_image,TransparentVirtualPixelMethod,
     exception);
 
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     {
       /*
         Image has not transparency channel, so we free to use it
@@ -1520,9 +1520,6 @@ MagickExport Image *DistortResizeImage(const Image *image,
     }
   else
     {
-      Image
-        *resize_alpha;
-
       /*
         Image has transparency so handle colors and alpha separatly.
         Basically we need to separate Virtual-Pixel alpha in the resized
@@ -1530,6 +1527,9 @@ MagickExport Image *DistortResizeImage(const Image *image,
 
         distort alpha channel separately
       */
+      Image
+        *resize_alpha;
+
       (void) SetImageAlphaChannel(tmp_image,ExtractAlphaChannel,exception);
       (void) SetImageAlphaChannel(tmp_image,OpaqueAlphaChannel,exception);
       resize_alpha=DistortImage(tmp_image,AffineDistortion,12,distort_args,
@@ -1799,28 +1799,28 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
         s.x = (double) image->page.x;
         s.y = (double) image->page.y;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=MagickEpsilonReciprocal(scale);
+        scale=PerceptibleReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         InitalBounds(d);
         s.x = (double) image->page.x+image->columns;
         s.y = (double) image->page.y;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=MagickEpsilonReciprocal(scale);
+        scale=PerceptibleReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
         s.x = (double) image->page.x;
         s.y = (double) image->page.y+image->rows;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=MagickEpsilonReciprocal(scale);
+        scale=PerceptibleReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
         s.x = (double) image->page.x+image->columns;
         s.y = (double) image->page.y+image->rows;
         scale=inverse[6]*s.x+inverse[7]*s.y+1.0;
-        scale=MagickEpsilonReciprocal(scale);
+        scale=PerceptibleReciprocal(scale);
         d.x = scale*(inverse[0]*s.x+inverse[1]*s.y+inverse[2]);
         d.y = scale*(inverse[3]*s.x+inverse[4]*s.y+inverse[5]);
         ExpandBounds(d);
@@ -2249,10 +2249,10 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
     output_scaling = 1.0;
     if (artifact != (const char *) NULL) {
       output_scaling = fabs(StringToDouble(artifact,(char **) NULL));
-      geometry.width  *= (size_t) output_scaling;
-      geometry.height *= (size_t) output_scaling;
-      geometry.x      *= (ssize_t) output_scaling;
-      geometry.y      *= (ssize_t) output_scaling;
+      geometry.width=(size_t) (output_scaling*geometry.width+0.5);
+      geometry.height=(size_t) (output_scaling*geometry.height+0.5);
+      geometry.x=(ssize_t) (output_scaling*geometry.x+0.5);
+      geometry.y=(ssize_t) (output_scaling*geometry.y+0.5);
       if ( output_scaling < 0.1 ) {
         coeff = (double *) RelinquishMagickMemory(coeff);
         (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
@@ -2280,10 +2280,13 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
       distort_image=DestroyImage(distort_image);
       return((Image *) NULL);
     }
+  if ((IsPixelInfoGray(&distort_image->background_color) == MagickFalse) &&
+      (IsGrayColorspace(distort_image->colorspace) != MagickFalse))
+    (void) TransformImageColorspace(distort_image,RGBColorspace,exception);
+  if (distort_image->background_color.alpha_trait == BlendPixelTrait)
+    distort_image->alpha_trait=BlendPixelTrait;
   distort_image->page.x=geometry.x;
   distort_image->page.y=geometry.y;
-  if (distort_image->background_color.matte != MagickFalse)
-    distort_image->matte=MagickTrue;
 
   { /* ----- MAIN CODE -----
        Sample the source image to each pixel in the distort image.
@@ -2801,7 +2804,7 @@ MagickExport Image *RotateImage(const Image *image,const double degrees,
     *distort_image,
     *rotate_image;
 
-  MagickRealType
+  double
     angle;
 
   PointInfo
@@ -2832,8 +2835,6 @@ MagickExport Image *RotateImage(const Image *image,const double degrees,
   distort_image=CloneImage(image,0,0,MagickTrue,exception);
   if (distort_image == (Image *) NULL)
     return((Image *) NULL);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(distort_image,sRGBColorspace,exception);
   (void) SetImageVirtualPixelMethod(distort_image,BackgroundVirtualPixelMethod,
     exception);
   rotate_image=DistortImage(distort_image,ScaleRotateTranslateDistortion,1,
@@ -2918,7 +2919,7 @@ MagickExport Image *SparseColorImage(const Image *image,
       (image->colorspace == CMYKColorspace))
     number_colors++;
   if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-      (image->matte != MagickFalse))
+      (image->alpha_trait == BlendPixelTrait))
     number_colors++;
 
   /*
@@ -2968,7 +2969,7 @@ MagickExport Image *SparseColorImage(const Image *image,
           (void) FormatLocaleFile(stderr, "  -channel K -fx '%+lf*i %+lf*j %+lf' \\\n",
               coeff[x], coeff[x+1], coeff[x+2]),x+=3;
         if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-            (image->matte != MagickFalse))
+            (image->alpha_trait == BlendPixelTrait))
           (void) FormatLocaleFile(stderr, "  -channel A -fx '%+lf*i %+lf*j %+lf' \\\n",
               coeff[x], coeff[x+1], coeff[x+2]),x+=3;
         break;
@@ -2995,7 +2996,7 @@ MagickExport Image *SparseColorImage(const Image *image,
               coeff[ x ], coeff[x+1],
               coeff[x+2], coeff[x+3]),x+=4;
         if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-            (image->matte != MagickFalse))
+            (image->alpha_trait == BlendPixelTrait))
           (void) FormatLocaleFile(stderr, "   -channel A -fx '%+lf*i %+lf*j %+lf*i*j %+lf;\n",
               coeff[ x ], coeff[x+1],
               coeff[x+2], coeff[x+3]),x+=4;
@@ -3085,7 +3086,7 @@ MagickExport Image *SparseColorImage(const Image *image,
               pixel.black   = coeff[x]*i +coeff[x+1]*j
                               +coeff[x+2], x+=3;
             if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->matte != MagickFalse))
+                (image->alpha_trait == BlendPixelTrait))
               pixel.alpha = coeff[x]*i +coeff[x+1]*j
                               +coeff[x+2], x+=3;
             break;
@@ -3107,7 +3108,7 @@ MagickExport Image *SparseColorImage(const Image *image,
               pixel.black   = coeff[x]*i     + coeff[x+1]*j +
                               coeff[x+2]*i*j + coeff[x+3], x+=4;
             if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->matte != MagickFalse))
+                (image->alpha_trait == BlendPixelTrait))
               pixel.alpha = coeff[x]*i     + coeff[x+1]*j +
                               coeff[x+2]*i*j + coeff[x+3], x+=4;
             break;
@@ -3130,7 +3131,7 @@ MagickExport Image *SparseColorImage(const Image *image,
                 (image->colorspace == CMYKColorspace))
               pixel.black=0.0;
             if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->matte != MagickFalse))
+                (image->alpha_trait == BlendPixelTrait))
               pixel.alpha=0.0;
             denominator = 0.0;
             for(k=0; k<number_arguments; k+=2+number_colors) {
@@ -3151,7 +3152,7 @@ MagickExport Image *SparseColorImage(const Image *image,
                   (image->colorspace == CMYKColorspace))
                 pixel.black   += arguments[x++]*weight;
               if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                  (image->matte != MagickFalse))
+                  (image->alpha_trait == BlendPixelTrait))
                 pixel.alpha += arguments[x++]*weight;
               denominator += weight;
             }
@@ -3165,7 +3166,7 @@ MagickExport Image *SparseColorImage(const Image *image,
                 (image->colorspace == CMYKColorspace))
               pixel.black/=denominator;
             if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->matte != MagickFalse))
+                (image->alpha_trait == BlendPixelTrait))
               pixel.alpha/=denominator;
             break;
           }
@@ -3193,7 +3194,7 @@ MagickExport Image *SparseColorImage(const Image *image,
                     (image->colorspace == CMYKColorspace))
                   pixel.black=arguments[x++];
                 if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                    (image->matte != MagickFalse))
+                    (image->alpha_trait == BlendPixelTrait))
                   pixel.alpha=arguments[x++];
                 minimum = distance;
               }
@@ -3212,7 +3213,7 @@ MagickExport Image *SparseColorImage(const Image *image,
             (image->colorspace == CMYKColorspace))
           pixel.black*=QuantumRange;
         if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-            (image->matte != MagickFalse))
+            (image->alpha_trait == BlendPixelTrait))
           pixel.alpha*=QuantumRange;
         SetPixelInfoPixel(sparse_image,&pixel,q);
         q+=GetPixelChannels(sparse_image);

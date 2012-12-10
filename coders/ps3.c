@@ -18,7 +18,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -460,7 +460,7 @@ static MagickBooleanType WritePS3MaskImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  assert(image->matte != MagickFalse);
+  assert(image->alpha_trait == BlendPixelTrait);
   status=MagickTrue;
   /*
     Note BeginData DSC comment for update later.
@@ -521,7 +521,7 @@ static MagickBooleanType WritePS3MaskImage(const ImageInfo *image_info,
     ThrowWriterException(CoderError,exception->reason);
   (void) SetImageType(mask_image,BilevelType,exception);
   (void) SetImageType(mask_image,PaletteType,exception);
-  mask_image->matte=MagickFalse;
+  mask_image->alpha_trait=UndefinedPixelTrait;
   pixels=(unsigned char *) NULL;
   length=0;
   switch (compression)
@@ -738,6 +738,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
       "",
       "/DisplayImage",
       "{",
+      "  gsave",
       "  /buffer 512 string def",
       "  % Translation.",
       "  currentfile buffer readline pop",
@@ -788,6 +789,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
       "  { NonMaskedImageDict }",
       "  ifelse",
       "  stencil { 0 setgray imagemask } { image } ifelse",
+      "  grestore",
       "  sp { showpage } if",
       "} bind def",
       (char *) NULL
@@ -879,7 +881,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
     case Group4Compression:
     { 
       if ((IsImageMonochrome(image,exception) == MagickFalse) ||
-          (image->matte != MagickFalse))
+          (image->alpha_trait == BlendPixelTrait))
         compression=RLECompression;
       break;
     }
@@ -1010,8 +1012,8 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
         else
           {
             (void) FormatLocaleString(buffer,MaxTextExtent,
-              "%%%%BoundingBox: %g %g %g %g\n",floor(bounds.x1+0.5),
-              floor(bounds.y1+0.5),ceil(bounds.x2-0.5),ceil(bounds.y2-0.5));
+              "%%%%BoundingBox: %g %g %g %g\n",ceil(bounds.x1-0.5),
+              ceil(bounds.y1-0.5),floor(bounds.x2+0.5),floor(bounds.y2+0.5));
             (void) WriteBlobString(image,buffer);
             (void) FormatLocaleString(buffer,MaxTextExtent,
               "%%%%HiResBoundingBox: %g %g %g %g\n",bounds.x1,
@@ -1148,7 +1150,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
     /*
       Image mask.
     */
-    if ((image->matte != MagickFalse) &&
+    if ((image->alpha_trait == BlendPixelTrait) &&
         (WritePS3MaskImage(image_info,image,compression,exception) == MagickFalse))
       {
         (void) CloseBlob(image);
@@ -1222,7 +1224,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
     /*
       Masked image?
     */
-    (void) WriteBlobString(image,image->matte != MagickFalse ?
+    (void) WriteBlobString(image,image->alpha_trait == BlendPixelTrait ?
       "true\n" : "false\n");
     /*
       Render with imagemask operator?
@@ -1582,12 +1584,12 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
   if (page > 1)
     {
       (void) FormatLocaleString(buffer,MaxTextExtent,
-        "%%%%BoundingBox: %g %g %g %g\n",floor(bounds.x1+0.5),
-        floor(bounds.y1+0.5),ceil(bounds.x2-0.5),ceil(bounds.y2-0.5));
+        "%%%%BoundingBox: %g %g %g %g\n",ceil(bounds.x1-0.5),
+        ceil(bounds.y1-0.5),floor(bounds.x2+0.5),floor(bounds.y2+0.5));
       (void) WriteBlobString(image,buffer);
       (void) FormatLocaleString(buffer,MaxTextExtent,
-        "%%%%HiResBoundingBox: %g %g %g %g\n",bounds.x1,bounds.y1,
-        bounds.x2,bounds.y2);
+        "%%%%HiResBoundingBox: %g %g %g %g\n",bounds.x1,bounds.y1,bounds.x2,
+        bounds.y2);
       (void) WriteBlobString(image,buffer);
     }
   (void) WriteBlobString(image,"%%EOF\n");

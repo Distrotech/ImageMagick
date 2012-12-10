@@ -75,13 +75,14 @@
   <delegate decode="cgm" thread-support="False" command="&quot;@CGMDecodeDelegate@&quot; -d ps -oC &lt; &quot;%i&quot; &gt; &quot;%o&quot; 2&gt; &quot;%Z&quot;"/>
   <delegate decode="dvi" command="&quot;@DVIDecodeDelegate@&quot; -q -o &quot;%o&quot; &quot;%i&quot;"/>
   <delegate decode="dng:decode" command="&quot;@DNGDecodeDelegate@&quot; --silent --create-id=also --out-type=png --out-depth=16 &quot;--output=%u.png&quot; &quot;%i&quot;"/>
+  <delegate decode="dot" command='&quot;@GVCDecodeDelegate@&quot; -Tsvg &quot;%i&quot; -o &quot;%o&quot;' />
   <delegate decode="edit" stealth="True" command="&quot;@EditorDelegate@&quot; -title &quot;Edit Image Comment&quot; -e vi &quot;%o&quot;"/>
   <delegate decode="eps" encode="pdf" mode="bi" command="&quot;@PSDelegate@&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 &quot;-sDEVICE=@GSPDFDevice@&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;"/>
   <delegate decode="eps" encode="ps" mode="bi" command="&quot;@PSDelegate@&quot; -q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=@GSPSDevice@&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;"/>
   <delegate decode="fig" command="&quot;@FIGDecodeDelegate@&quot; -L ps &quot;%i&quot; &quot;%o&quot;"/>
   <delegate decode="plt" command="&quot;@EchoDelegate@&quot; &quot;set size 1.25,0.62; set terminal postscript portrait color solid; set output \'%o\'; load \'%i\'&quot; &gt; &quot;%u&quot;;&quot;@GnuplotDecodeDelegate@&quot; &quot;%u&quot;"/>
   <delegate decode="hpg" command="&quot;@HPGLDecodeDelegate@&quot; -q -m eps -f `basename &quot;%o&quot;` &quot;%i&quot;;     mv -f `basename &quot;%o&quot;` &quot;%o&quot;"/>
-  <delegate decode="hpgl" command="if [ -e @HPGLDecodeDelegate@ -o -e /usr/bin/@HPGLDecodeDelegate@ ]; then     @HPGLDecodeDelegate@ -q -m eps -f `basename &quot;%o&quot;` &quot;%i&quot;;     mv -f `basename &quot;%o&quot;` &quot;%o&quot;;   else     echo &quot;You need to install hp2xx to use HPGL files with ImageMagick.&quot;;     exit 1;   fi"/>
+  <delegate decode="hpgl" command="&quot;@HPGLDecodeDelegate@&quot; -q -m eps -f `basename &quot;%o&quot;` &quot;%i&quot;;     mv -f `basename &quot;%o&quot;` &quot;%o&quot;"/>
   <delegate decode="htm" command="&quot;@HTMLDecodeDelegate@&quot; -U -o &quot;%o&quot; &quot;%i&quot;"/>
   <delegate decode="html" command="&quot;@HTMLDecodeDelegate@&quot; -U -o &quot;%o&quot; &quot;%i&quot;"/>
   <delegate decode="https" command="&quot;@WWWDecodeDelegate@&quot; -s -k -o &quot;%o&quot; &quot;https:%M&quot;"/>
@@ -111,6 +112,7 @@
   <delegate decode="miff" encode="show" spawn="True" command="&quot;@DisplayDelegate@&quot; -delay 0 -window-group %[group] -title &quot;%l &quot; &quot;ephemeral:%i&quot;"/>
   <delegate decode="shtml" command="&quot;@HTMLDecodeDelegate@&quot; -U -o &quot;%o&quot; &quot;%i&quot;"/>
   <delegate decode="svg" command="&quot;@RSVGDecodeDelegate@&quot; -o &quot;%o&quot; &quot;%i&quot;"/>
+  <delegate decode="svg:decode" stealth="True" command="&quot;@SVGDecodeDelegate@&quot; &quot;%s&quot; --export-png=&quot;%s&quot; --export-dpi=&quot;%s&quot; --export-background=&quot;%s&quot; --export-background-opacity=&quot;%s&quot; &gt; &quot;%s&quot; 2&gt;&amp;1"/>
   <delegate decode="txt" encode="ps" mode="bi" command="&quot;@TXTDelegate@&quot; -o &quot;%o&quot; &quot;%i&quot;"/>
   <delegate decode="miff" encode="win" stealth="True" spawn="True" command="&quot;@DisplayDelegate@&quot; -immutable -delay 0 -window-group %[group] -title &quot;%l &quot; &quot;ephemeral:%i&quot;"/>
   <delegate decode="wmf" command="&quot;@WMFDecodeDelegate@&quot; -o &quot;%o&quot; &quot;%i&quot;"/>

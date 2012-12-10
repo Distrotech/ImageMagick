@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -36,66 +36,62 @@ extern "C" {
 #  define MagickULLConstant(c)  (MagickSizeType) (c ## ULL)
 #endif
 
+#if !defined(MAGICKCORE_HAVE_DOUBLE_T)
+typedef double double_t;
+#endif
+#if !defined(MAGICKCORE_HAVE_FLOAT_T)
+typedef float float_t;
+#endif
+
 #if (MAGICKCORE_QUANTUM_DEPTH == 8)
-#define MagickEpsilon  ((MagickRealType) 1.0e-7)
 #define MaxColormapSize  256UL
 #define MaxMap  255UL
+typedef float_t MagickRealType;
 
-#if defined __arm__ || defined __thumb__
-typedef float MagickRealType;
-#else
-typedef double MagickRealType;
-#endif
 #if defined(MAGICKCORE_HDRI_SUPPORT)
 typedef float Quantum;
 #define QuantumRange  255.0
 #define QuantumFormat  "%g"
 #else
 typedef unsigned char Quantum;
-#define QuantumRange  255
+#define QuantumRange  ((Quantum) 255)
 #define QuantumFormat  "%u"
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 16)
-#define MagickEpsilon  ((MagickRealType) 1.0e-16)
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
+typedef float_t MagickRealType;
 
-#if defined __arm__ || defined __thumb__
-typedef float MagickRealType;
-#else
-typedef double MagickRealType;
-#endif
 #if defined(MAGICKCORE_HDRI_SUPPORT)
 typedef float Quantum;
 #define QuantumRange  65535.0
 #define QuantumFormat  "%g"
 #else
 typedef unsigned short Quantum;
-#define QuantumRange  65535
+#define QuantumRange  ((Quantum) 65535)
 #define QuantumFormat  "%u"
 #endif
 #elif (MAGICKCORE_QUANTUM_DEPTH == 32)
-#define MagickEpsilon  ((MagickRealType) 1.0e-16)
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
+typedef float_t MagickRealType;
 
-typedef double MagickRealType;
 #if defined(MAGICKCORE_HDRI_SUPPORT)
 typedef float Quantum;
 #define QuantumRange  4294967295.0
 #define QuantumFormat  "%g"
 #else
 typedef unsigned int Quantum;
-#define QuantumRange  4294967295
+#define QuantumRange  ((Quantum) 4294967295)
 #define QuantumFormat  "%u"
 #endif
-#elif (MAGICKCORE_QUANTUM_DEPTH == 64) && defined(MAGICKCORE_HAVE_LONG_DOUBLE_WIDER)
-#define MagickEpsilon  ((MagickRealType) 1.0e-16)
+#elif (MAGICKCORE_QUANTUM_DEPTH == 64)
+#define MAGICKCORE_HDRI_SUPPORT
 #define MaxColormapSize  65536UL
 #define MaxMap  65535UL
 
 typedef long double MagickRealType;
-typedef double Quantum;
+typedef double_t Quantum;
 #define QuantumRange  18446744073709551615.0
 #define QuantumFormat  "%g"
 #else
@@ -103,8 +99,9 @@ typedef double Quantum;
 # error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
 #endif
-#define MagickHuge  ((MagickRealType) 1.0/MagickEpsilon)
-#define MagickPI  3.14159265358979323846264338327950288419716939937510L
+#define MagickEpsilon  (1.0e-15)
+#define MagickHuge  3.4e+38F
+#define MagickPI  3.14159265358979323846264338327950288419716939937510
 #define QuantumScale  ((double) 1.0/(double) QuantumRange)
 
 /*
@@ -128,12 +125,6 @@ typedef __int64 MagickOffsetType;
 typedef unsigned __int64 MagickSizeType;
 #define MagickOffsetFormat  "I64i"
 #define MagickSizeFormat  "I64u"
-#endif
-
-#if QuantumDepth > 16
-  typedef double SignedQuantum;
-#else
-  typedef ssize_t SignedQuantum;
 #endif
 
 #if defined(_MSC_VER) && (_MSC_VER == 1200)

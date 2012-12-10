@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -46,6 +46,7 @@
 #include "MagickCore/cache.h"
 #include "MagickCore/colormap.h"
 #include "MagickCore/colorspace.h"
+#include "MagickCore/colorspace-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image.h"
@@ -313,7 +314,7 @@ static Image *ReadICONImage(const ImageInfo *image_info,
         icon_info.y_pixels=ReadBlobLSBLong(image);
         icon_info.number_colors=ReadBlobLSBLong(image);
         icon_info.colors_important=ReadBlobLSBLong(image);
-        image->matte=MagickTrue;
+        image->alpha_trait=BlendPixelTrait;
         image->columns=(size_t) icon_file.directory[i].width;
         if ((ssize_t) image->columns > icon_info.width)
           image->columns=(size_t) icon_info.width;
@@ -756,6 +757,10 @@ ModuleExport void UnregisterICONImage(void)
 %  image format, version 3 for Windows or (if the image has a matte channel)
 %  version 4.
 %
+%  It encodes any subimage as a compressed PNG image ("BI_PNG)", only when its
+%  dimensions are 256x256 and image->compression is undefined or is defined as
+%  ZipCompression.
+%
 %  The format of the WriteICONImage method is:
 %
 %      MagickBooleanType WriteICONImage(const ImageInfo *image_info,
@@ -862,8 +867,9 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
   next=image;
   do
   {
-    if ((next->columns > 256L) && (next->rows > 256L) &&
-        (next->compression == ZipCompression))
+    if ((next->columns > 255L) && (next->rows > 255L) &&
+        ((next->compression == UndefinedCompression) ||
+        (next->compression == ZipCompression)))
       {
         Image
           *write_image;
@@ -877,19 +883,18 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
         unsigned char
           *png;
 
-        /*
-          Icon image encoded as a compressed PNG image.
-        */
         write_image=CloneImage(next,0,0,MagickTrue,exception);
         if (write_image == (Image *) NULL)
           return(MagickFalse);
         write_info=CloneImageInfo(image_info);
         (void) CopyMagickString(write_info->filename,"PNG:",MaxTextExtent);
-        /*
-          Don't write any ancillary chunks except for gAMA and tRNS.
-        */
-        (void) SetImageArtifact(write_image,"png:include-chunk",
-           "none,trns,gama");
+
+        /* Don't write any ancillary chunks except for gAMA */
+        (void) SetImageArtifact(write_image,"png:include-chunk","none,gama");
+
+        /* Only write PNG32 formatted PNG (32-bit RGBA), 8 bits per channel */
+        (void) SetImageArtifact(write_image,"png:format","png32");
+
         png=(unsigned char *) ImageToBlob(write_info,write_image,&length,
           exception);
         write_image=DestroyImage(write_image);
@@ -912,7 +917,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
         /*
           Initialize ICON raster file header.
         */
-        if (next->colorspace != RGBColorspace)
+        if (IssRGBCompatibleColorspace(next->colorspace) == MagickFalse)
           (void) TransformImageColorspace(next,sRGBColorspace,exception);
         icon_info.file_size=14+12+28;
         icon_info.offset_bits=icon_info.file_size;
@@ -1129,7 +1134,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
                 *q++=ScaleQuantumToChar(GetPixelBlue(next,p));
                 *q++=ScaleQuantumToChar(GetPixelGreen(next,p));
                 *q++=ScaleQuantumToChar(GetPixelRed(next,p));
-                if (next->matte == MagickFalse)
+                if (next->alpha_trait != BlendPixelTrait)
                   *q++=ScaleQuantumToChar(QuantumRange);
                 else
                   *q++=ScaleQuantumToChar(GetPixelAlpha(next,p));
@@ -1219,7 +1224,7 @@ static MagickBooleanType WriteICONImage(const ImageInfo *image_info,
           for (x=0; x < (ssize_t) next->columns; x++)
           {
             byte<<=1;
-            if ((next->matte == MagickTrue) &&
+            if ((next->alpha_trait == BlendPixelTrait) &&
                 (GetPixelAlpha(next,p) == (Quantum) TransparentAlpha))
               byte|=0x01;
             bit++;

@@ -17,7 +17,7 @@
 %                               December 2000                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -648,7 +648,7 @@ static void ipa_bmp_draw(wmfAPI *API, wmfBMP_Draw_t *bmp_draw)
   MagickWand
     *magick_wand;
 
-  MagickRealType
+  double
     height,
     width;
 
@@ -2251,6 +2251,7 @@ static int util_font_weight( const char* font )
  */
 static float lite_font_stringwidth( wmfAPI* API, wmfFont* font, char* str)
 {
+#if 0
   wmf_magick_t
     *ddata = WMF_MAGICK_GetData(API);
 
@@ -2315,6 +2316,13 @@ static float lite_font_stringwidth( wmfAPI* API, wmfFont* font, char* str)
   image->units = orig_resolution_units;
 
   return stringwidth;
+#else
+  (void) API;
+  (void) font;
+  (void) str;
+
+  return 0;
+#endif
 }
 
 /* Map font (similar to wmf_ipa_font_map) */
@@ -2692,14 +2700,14 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   /* User specified resolution */
   resolution_y=DefaultResolution;
-  if (image->resolution.y > 0)
+  if (image->resolution.y != 0.0)
     {
       resolution_y = image->resolution.y;
       if (image->units == PixelsPerCentimeterResolution)
         resolution_y *= CENTIMETERS_PER_INCH;
     }
   resolution_x=DefaultResolution;
-  if (image->resolution.x > 0)
+  if (image->resolution.x != 0.0)
     {
       resolution_x = image->resolution.x;
       if (image->units == PixelsPerCentimeterResolution)
@@ -2863,7 +2871,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   {
     image->background_color = image_info->background_color;
     if (image->background_color.alpha != OpaqueAlpha)
-      image->matte = MagickTrue;
+      image->alpha_trait = MagickTrue;
     (void) SetImageBackgroundColor(image,exception);
   }
   /*

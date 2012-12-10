@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -52,13 +52,13 @@ typedef enum
   FlattenLayer,
   MosaicLayer,
   TrimBoundsLayer
-} ImageLayerMethod;
+} LayerMethod;
 
 extern MagickExport Image
   *CoalesceImages(const Image *,ExceptionInfo *),
   *DisposeImages(const Image *,ExceptionInfo *),
-  *CompareImagesLayers(const Image *,const ImageLayerMethod,ExceptionInfo *),
-  *MergeImageLayers(Image *,const ImageLayerMethod,ExceptionInfo *),
+  *CompareImagesLayers(const Image *,const LayerMethod,ExceptionInfo *),
+  *MergeImageLayers(Image *,const LayerMethod,ExceptionInfo *),
   *OptimizeImageLayers(const Image *,ExceptionInfo *),
   *OptimizePlusImageLayers(const Image *,ExceptionInfo *);
 

@@ -18,7 +18,7 @@
 %                               December 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -710,6 +710,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         bmp_info.blue_mask=ReadBlobLSBLong(image);
         if (bmp_info.size > 40)
           {
+
             double
               sum;
 
@@ -721,39 +722,51 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
             /*
               Decode 2^30 fixed point formatted CIE primaries.
             */
-            bmp_info.red_primary.x=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.red_primary.y=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.red_primary.z=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.green_primary.x=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.green_primary.y=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.green_primary.z=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.blue_primary.x=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.blue_primary.y=(double) ReadBlobLSBLong(image)/0x3ffffff;
-            bmp_info.blue_primary.z=(double) ReadBlobLSBLong(image)/0x3ffffff;
+#           define BMP_DENOM ((double) 0x40000000)
+            bmp_info.red_primary.x=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.red_primary.y=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.red_primary.z=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.green_primary.x=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.green_primary.y=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.green_primary.z=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.blue_primary.x=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.blue_primary.y=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+            bmp_info.blue_primary.z=(double) ReadBlobLSBLong(image)/BMP_DENOM;
+
             sum=bmp_info.red_primary.x+bmp_info.red_primary.y+
               bmp_info.red_primary.z;
-            image->chromaticity.red_primary.x/=sum;
-            image->chromaticity.red_primary.y/=sum;
+            bmp_info.red_primary.x/=sum;
+            bmp_info.red_primary.y/=sum;
+            image->chromaticity.red_primary.x=bmp_info.red_primary.x;
+            image->chromaticity.red_primary.y=bmp_info.red_primary.y;
+
             sum=bmp_info.green_primary.x+bmp_info.green_primary.y+
               bmp_info.green_primary.z;
-            image->chromaticity.green_primary.x/=sum;
-            image->chromaticity.green_primary.y/=sum;
+            bmp_info.green_primary.x/=sum;
+            bmp_info.green_primary.y/=sum;
+            image->chromaticity.green_primary.x=bmp_info.green_primary.x;
+            image->chromaticity.green_primary.y=bmp_info.green_primary.y;
+
             sum=bmp_info.blue_primary.x+bmp_info.blue_primary.y+
               bmp_info.blue_primary.z;
-            image->chromaticity.blue_primary.x/=sum;
-            image->chromaticity.blue_primary.y/=sum;
+            bmp_info.blue_primary.x/=sum;
+            bmp_info.blue_primary.y/=sum;
+            image->chromaticity.blue_primary.x=bmp_info.blue_primary.x;
+            image->chromaticity.blue_primary.y=bmp_info.blue_primary.y;
+
             /*
               Decode 16^16 fixed point formatted gamma_scales.
             */
-            bmp_info.gamma_scale.x=(double) ReadBlobLSBLong(image)/0xffff;
-            bmp_info.gamma_scale.y=(double) ReadBlobLSBLong(image)/0xffff;
-            bmp_info.gamma_scale.z=(double) ReadBlobLSBLong(image)/0xffff;
+            bmp_info.gamma_scale.x=(double) ReadBlobLSBLong(image)/0x10000;
+            bmp_info.gamma_scale.y=(double) ReadBlobLSBLong(image)/0x10000;
+            bmp_info.gamma_scale.z=(double) ReadBlobLSBLong(image)/0x10000;
             /*
               Compute a single gamma from the BMP 3-channel gamma.
             */
             image->gamma=(bmp_info.gamma_scale.x+bmp_info.gamma_scale.y+
               bmp_info.gamma_scale.z)/3.0;
           }
+
         if (bmp_info.size > 108)
           {
             size_t
@@ -811,11 +824,11 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         (bmp_info.bits_per_pixel != 8) && (bmp_info.bits_per_pixel != 16) &&
         (bmp_info.bits_per_pixel != 24) && (bmp_info.bits_per_pixel != 32))
       ThrowReaderException(CorruptImageError,"UnrecognizedBitsPerPixel");
-    if (bmp_info.number_colors > (1U << bmp_info.bits_per_pixel))
+    if (bmp_info.bits_per_pixel < 16 &&
+        bmp_info.number_colors > (1U << bmp_info.bits_per_pixel))
       {
-        if (bmp_info.bits_per_pixel < 24)
-          ThrowReaderException(CorruptImageError,"UnrecognizedNumberOfColors");
-        bmp_info.number_colors=0;
+        ThrowReaderException(CorruptImageError,
+            "UnrecognizedNumberOfColors");
       }
     if ((bmp_info.compression == 1) && (bmp_info.bits_per_pixel != 8))
       ThrowReaderException(CorruptImageError,"UnrecognizedBitsPerPixel");
@@ -840,9 +853,10 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     image->columns=(size_t) MagickAbsoluteValue(bmp_info.width);
     image->rows=(size_t) MagickAbsoluteValue(bmp_info.height);
     image->depth=bmp_info.bits_per_pixel <= 8 ? bmp_info.bits_per_pixel : 8;
-    if ((bmp_info.bits_per_pixel == 16) || (bmp_info.bits_per_pixel == 32))
-      image->matte=bmp_info.alpha_mask != 0 ? MagickTrue : MagickFalse;
-    if ((bmp_info.number_colors != 0) || (bmp_info.bits_per_pixel < 16))
+    image->alpha_trait=(bmp_info.alpha_mask != 0) &&
+      (bmp_info.compression == BI_BITFIELDS) ? BlendPixelTrait :
+      UndefinedPixelTrait;
+    if (bmp_info.bits_per_pixel < 16)
       {
         size_t
           one;
@@ -946,7 +960,8 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     */
     if (bmp_info.compression == BI_RGB)
       {
-        bmp_info.alpha_mask=0;
+        bmp_info.alpha_mask=image->alpha_trait == BlendPixelTrait ?
+          0xff000000L : 0L;
         bmp_info.red_mask=0x00ff0000U;
         bmp_info.green_mask=0x0000ff00U;
         bmp_info.blue_mask=0x000000ffU;
@@ -1100,7 +1115,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
           q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
           if (q == (Quantum *) NULL)
             break;
-          for (x = (ssize_t)image->columns; x != 0; --x)
+          for (x=(ssize_t) image->columns; x != 0; --x)
           {
             index=ConstrainColormapIndex(image,*p++,exception);
             SetPixelIndex(image,index,q);
@@ -1171,7 +1186,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
             SetPixelGreen(image,ScaleShortToQuantum((unsigned short) green),q);
             SetPixelBlue(image,ScaleShortToQuantum((unsigned short) blue),q);
             SetPixelAlpha(image,OpaqueAlpha,q);
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               SetPixelAlpha(image,
                 ScaleShortToQuantum((unsigned short) opacity),q);
             q+=GetPixelChannels(image);
@@ -1266,7 +1281,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
             SetPixelGreen(image,ScaleShortToQuantum((unsigned short) green),q);
             SetPixelBlue(image,ScaleShortToQuantum((unsigned short) blue),q);
             SetPixelAlpha(image,OpaqueAlpha,q);
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               SetPixelAlpha(image,
                 ScaleShortToQuantum((unsigned short) opacity),q);
             q+=GetPixelChannels(image);
@@ -1523,7 +1538,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
     /*
       Initialize BMP raster file header.
     */
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     (void) ResetMagickMemory(&bmp_info,0,sizeof(bmp_info));
     bmp_info.file_size=14+12;
@@ -1550,7 +1565,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         if (image_info->compression == RLECompression)
           bmp_info.bits_per_pixel=8;
         bmp_info.number_colors=1U << bmp_info.bits_per_pixel;
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           (void) SetImageStorageClass(image,DirectClass,exception);
         else
           if ((size_t) bmp_info.number_colors < image->colors)
@@ -1573,9 +1588,9 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         */
         bmp_info.number_colors=0;
         bmp_info.bits_per_pixel=(unsigned short)
-          ((type > 3) && (image->matte != MagickFalse) ? 32 : 24);
+          ((type > 3) && (image->alpha_trait == BlendPixelTrait) ? 32 : 24);
         bmp_info.compression=(unsigned int) ((type > 3) &&
-          (image->matte != MagickFalse) ?  BI_BITFIELDS : BI_RGB);
+          (image->alpha_trait == BlendPixelTrait) ?  BI_BITFIELDS : BI_RGB);
       }
     bytes_per_line=4*((image->columns*bmp_info.bits_per_pixel+31)/32);
     bmp_info.ba_offset=0;
@@ -1586,7 +1601,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
     if (type == 2)
       bmp_info.size=12;
     else
-      if ((type == 3) || ((image->matte == MagickFalse) &&
+      if ((type == 3) || ((image->alpha_trait != BlendPixelTrait) &&
           (have_color_info == MagickFalse)))
         {
           type=3;
@@ -1872,7 +1887,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
             "   Storage class=PseudoClass");
         (void) LogMagickEvent(CoderEvent,GetMagickModule(),
           "   Image depth=%.20g",(double) image->depth);
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "   Matte=True");
         else
@@ -1946,7 +1961,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         (void) WriteBlobLSBLong(image,bmp_info.number_colors);
         (void) WriteBlobLSBLong(image,bmp_info.colors_important);
       }
-    if ((type > 3) && ((image->matte != MagickFalse) ||
+    if ((type > 3) && ((image->alpha_trait == BlendPixelTrait) ||
         (have_color_info != MagickFalse)))
       {
         /*
@@ -1958,32 +1973,32 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         (void) WriteBlobLSBLong(image,0xff000000U);  /* Alpha mask */
         (void) WriteBlobLSBLong(image,0x73524742U);  /* sRGB */
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.red_primary.x*0x3ffffff);
+          (image->chromaticity.red_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.red_primary.y*0x3ffffff);
+          (image->chromaticity.red_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (1.000f-(image->chromaticity.red_primary.x+
-          image->chromaticity.red_primary.y)*0x3ffffff));
+          ((1.000f-(image->chromaticity.red_primary.x+
+          image->chromaticity.red_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.green_primary.x*0x3ffffff);
+          (image->chromaticity.green_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.green_primary.y*0x3ffffff);
+          (image->chromaticity.green_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (1.000f-(image->chromaticity.green_primary.x+
-          image->chromaticity.green_primary.y)*0x3ffffff));
+          ((1.000f-(image->chromaticity.green_primary.x+
+          image->chromaticity.green_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.blue_primary.x*0x3ffffff);
+          (image->chromaticity.blue_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          image->chromaticity.blue_primary.y*0x3ffffff);
+          (image->chromaticity.blue_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (1.000f-(image->chromaticity.blue_primary.x+
-          image->chromaticity.blue_primary.y)*0x3ffffff));
+          ((1.000f-(image->chromaticity.blue_primary.x+
+          image->chromaticity.blue_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          bmp_info.gamma_scale.x*0xffff);
+          (bmp_info.gamma_scale.x*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          bmp_info.gamma_scale.y*0xffff);
+          (bmp_info.gamma_scale.y*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          bmp_info.gamma_scale.z*0xffff);
+          (bmp_info.gamma_scale.z*0x10000));
         if ((image->rendering_intent != UndefinedIntent) ||
             (profile != (StringInfo *) NULL))
           {

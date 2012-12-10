@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -345,6 +345,9 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
     input_filename[MaxTextExtent],
     options[MaxTextExtent],
     postscript_filename[MaxTextExtent];
+
+  const char
+    *option;
 
   const DelegateInfo
     *delegate_info;
@@ -708,7 +711,7 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         resolution.y/delta.y)-0.5);
     }
   (void) CloseBlob(image);
-  if (IssRGBColorspace(image_info->colorspace) != MagickFalse)
+  if (IssRGBCompatibleColorspace(image_info->colorspace) != MagickFalse)
     cmyk=MagickFalse;
   /*
     Create Ghostscript control file.
@@ -772,11 +775,12 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (read_info->scenes != (char *) NULL)
         *read_info->scenes='\0';
     }
-  if (IfMagickTrue(IsStringTrue(GetImageOption(image_info,"ps:use-cropbox"))))
+  option=GetImageOption(image_info,"eps:use-cropbox");
+  if ((*image_info->magick == 'E') && ((option == (const char *) NULL) || 
+      (IsStringTrue(option) != MagickFalse)))
     (void) ConcatenateMagickString(options,"-dEPSCrop ",MaxTextExtent);
   (void) CopyMagickString(filename,read_info->filename,MaxTextExtent);
   (void) AcquireUniqueFilename(filename);
-  (void) ConcatenateMagickString(filename,"-%08d",MaxTextExtent);
   (void) FormatLocaleString(command,MaxTextExtent,
     GetDelegateCommands(delegate_info),
     read_info->antialias != MagickFalse ? 4 : 1,
@@ -810,6 +814,8 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         read_info->filename,exception);
       if (IsPostscriptRendered(read_info->filename) == MagickFalse)
         break;
+      read_info->blob=NULL;
+      read_info->length=0;
       next=ReadImage(read_info,exception);
       (void) RelinquishUniqueFileResource(read_info->filename);
       if (next == (Image *) NULL)
@@ -1048,7 +1054,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
 {
 #define WriteRunlengthPacket(image,pixel,length,p) \
 { \
-  if ((image->matte != MagickFalse) && \
+  if ((image->alpha_trait == BlendPixelTrait) && \
       (GetPixelAlpha(image,p) == (Quantum) TransparentAlpha)) \
     { \
       q=PopHexPixel(hex_digits,0xff,q); \
@@ -1443,8 +1449,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
     /*
       Scale relative to dots-per-inch.
     */
-    if ((IssRGBColorspace(image->colorspace) == MagickFalse) &&
-        (image->colorspace != CMYKColorspace))
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     delta.x=DefaultResolution;
     delta.y=DefaultResolution;
@@ -1879,7 +1884,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
       }
     else
       if ((image->storage_class == DirectClass) ||
-          (image->colors > 256) || (image->matte != MagickFalse))
+          (image->colors > 256) || (image->alpha_trait == BlendPixelTrait))
         {
           /*
             Dump DirectClass image.
@@ -1964,7 +1969,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
-                  if ((image->matte != MagickFalse) &&
+                  if ((image->alpha_trait == BlendPixelTrait) &&
                       (GetPixelAlpha(image,p) == (Quantum) TransparentAlpha))
                     {
                       q=PopHexPixel(hex_digits,0xff,q);
@@ -2149,11 +2154,11 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
     {
       (void) FormatLocaleString(buffer,MaxTextExtent,
         "%%%%BoundingBox: %.20g %.20g %.20g %.20g\n",ceil(bounds.x1-0.5),
-        ceil(bounds.y1-0.5),floor(bounds.x2+0.5),floor(bounds.y2+0.5));
+        ceil(bounds.y1-0.5),floor(bounds.x2-0.5),floor(bounds.y2-0.5));
       (void) WriteBlobString(image,buffer);
       (void) FormatLocaleString(buffer,MaxTextExtent,
-        "%%%%HiResBoundingBox: %g %g %g %g\n",bounds.x1,bounds.y1,
-        bounds.x2,bounds.y2);
+        "%%%%HiResBoundingBox: %g %g %g %g\n",bounds.x1,bounds.y1,bounds.x2,
+        bounds.y2);
       (void) WriteBlobString(image,buffer);
     }
   (void) WriteBlobString(image,"%%EOF\n");

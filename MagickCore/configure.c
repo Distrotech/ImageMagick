@@ -17,7 +17,7 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -61,6 +61,29 @@
   Define declarations.
 */
 #define ConfigureFilename  "configure.xml"
+
+#ifdef _OPENMP
+#define MAGICKCORE_FEATURE_OPENMP_STR "OpenMP "
+#else
+#define MAGICKCORE_FEATURE_OPENMP_STR ""
+#endif
+#ifdef _OPENCL
+#define MAGICKCORE_FEATURE_OPENCL_STR "OpenCL "
+#else
+#define MAGICKCORE_FEATURE_OPENCL_STR ""
+#endif
+#ifdef MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+#define MAGICKCORE_FEATURE_ZERO_CONFIGURATION_STR "Zero-Configuration "
+#else 
+#define MAGICKCORE_FEATURE_ZERO_CONFIGURATION_STR ""
+#endif
+#ifdef HDRI_SUPPORT
+#define MAGICKCORE_FEATURE_HDRI_STR "HDRI"
+#else
+#define MAGICKCORE_FEATURE_HDRI_STR ""
+#endif
+
+#define MAGICKCORE_FEATURES_STR MAGICKCORE_FEATURE_OPENMP_STR MAGICKCORE_FEATURE_OPENCL_STR MAGICKCORE_FEATURE_ZERO_CONFIGURATION_STR MAGICKCORE_FEATURE_HDRI_STR
 
 /*
   Typedef declarations.
@@ -78,7 +101,9 @@ typedef struct _ConfigureMapInfo
 static const ConfigureMapInfo
   ConfigureMap[] =
   {
-    { "NAME", "ImageMagick" }
+    { "NAME", "ImageMagick" },
+    { "QuantumDepth", MAGICKCORE_STRING_XQUOTE(MAGICKCORE_QUANTUM_DEPTH) } ,
+    { "FEATURES", MAGICKCORE_FEATURES_STR }
   };
 
 static LinkedListInfo
@@ -947,7 +972,7 @@ MagickExport MagickBooleanType ListConfigureInfo(FILE *file,
         if (configure_info[i]->path != (char *) NULL)
           (void) FormatLocaleFile(file,"\nPath: %s\n\n",
             configure_info[i]->path);
-        (void) FormatLocaleFile(file,"Name          Value\n");
+        (void) FormatLocaleFile(file,"Name           Value\n");
         (void) FormatLocaleFile(file,
           "-------------------------------------------------"
           "------------------------------\n");
@@ -957,7 +982,7 @@ MagickExport MagickBooleanType ListConfigureInfo(FILE *file,
     if (configure_info[i]->name != (char *) NULL)
       name=configure_info[i]->name;
     (void) FormatLocaleFile(file,"%s",name);
-    for (j=(ssize_t) strlen(name); j <= 12; j++)
+    for (j=(ssize_t) strlen(name); j <= 13; j++)
       (void) FormatLocaleFile(file," ");
     (void) FormatLocaleFile(file," ");
     value="unknown";

@@ -186,18 +186,18 @@ static inline unsigned char *PopLongPixel(const EndianType endian,
     quantum;
 
   quantum=(unsigned int) pixel;
-  if (endian != LSBEndian)
+  if (endian == LSBEndian)
     {
-      *pixels++=(unsigned char) (quantum >> 24);
-      *pixels++=(unsigned char) (quantum >> 16);
-      *pixels++=(unsigned char) (quantum >> 8);
       *pixels++=(unsigned char) (quantum);
+      *pixels++=(unsigned char) (quantum >> 8);
+      *pixels++=(unsigned char) (quantum >> 16);
+      *pixels++=(unsigned char) (quantum >> 24);
       return(pixels);
     }
-  *pixels++=(unsigned char) (quantum);
-  *pixels++=(unsigned char) (quantum >> 8);
-  *pixels++=(unsigned char) (quantum >> 16);
   *pixels++=(unsigned char) (quantum >> 24);
+  *pixels++=(unsigned char) (quantum >> 16);
+  *pixels++=(unsigned char) (quantum >> 8);
+  *pixels++=(unsigned char) (quantum);
   return(pixels);
 }
 
@@ -208,14 +208,14 @@ static inline unsigned char *PopShortPixel(const EndianType endian,
     quantum;
 
   quantum=pixel;
-  if (endian != LSBEndian)
+  if (endian == LSBEndian)
     {
-      *pixels++=(unsigned char) (quantum >> 8);
       *pixels++=(unsigned char) (quantum);
+      *pixels++=(unsigned char) (quantum >> 8);
       return(pixels);
     }
-  *pixels++=(unsigned char) (quantum);
   *pixels++=(unsigned char) (quantum >> 8);
+  *pixels++=(unsigned char) (quantum);
   return(pixels);
 }
 
@@ -232,20 +232,19 @@ static inline const unsigned char *PushLongPixel(const EndianType endian,
   register unsigned int
     quantum;
 
-  if (endian != LSBEndian)
-    {
-      quantum=(unsigned int) (*pixels++ << 24);
-      quantum|=(unsigned int) (*pixels++ << 16);
-      quantum|=(unsigned int) (*pixels++ << 8);
-      quantum|=(unsigned int) (*pixels++);
-    }
-  else
+  if (endian == LSBEndian)
     {
       quantum=(unsigned int) (*pixels++);
       quantum|=(unsigned int) (*pixels++ << 8);
       quantum|=(unsigned int) (*pixels++ << 16);
       quantum|=(unsigned int) (*pixels++ << 24);
+      *pixel=(unsigned int) (quantum & 0xffffffff);
+      return(pixels);
     }
+  quantum=(unsigned int) (*pixels++ << 24);
+  quantum|=(unsigned int) (*pixels++ << 16);
+  quantum|=(unsigned int) (*pixels++ << 8);
+  quantum|=(unsigned int) (*pixels++);
   *pixel=(unsigned int) (quantum & 0xffffffff);
   return(pixels);
 }
@@ -256,16 +255,15 @@ static inline const unsigned char *PushShortPixel(const EndianType endian,
   register unsigned int
     quantum;
 
-  if (endian != LSBEndian)
-    {
-      quantum=(unsigned int) (*pixels++ << 8);
-      quantum|=(unsigned int) *pixels++;
-    }
-  else
+  if (endian == LSBEndian)
     {
       quantum=(unsigned int) *pixels++;
       quantum|=(unsigned int) (*pixels++ << 8);
+      *pixel=(unsigned short) (quantum & 0xffff);
+      return(pixels);
     }
+  quantum=(unsigned int) (*pixels++ << 8);
+  quantum|=(unsigned int) *pixels++;
   *pixel=(unsigned short) (quantum & 0xffff);
   return(pixels);
 }
@@ -274,16 +272,16 @@ static inline Quantum ScaleAnyToQuantum(const QuantumAny quantum,
   const QuantumAny range)
 {
 #if !defined(MAGICKCORE_HDRI_SUPPORT)
-  return((Quantum) (((MagickRealType) QuantumRange*quantum)/range+0.5));
+  return((Quantum) (((double) QuantumRange*quantum)/range+0.5));
 #else
-  return((Quantum) (((MagickRealType) QuantumRange*quantum)/range));
+  return((Quantum) (((double) QuantumRange*quantum)/range));
 #endif
 }
 
 static inline QuantumAny ScaleQuantumToAny(const Quantum quantum,
   const QuantumAny range)
 {
-  return((QuantumAny) (((MagickRealType) range*quantum)/QuantumRange+0.5));
+  return((QuantumAny) (((double) range*quantum)/QuantumRange+0.5));
 }
 
 #if (MAGICKCORE_QUANTUM_DEPTH == 8)
@@ -316,7 +314,7 @@ static inline Quantum ScaleMapToQuantum(const MagickRealType value)
   if (value <= 0.0)
     return((Quantum) 0);
   if (value >= MaxMap)
-    return((Quantum) QuantumRange);
+    return(QuantumRange);
 #if !defined(MAGICKCORE_HDRI_SUPPORT)
   return((Quantum) (value+0.5));
 #else
@@ -419,7 +417,7 @@ static inline Quantum ScaleMapToQuantum(const MagickRealType value)
   if (value <= 0.0)
     return((Quantum) 0);
   if (value >= MaxMap)
-    return((Quantum) QuantumRange);
+    return(QuantumRange);
 #if !defined(MAGICKCORE_HDRI_SUPPORT)
   return((Quantum) (value+0.5));
 #else

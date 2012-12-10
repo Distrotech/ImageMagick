@@ -17,7 +17,7 @@
 %                                 June 2001                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -356,12 +356,12 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
     pixel,
     range[4];
 
+  register Quantum
+    *q;
+
   register ssize_t
     i,
     x;
-
-  register Quantum
-    *q;
 
   size_t
     maximum_component_depth,
@@ -423,7 +423,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
       components[3]=jas_image_getcmptbytype(jp2_image,3);
       if (components[3] > 0)
         {
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
           number_components++;
         }
       break;
@@ -457,7 +457,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
       components[3]=jas_image_getcmptbytype(jp2_image,JAS_IMAGE_CT_UNKNOWN);
       if (components[3] > 0)
         {
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
           number_components++;
         }
       break;
@@ -478,7 +478,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
       components[3]=jas_image_getcmptbytype(jp2_image,JAS_IMAGE_CT_UNKNOWN);
       if (components[3] > 0)
         {
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
           number_components++;
         }
       break;
@@ -499,7 +499,7 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
       components[3]=jas_image_getcmptbytype(jp2_image,JAS_IMAGE_CT_UNKNOWN);
       if (components[3] > 0)
         {
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
           number_components++;
         }
       break;
@@ -536,7 +536,8 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Convert JPEG 2000 pixels.
   */
-  image->matte=number_components > 3 ? MagickTrue : MagickFalse;
+  image->alpha_trait=number_components > 3 ? BlendPixelTrait :
+    UndefinedPixelTrait;
   maximum_component_depth=0;
   for (i=0; i < (ssize_t) number_components; i++)
   {
@@ -644,12 +645,12 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
           (jas_iccprof_save(icc_profile,icc_stream) == 0) &&
           (jas_stream_flush(icc_stream) == 0))
         {
+          jas_stream_memobj_t
+            *blob;
+
           StringInfo
             *icc_profile,
             *profile;
-
-          jas_stream_memobj_t
-            *blob;
 
           /*
             Extract the icc profile, handle errors without much noise.
@@ -911,12 +912,12 @@ static MagickBooleanType WriteJP2Image(const ImageInfo *image_info,Image *image,
   /*
     Initialize JPEG 2000 API.
   */
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   jp2_stream=JP2StreamManager(image);
   if (jp2_stream == (jas_stream_t *) NULL)
     ThrowWriterException(DelegateError,"UnableToManageJP2Stream");
-  number_components=image->matte ? 4UL : 3UL;
+  number_components=image->alpha_trait ? 4UL : 3UL;
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
     number_components=1;
   if ((image->columns != (unsigned int) image->columns) ||

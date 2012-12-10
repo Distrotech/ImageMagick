@@ -22,9 +22,8 @@
 extern "C" {
 #endif
 
+#include "MagickCore/image.h"
 #include "MagickCore/semaphore.h"
-
-#define RoundToQuantum(quantum)  ClampToQuantum(quantum)
 
 typedef enum
 {
@@ -82,16 +81,16 @@ typedef enum
 typedef struct _QuantumInfo
   QuantumInfo;
 
-static inline Quantum ClampToQuantum(const double value)
+static inline Quantum ClampToQuantum(const MagickRealType value)
 {
 #if defined(MAGICKCORE_HDRI_SUPPORT)
   return((Quantum) value);
 #else
-  if (value <= 0.0)
+  if (value <= 0.0f)
     return((Quantum) 0);
-  if (value >= (double) QuantumRange)
-    return((Quantum) QuantumRange);
-  return((Quantum) (value+0.5));
+  if (value >= (MagickRealType) QuantumRange)
+    return(QuantumRange);
+  return((Quantum) (value+0.5f));
 #endif
 }
 
@@ -150,8 +149,12 @@ static inline unsigned char ScaleQuantumToChar(const Quantum quantum)
 }
 #endif
 
+extern MagickExport EndianType
+  GetQuantumEndian(const QuantumInfo *);
+
 extern MagickExport MagickBooleanType
   SetQuantumDepth(const Image *,QuantumInfo *,const size_t),
+  SetQuantumEndian(const Image *,QuantumInfo *,const EndianType),
   SetQuantumFormat(const Image *,QuantumInfo *,const QuantumFormatType),
   SetQuantumPad(const Image *,QuantumInfo *,const size_t);
 

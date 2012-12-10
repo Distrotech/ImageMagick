@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -25,25 +25,40 @@ extern "C" {
 #include <MagickCore/image.h>
 #include <MagickCore/image-private.h>
 #include <MagickCore/pixel.h>
+#include <MagickCore/pixel-accessor.h>
 
 static inline void ConvertRGBToCMYK(PixelInfo *pixel)
 {
   MagickRealType
     black,
+    blue,
     cyan,
+    green,
     magenta,
+    red,
     yellow;
                                                                                 
-  if ((fabs(pixel->red) < MagickEpsilon) &&
-      (fabs(pixel->green) < MagickEpsilon) &&
-      (fabs(pixel->blue) < MagickEpsilon))
+  if (pixel->colorspace != sRGBColorspace)
+    {
+      red=QuantumScale*pixel->red;
+      green=QuantumScale*pixel->green;
+      blue=QuantumScale*pixel->blue;
+    }
+  else
+    {
+      red=DecodesRGBGamma(pixel->red);
+      green=DecodesRGBGamma(pixel->green);
+      blue=DecodesRGBGamma(pixel->blue);
+    }
+  if ((fabs(red) < MagickEpsilon) && (fabs(green) < MagickEpsilon) &&
+      (fabs(blue) < MagickEpsilon))
     {
       pixel->black=(MagickRealType) QuantumRange;
       return;
     }
-  cyan=(MagickRealType) (1.0-QuantumScale*pixel->red);
-  magenta=(MagickRealType) (1.0-QuantumScale*pixel->green);
-  yellow=(MagickRealType) (1.0-QuantumScale*pixel->blue);
+  cyan=(MagickRealType) (1.0-red);
+  magenta=(MagickRealType) (1.0-green);
+  yellow=(MagickRealType) (1.0-blue);
   black=cyan;
   if (magenta < black)
     black=magenta;
@@ -57,6 +72,47 @@ static inline void ConvertRGBToCMYK(PixelInfo *pixel)
   pixel->green=QuantumRange*magenta;
   pixel->blue=QuantumRange*yellow;
   pixel->black=QuantumRange*black;
+}
+
+static inline MagickBooleanType IsCMYKColorspace(
+  const ColorspaceType colorspace)
+{
+  if (colorspace == CMYKColorspace)
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
+static inline MagickBooleanType IsGrayColorspace(
+  const ColorspaceType colorspace)
+{
+  if ((colorspace == GRAYColorspace) || (colorspace == Rec601LumaColorspace) ||
+      (colorspace == Rec709LumaColorspace))
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
+static inline MagickBooleanType IsRGBColorspace(const ColorspaceType colorspace)
+{
+  if (colorspace == RGBColorspace)
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
+static inline MagickBooleanType IssRGBColorspace(
+  const ColorspaceType colorspace)
+{
+  if ((colorspace == sRGBColorspace) || (colorspace == TransparentColorspace))
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
+static inline MagickBooleanType IssRGBCompatibleColorspace(
+  const ColorspaceType colorspace)
+{
+  if ((colorspace == sRGBColorspace) || (colorspace == TransparentColorspace) ||
+      (colorspace == RGBColorspace) || (colorspace == GRAYColorspace))
+    return(MagickTrue);
+  return(MagickFalse);
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)

@@ -17,7 +17,7 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -188,8 +188,16 @@ static MagickBooleanType
 */
 MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
 {
+#define AlignedExtent(size,alignment) \
+  (((size)+((alignment)-1)) & ~((alignment)-1))
+
   size_t
+    alignment,
+    extent,
     size;
+
+  void
+    *memory;
 
   size=count*quantum;
   if ((count == 0) || (quantum != (size/count)))
@@ -197,16 +205,34 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
       errno=ENOMEM;
       return((void *) NULL);
     }
+  memory=NULL;
+  alignment=CACHE_LINE_SIZE;
+  extent=AlignedExtent(size,alignment);
+  if ((size == 0) || (alignment < sizeof(void *)) || (extent < size))
+    return((void *) NULL);
 #if defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
+  if (posix_memalign(&memory,alignment,extent) != 0)
+    memory=NULL;
+#elif defined(MAGICKCORE_HAVE__ALIGNED_MALLOC)
+  memory=_aligned_malloc(extent,alignment);
+#else
   {
     void
-      *memory;
+      *p;
 
-    if (posix_memalign(&memory,CACHE_LINE_SIZE,CacheAlign(size)) == 0)
-      return(memory);
+    extent=(size+alignment-1)+sizeof(void *);
+    if (extent > size)
+      {
+        p=malloc(extent);
+        if (p != NULL)
+          {
+            memory=(void *) AlignedExtent((size_t) p+sizeof(void *),alignment);
+            *((void **) memory-1)=p;
+          }
+      }
   }
 #endif
-  return(malloc(CacheAlign(size)));
+  return(memory);
 }
 
 #if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
@@ -711,8 +737,14 @@ MagickExport void *RelinquishAlignedMemory(void *memory)
 {
   if (memory == (void *) NULL)
     return((void *) NULL);
+#if defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
   free(memory);
-  return((void *) NULL);
+#elif defined(MAGICKCORE_HAVE__ALIGNED_MALLOC)
+  _aligned_free(memory);
+#else
+  free(*((void **) memory-1));
+#endif
+  return(NULL);
 }
 
 /*

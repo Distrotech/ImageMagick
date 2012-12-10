@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,6 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -174,13 +175,13 @@ static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
   ssize_t
     y;
 
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAAlphaChannel");
   matte_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
   if (matte_image == (Image *) NULL)
     return(MagickFalse);
   (void) SetImageType(matte_image,TrueColorMatteType,exception);
-  matte_image->matte=MagickFalse;
+  matte_image->alpha_trait=UndefinedPixelTrait;
   /*
     Convert image to matte pixels.
   */

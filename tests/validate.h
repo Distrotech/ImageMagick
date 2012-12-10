@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -262,7 +262,6 @@ static const struct ReferenceFormats
     { "GIF87", UndefinedCompression, 0.0 },
     { "GRAY", UndefinedCompression, 0.003 },
     { "HTM", UndefinedCompression, 0.0 },
-    { "HRZ", UndefinedCompression, 0.0 },
     { "HTML", UndefinedCompression, 0.0 },
     { "ICB", UndefinedCompression, 0.0 },
     { "ICO", UndefinedCompression, 0.0 },
@@ -295,7 +294,7 @@ static const struct ReferenceFormats
     { "PEF", UndefinedCompression, 0.0 },
     { "PFA", UndefinedCompression, 0.0 },
     { "PFB", UndefinedCompression, 0.0 },
-    { "PFM", UndefinedCompression, 0.0 },
+    { "PFM", UndefinedCompression, 0.003 },
     { "PGM", UndefinedCompression, 0.0 },
     { "PGX", UndefinedCompression, 0.0 },
 #if !defined(MAGICKCORE_HDRI_SUPPORT)

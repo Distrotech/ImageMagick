@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -36,7 +36,6 @@ print("Microsoft Windows bitmap image file ...\n");
 testReadWrite( 'BMP:input.bmp',
   'BMP:output.bmp',
   q//,
-  '4db1c9f8cf10c1a9a7e80397b4cf060d2d31caae13ba712712e6341fb96bd6b0',
   'ae2007d0e05933a72294a6f8c7b59fc54d5fa3039f0f13bf8d65d05044ef2f39');
 
 print("Microsoft Windows 24-bit bitmap image file ...\n");
@@ -65,7 +64,7 @@ print("Flexible Image Transport System ...\n");
 testReadWrite( 'FITS:input.fits',
   'FITS:output.fits',
   q//,
-  '04b3cafea6030665fbedcc3463711475bcda2ad35254e5a632d8772905f59ab9' );
+  '139f61677126d734c5a47986ae6136bf9dbe0f56489f79f2e0463f910878f153' );
 
 print("CompuServe graphics interchange format ...\n");
 ++$test;
@@ -123,7 +122,7 @@ print("Portable graymap format (gray scale), ASCII format ...\n");
 testReadWrite( 'PGM:input_p2.pgm',
   'PGM:output_p2.pgm',
   q/compression=>'None'/,
-  'a52f1015dcd3290c136b892874b0ef06516d28a846a2a7383d896267a5299aba');
+  '139f61677126d734c5a47986ae6136bf9dbe0f56489f79f2e0463f910878f153');
 
 print("Apple Macintosh QuickDraw/PICT file ...\n");
 ++$test;
@@ -144,7 +143,7 @@ print("Portable graymap format (gray scale), binary format ...\n");
 testReadWrite( 'PGM:input_p5.pgm',
   'PGM:output_p5.pgm',
   q//,
-  'a52f1015dcd3290c136b892874b0ef06516d28a846a2a7383d896267a5299aba');
+  '139f61677126d734c5a47986ae6136bf9dbe0f56489f79f2e0463f910878f153');
 
 print("Portable pixmap format (color), binary format ...\n");
 ++$test;

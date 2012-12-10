@@ -8,6 +8,7 @@ AM_CPPFLAGS += -I$(top_srcdir)/Magick++/lib
 
 if WITH_MAGICK_PLUS_PLUS
 MAGICKPP_LIBS = Magick++/lib/libMagick++.la
+MAGICKPP_LDADD = $(MAGICKPP_LIBS) $(top_builddir)/MagickCore/libMagickCore.la
 MAGICKPP_CHECK_PGRMS = $(MAGICKPP_CHECK_PGRMS_OPT)
 MAGICKPP_MANS = $(MAGICKPP_MANS_OPT)
 MAGICKPP_PKGCONFIG = $(MAGICKPP_PKGCONFIG_OPT)
@@ -17,6 +18,7 @@ MAGICKPP_TOP_INCHEADERS = $(MAGICKPP_TOP_INCHEADERS_OPT)
 MAGICKPP_INCHEADERS = $(MAGICKPP_INCHEADERS_OPT)
 else
 MAGICKPP_LIBS = 
+MAGICKPP_LDADD =
 MAGICKPP_CHECK_PGRMS = 
 MAGICKPP_MANS = 
 MAGICKPP_PKGCONFIG = 
@@ -37,42 +39,8 @@ MAGICKPP_PKGCONFIG_OPT = \
 	Magick++/lib/ImageMagick++.pc
 
 MAGICKPP_TEST_SCRIPTS_OPT = \
-	Magick++/tests/exceptions.sh \
-	Magick++/tests/appendImages.sh \
-	Magick++/tests/attributes.sh \
-	Magick++/tests/averageImages.sh \
-	Magick++/tests/coalesceImages.sh \
-	Magick++/tests/coderInfo.sh \
-	Magick++/tests/colorHistogram.sh \
-	Magick++/tests/color.sh \
-	Magick++/tests/montageImages.sh \
-	Magick++/tests/morphImages.sh \
-	Magick++/tests/readWriteBlob.sh \
-	Magick++/tests/readWriteImages.sh \
-	Magick++/demo/analyze.sh \
-	Magick++/demo/button.sh \
-	Magick++/demo/demo.sh \
-	Magick++/demo/flip.sh \
-	Magick++/demo/gravity.sh \
-	Magick++/demo/piddle.sh \
-	Magick++/demo/shapes.sh \
-	Magick++/demo/zoom_bessel.sh \
-	Magick++/demo/zoom_blackman.sh \
-	Magick++/demo/zoom_box.sh \
-	Magick++/demo/zoom_catrom.sh \
-	Magick++/demo/zoom_cubic.sh \
-	Magick++/demo/zoom_gaussian.sh \
-	Magick++/demo/zoom_hamming.sh \
-	Magick++/demo/zoom_hanning.sh \
-	Magick++/demo/zoom_hermite.sh \
-	Magick++/demo/zoom_lanczos.sh \
-	Magick++/demo/zoom_mitchell.sh \
-	Magick++/demo/zoom_point.sh \
-	Magick++/demo/zoom_quadratic.sh \
-	Magick++/demo/zoom_sample.sh \
-	Magick++/demo/zoom_scale.sh \
-	Magick++/demo/zoom_sinc.sh \
-	Magick++/demo/zoom_triangle.sh
+	Magick++/tests/tests.tap \
+	Magick++/demo/demos.tap
 
 MAGICKPP_EXTRA_DIST = \
 	Magick++/AUTHORS \
@@ -83,8 +51,9 @@ MAGICKPP_EXTRA_DIST = \
 	Magick++/README \
 	Magick++/bin/Magick++-config.1 \
 	Magick++/bin/Magick++-config.in \
-	Magick++/lib/Magick++.pc.in \
 	Magick++/lib/ImageMagick++.pc.in \
+	Magick++/lib/libMagick++.map \
+	Magick++/lib/Magick++.pc.in \
 	Magick++/demo/model.miff \
 	Magick++/demo/smile.miff \
 	Magick++/demo/smile_anim.miff \
@@ -160,8 +129,17 @@ MAGICKPP_INCHEADERS_OPT = \
 	Magick++/lib/Magick++/STL.h \
 	Magick++/lib/Magick++/TypeMetric.h
 
+if HAVE_LD_VERSION_SCRIPT
+Magick___lib_libMagick___la_LDFLAGS_VERSION =  -Wl,--version-script=$(top_srcdir)/Magick++/lib/libMagick++.map
+else
+Magick___lib_libMagick___la_LDFLAGS_VERSION = -export-symbols-regex ".*"
+endif
+
 Magick___lib_libMagick___la_LDFLAGS = -no-undefined \
-	-version-info $(MAGICK_LIBRARY_CURRENT):$(MAGICK_LIBRARY_REVISION):$(MAGICK_LIBRARY_AGE)
+  $(Magick___lib_libMagick___la_LDFLAGS_VERSION) $(MAGICK_LT_RELEASE_OPTS) \
+  -release $(MAGICK_ABI_SUFFIX) \
+  -version-info \
+  $(MAGICK_LIBRARY_CURRENT):$(MAGICK_LIBRARY_REVISION):$(MAGICK_LIBRARY_AGE)
 Magick___lib_libMagick___la_LIBADD = $(MAGICKCORE_LIBS) $(MAGICKWAND_LIBS)
 
 MAGICKPP_CHECK_PGRMS_OPT = \
@@ -188,67 +166,67 @@ MAGICKPP_CHECK_PGRMS_OPT = \
 	Magick++/tests/readWriteImages
 
 Magick___demo_analyze_SOURCES		= Magick++/demo/analyze.cpp
-Magick___demo_analyze_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_analyze_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_button_SOURCES		= Magick++/demo/button.cpp
-Magick___demo_button_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_button_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_demo_SOURCES		= Magick++/demo/demo.cpp
-Magick___demo_demo_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_demo_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_detrans_SOURCES		= Magick++/demo/detrans.cpp
-Magick___demo_detrans_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_detrans_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_flip_SOURCES		= Magick++/demo/flip.cpp
-Magick___demo_flip_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_flip_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_gravity_SOURCES		= Magick++/demo/gravity.cpp
-Magick___demo_gravity_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_gravity_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_piddle_SOURCES		= Magick++/demo/piddle.cpp
-Magick___demo_piddle_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_piddle_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_shapes_SOURCES		= Magick++/demo/shapes.cpp
-Magick___demo_shapes_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_shapes_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___demo_zoom_SOURCES		= Magick++/demo/zoom.cpp
-Magick___demo_zoom_LDADD		= $(MAGICKPP_LIBS)
+Magick___demo_zoom_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___tests_appendImages_SOURCES	= Magick++/tests/appendImages.cpp
-Magick___tests_appendImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_appendImages_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_attributes_SOURCES	= Magick++/tests/attributes.cpp
-Magick___tests_attributes_LDADD		= $(MAGICKPP_LIBS)
+Magick___tests_attributes_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___tests_averageImages_SOURCES	= Magick++/tests/averageImages.cpp
-Magick___tests_averageImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_averageImages_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_coalesceImages_SOURCES	= Magick++/tests/coalesceImages.cpp
-Magick___tests_coalesceImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_coalesceImages_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_coderInfo_SOURCES	= Magick++/tests/coderInfo.cpp
-Magick___tests_coderInfo_LDADD		= $(MAGICKPP_LIBS)
+Magick___tests_coderInfo_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___tests_color_SOURCES		= Magick++/tests/color.cpp
-Magick___tests_color_LDADD		= $(MAGICKPP_LIBS)
+Magick___tests_color_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___tests_colorHistogram_SOURCES	= Magick++/tests/colorHistogram.cpp
-Magick___tests_colorHistogram_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_colorHistogram_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_exceptions_SOURCES	= Magick++/tests/exceptions.cpp
-Magick___tests_exceptions_LDADD		= $(MAGICKPP_LIBS)
+Magick___tests_exceptions_LDADD		= $(MAGICKPP_LDADD)
 
 Magick___tests_montageImages_SOURCES	= Magick++/tests/montageImages.cpp
-Magick___tests_montageImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_montageImages_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_morphImages_SOURCES	= Magick++/tests/morphImages.cpp
-Magick___tests_morphImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_morphImages_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_readWriteBlob_SOURCES	= Magick++/tests/readWriteBlob.cpp
-Magick___tests_readWriteBlob_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_readWriteBlob_LDADD	= $(MAGICKPP_LDADD)
 
 Magick___tests_readWriteImages_SOURCES	= Magick++/tests/readWriteImages.cpp
-Magick___tests_readWriteImages_LDADD	= $(MAGICKPP_LIBS)
+Magick___tests_readWriteImages_LDADD	= $(MAGICKPP_LDADD)
 
 
 MAGICKPP_LOCAL_TARGETS = www/Magick++/NEWS.html www/Magick++/ChangeLog.html

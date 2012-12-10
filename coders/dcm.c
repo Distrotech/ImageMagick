@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,7 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
-#include "MagickCore/property.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -61,6 +61,7 @@
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/property.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/static.h"
@@ -3308,7 +3309,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
             p=data;
             for (i=0; i < (ssize_t) colors; i++)
             {
-              if (image->endian != LSBEndian)
+              if (image->endian == MSBEndian)
                 index=(unsigned short) ((*p << 8) | *(p+1));
               else
                 index=(unsigned short) (*p | (*(p+1) << 8));
@@ -3336,7 +3337,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
             p=data;
             for (i=0; i < (ssize_t) colors; i++)
             {
-              if (image->endian != LSBEndian)
+              if (image->endian == MSBEndian)
                 index=(unsigned short) ((*p << 8) | *(p+1));
               else
                 index=(unsigned short) (*p | (*(p+1) << 8));
@@ -3364,7 +3365,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
             p=data;
             for (i=0; i < (ssize_t) colors; i++)
             {
-              if (image->endian != LSBEndian)
+              if (image->endian == MSBEndian)
                 index=(unsigned short) ((*p << 8) | *(p+1));
               else
                 index=(unsigned short) (*p | (*(p+1) << 8));
@@ -3638,6 +3639,7 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     image->columns=(size_t) width;
     image->rows=(size_t) height;
     image->depth=depth;
+    image->colorspace=RGBColorspace;
     if ((image->colormap == (PixelInfo *) NULL) && (samples_per_pixel == 1))
       {
         size_t
@@ -4053,6 +4055,8 @@ static Image *ReadDCMImage(const ImageInfo *image_info,ExceptionInfo *exception)
               }
           }
       }
+    if (IsImageGray(image,exception) != MagickFalse)
+      (void) SetImageColorspace(image,GRAYColorspace,exception);
     if (EOFBlob(image) != MagickFalse)
       {
         ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",

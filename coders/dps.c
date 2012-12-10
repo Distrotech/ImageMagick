@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -490,7 +490,7 @@ static Image *ReadDPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
           if (matte_image != (XImage *) NULL)
             {
               image->storage_class=DirectClass;
-              image->matte=MagickTrue;
+              image->alpha_trait=BlendPixelTrait;
               for (y=0; y < (ssize_t) image->rows; y++)
               {
                 q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);

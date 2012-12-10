@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -22,12 +22,18 @@
 extern "C" {
 #endif
 
-static inline MagickRealType MagickEpsilonReciprocal(const MagickRealType x)
+static inline double PerceptibleReciprocal(const double x)
 {
-  MagickRealType sign = x < (MagickRealType) 0.0 ? (MagickRealType) -1.0 : 
-    (MagickRealType) 1.0;
-  return((sign*x) > MagickEpsilon ? (MagickRealType) 1.0/x : sign*(
-    (MagickRealType) 1.0/MagickEpsilon));
+  double
+    sign;
+
+  /*
+    Return 1/x where x is perceptible (not unlimited or infinitesimal).
+  */
+  sign=x < 0.0 ? -1.0 : 1.0;
+  if ((sign*x) >= MagickEpsilon)
+    return(1.0/x);
+  return(sign/MagickEpsilon);
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)

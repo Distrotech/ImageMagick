@@ -17,7 +17,7 @@
 %                                 March 2012                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -416,19 +416,19 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
       double
         gamma;
 
-      fill_color.blue=(MagickRealType) ScaleCharToQuantum(*p++);
-      fill_color.green=(MagickRealType) ScaleCharToQuantum(*p++);
-      fill_color.red=(MagickRealType) ScaleCharToQuantum(*p++);
-      fill_color.alpha=(MagickRealType) ScaleCharToQuantum(*p++);
+      fill_color.blue=(double) ScaleCharToQuantum(*p++);
+      fill_color.green=(double) ScaleCharToQuantum(*p++);
+      fill_color.red=(double) ScaleCharToQuantum(*p++);
+      fill_color.alpha=(double) ScaleCharToQuantum(*p++);
       /*
         Disassociate alpha.
       */
       gamma=1.0-QuantumScale*fill_color.alpha;
-      gamma=MagickEpsilonReciprocal(gamma);
+      gamma=PerceptibleReciprocal(gamma);
       fill_color.blue*=gamma;
       fill_color.green*=gamma;
       fill_color.red*=gamma;
-      CompositePixelOver(image,&fill_color,fill_color.alpha,q,(MagickRealType)
+      CompositePixelOver(image,&fill_color,fill_color.alpha,q,(double)
         GetPixelAlpha(image,q),q);
       q+=GetPixelChannels(image);
     }

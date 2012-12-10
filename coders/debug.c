@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -208,7 +208,7 @@ static MagickBooleanType WriteDEBUGImage(const ImageInfo *image_info,
       MagickColorspaceOptions,(ssize_t) image->colorspace),MaxTextExtent);
     LocaleLower(colorspace);
     image->depth=GetImageQuantumDepth(image,MagickTrue);
-    if (image->matte != MagickFalse)
+    if (image->alpha_trait == BlendPixelTrait)
       (void) ConcatenateMagickString(colorspace,"a",MaxTextExtent);
     (void) FormatLocaleString(buffer,MaxTextExtent,
       "# ImageMagick pixel debugging: %.20g,%.20g,%.20g,%s\n",(double)
@@ -238,7 +238,7 @@ static MagickBooleanType WriteDEBUGImage(const ImageInfo *image_info,
               (double) pixel.black);
             (void) ConcatenateMagickString(tuple,black,MaxTextExtent);
           }
-        if (pixel.matte != MagickFalse)
+        if (pixel.alpha_trait == BlendPixelTrait)
           {
             char
               alpha[MaxTextExtent];

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -74,6 +74,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/thread-private.h"
+#include "MagickCore/threshold.h"
 #include "MagickCore/token.h"
 #include "MagickCore/xml-tree.h"
 #include "MagickCore/xml-tree-private.h"
@@ -143,15 +144,15 @@ MagickExport MagickBooleanType AutoGammaImage(Image *image,
     PixelTrait
       traits;
 
-    channel=GetPixelChannelMapChannel(image,i);
-    traits=GetPixelChannelMapTraits(image,channel);
+    channel=GetPixelChannelChannel(image,i);
+    traits=GetPixelChannelTraits(image,channel);
     if ((traits & UpdatePixelTrait) == 0)
       continue;
-    channel_mask=SetPixelChannelMask(image,(ChannelType) (1 << i));
+    channel_mask=SetImageChannelMask(image,(ChannelType) (1 << i));
     status=GetImageMean(image,&mean,&sans,exception);
     gamma=log(mean*QuantumScale)/log_mean;
     status&=LevelImage(image,0.0,(double) QuantumRange,gamma,exception);
-    (void) SetPixelChannelMask(image,channel_mask);
+    (void) SetImageChannelMask(image,channel_mask);
     if (status == MagickFalse)
       break;
   }
@@ -330,7 +331,7 @@ MagickExport MagickBooleanType ClutImage(Image *image,const Image *clut_image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace,exception);
+    (void) TransformImageColorspace(image,RGBColorspace,exception);
   clut_map=(PixelInfo *) AcquireQuantumMemory(MaxMap+1UL,sizeof(*clut_map));
   if (clut_map == (PixelInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
@@ -342,10 +343,6 @@ MagickExport MagickBooleanType ClutImage(Image *image,const Image *clut_image,
   progress=0;
   adjust=(ssize_t) (clut_image->interpolate == IntegerInterpolatePixel ? 0 : 1);
   clut_view=AcquireVirtualCacheView(clut_image,exception);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i <= (ssize_t) MaxMap; i++)
   {
     GetPixelInfo(clut_image,clut_map+i);
@@ -417,7 +414,7 @@ MagickExport MagickBooleanType ClutImage(Image *image,const Image *clut_image,
   }
   image_view=DestroyCacheView(image_view);
   clut_map=(PixelInfo *) RelinquishMagickMemory(clut_map);
-  if ((clut_image->matte != MagickFalse) &&
+  if ((clut_image->alpha_trait == BlendPixelTrait) &&
       ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0))
     (void) SetImageAlphaChannel(image,ActivateAlphaChannel,exception);
   return(status);
@@ -705,48 +702,35 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
   if (cdl_map == (PixelInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i <= (ssize_t) MaxMap; i++)
   {
-    cdl_map[i].red=(MagickRealType) ScaleMapToQuantum((MagickRealType)
+    cdl_map[i].red=(double) ScaleMapToQuantum((double)
       (MaxMap*(pow(color_correction.red.slope*i/MaxMap+
       color_correction.red.offset,color_correction.red.power))));
-    cdl_map[i].green=(MagickRealType) ScaleMapToQuantum((MagickRealType)
+    cdl_map[i].green=(double) ScaleMapToQuantum((double)
       (MaxMap*(pow(color_correction.green.slope*i/MaxMap+
       color_correction.green.offset,color_correction.green.power))));
-    cdl_map[i].blue=(MagickRealType) ScaleMapToQuantum((MagickRealType)
+    cdl_map[i].blue=(double) ScaleMapToQuantum((double)
       (MaxMap*(pow(color_correction.blue.slope*i/MaxMap+
       color_correction.blue.offset,color_correction.blue.power))));
   }
   if (image->storage_class == PseudoClass)
+    for (i=0; i < (ssize_t) image->colors; i++)
     {
       /*
         Apply transfer function to colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
-      for (i=0; i < (ssize_t) image->colors; i++)
-      {
-        double
-          luma;
+      double
+        luma;
 
-        luma=0.2126*image->colormap[i].red+0.7152*image->colormap[i].green+
-          0.0722*image->colormap[i].blue;
-        image->colormap[i].red=luma+color_correction.saturation*cdl_map[
-          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].red))].red-
-          luma;
-        image->colormap[i].green=luma+color_correction.saturation*cdl_map[
-          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].green))].green-
-          luma;
-        image->colormap[i].blue=luma+color_correction.saturation*cdl_map[
-          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].blue))].blue-
-          luma;
-      }
+      luma=0.21267f*image->colormap[i].red+0.71526*image->colormap[i].green+
+        0.07217f*image->colormap[i].blue;
+      image->colormap[i].red=luma+color_correction.saturation*cdl_map[
+        ScaleQuantumToMap(ClampToQuantum(image->colormap[i].red))].red-luma;
+      image->colormap[i].green=luma+color_correction.saturation*cdl_map[
+        ScaleQuantumToMap(ClampToQuantum(image->colormap[i].green))].green-luma;
+      image->colormap[i].blue=luma+color_correction.saturation*cdl_map[
+        ScaleQuantumToMap(ClampToQuantum(image->colormap[i].blue))].blue-luma;
     }
   /*
     Apply transfer function to image.
@@ -779,7 +763,7 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      luma=0.2126*GetPixelRed(image,q)+0.7152*GetPixelGreen(image,q)+0.0722*
+      luma=0.21267f*GetPixelRed(image,q)+0.71526*GetPixelGreen(image,q)+0.07217f*
         GetPixelBlue(image,q);
       SetPixelRed(image,ClampToQuantum(luma+color_correction.saturation*
         (cdl_map[ScaleQuantumToMap(GetPixelRed(image,q))].red-luma)),q);
@@ -901,8 +885,17 @@ MagickExport MagickBooleanType ContrastImage(Image *image,
         Contrast enhance colormap.
       */
       for (i=0; i < (ssize_t) image->colors; i++)
-        Contrast(sign,&image->colormap[i].red,&image->colormap[i].green,
-          &image->colormap[i].blue);
+      {
+        double
+          blue,
+          green,
+          red;
+
+        Contrast(sign,&red,&green,&blue);
+        image->colormap[i].red=(MagickRealType) red;
+        image->colormap[i].red=(MagickRealType) red;
+        image->colormap[i].red=(MagickRealType) red;
+      }
     }
   /*
     Contrast enhance image.
@@ -1005,7 +998,7 @@ MagickExport MagickBooleanType ContrastImage(Image *image,
 MagickExport MagickBooleanType ContrastStretchImage(Image *image,
   const double black_point,const double white_point,ExceptionInfo *exception)
 {
-#define MaxRange(color)  ((MagickRealType) ScaleQuantumToMap((Quantum) (color)))
+#define MaxRange(color)  ((double) ScaleQuantumToMap((Quantum) (color)))
 #define ContrastStretchImageTag  "ContrastStretch/Image"
 
   CacheView
@@ -1084,11 +1077,20 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
+      double
+        pixel;
+
       register ssize_t
         i;
 
+      pixel=GetPixelIntensity(image,p);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
-        histogram[GetPixelChannels(image)*ScaleQuantumToMap(p[i])+i]++;
+      {
+        if (image->channel_mask != DefaultChannels)
+          pixel=(double) p[i];
+        histogram[GetPixelChannels(image)*ScaleQuantumToMap(
+          ClampToQuantum(pixel))+i]++;
+      }
       p+=GetPixelChannels(image);
     }
   }
@@ -1097,10 +1099,6 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
     Find the histogram boundaries by locating the black/white levels.
   */
   number_channels=GetPixelChannels(image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i < (ssize_t) number_channels; i++)
   {
     double
@@ -1118,7 +1116,7 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
       if (intensity > black_point)
         break;
     }
-    black[i]=(MagickRealType) j;
+    black[i]=(double) j;
     intensity=0.0;
     for (j=(ssize_t) MaxMap; j != 0; j--)
     {
@@ -1126,7 +1124,7 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
       if (intensity > ((double) image->columns*image->rows-white_point))
         break;
     }
-    white[i]=(MagickRealType) j;
+    white[i]=(double) j;
   }
   histogram=(double *) RelinquishMagickMemory(histogram);
   /*
@@ -1135,10 +1133,6 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
   (void) ResetMagickMemory(stretch_map,0,(MaxMap+1)*GetPixelChannels(image)*
     sizeof(*stretch_map));
   number_channels=GetPixelChannels(image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i < (ssize_t) number_channels; i++)
   {
     register ssize_t
@@ -1150,12 +1144,12 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
         stretch_map[GetPixelChannels(image)*j+i]=0.0;
       else
         if (j > (ssize_t) white[i])
-          stretch_map[GetPixelChannels(image)*j+i]=(MagickRealType)
+          stretch_map[GetPixelChannels(image)*j+i]=(double)
             QuantumRange;
         else
           if (black[i] != white[i])
-            stretch_map[GetPixelChannels(image)*j+i]=(MagickRealType)
-              ScaleMapToQuantum((MagickRealType) (MaxMap*(j-black[i])/
+            stretch_map[GetPixelChannels(image)*j+i]=(double)
+              ScaleMapToQuantum((double) (MaxMap*(j-black[i])/
               (white[i]-black[i])));
     }
   }
@@ -1167,36 +1161,32 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
       /*
         Stretch-contrast colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
       for (j=0; j < (ssize_t) image->colors; j++)
       {
         if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
           {
-            i=GetPixelChannelMapChannel(image,RedPixelChannel);
+            i=GetPixelChannelChannel(image,RedPixelChannel);
             if (black[i] != white[i])
               image->colormap[j].red=stretch_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].red))]+i;
           }
         if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
           {
-            i=GetPixelChannelMapChannel(image,GreenPixelChannel);
+            i=GetPixelChannelChannel(image,GreenPixelChannel);
             if (black[i] != white[i])
               image->colormap[j].green=stretch_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].green))]+i;
           }
         if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
           {
-            i=GetPixelChannelMapChannel(image,BluePixelChannel);
+            i=GetPixelChannelChannel(image,BluePixelChannel);
             if (black[i] != white[i])
               image->colormap[j].blue=stretch_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].blue))]+i;
           }
         if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
           {
-            i=GetPixelChannelMapChannel(image,AlphaPixelChannel);
+            i=GetPixelChannelChannel(image,AlphaPixelChannel);
             if (black[i] != white[i])
               image->colormap[j].alpha=stretch_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].alpha))]+i;
@@ -1247,8 +1237,8 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (((traits & UpdatePixelTrait) == 0) || (black[i] == white[i]))
           continue;
         q[i]=ClampToQuantum(stretch_map[GetPixelChannels(image)*
@@ -1307,13 +1297,11 @@ MagickExport MagickBooleanType ContrastStretchImage(Image *image,
 MagickExport Image *EnhanceImage(const Image *image,ExceptionInfo *exception)
 {
 #define EnhancePixel(weight) \
-  mean=((MagickRealType) r[i]+GetPixelChannel(enhance_image,channel,q))/2.0; \
-  distance=(MagickRealType) r[i]-(MagickRealType) GetPixelChannel( \
-    enhance_image,channel,q); \
-  distance_squared=QuantumScale*(2.0*((MagickRealType) QuantumRange+1.0)+ \
-    mean)*distance*distance; \
-  if (distance_squared < ((MagickRealType) QuantumRange*(MagickRealType) \
-      QuantumRange/25.0f)) \
+  mean=((double) r[i]+GetPixelChannel(enhance_image,channel,q))/2.0; \
+  distance=(double) r[i]-(double) GetPixelChannel(enhance_image,channel,q); \
+  distance_squared=QuantumScale*(2.0*((double) QuantumRange+1.0)+mean)* \
+    distance*distance; \
+  if (distance_squared < ((double) QuantumRange*(double) QuantumRange/25.0f)) \
     { \
       aggregate+=(weight)*r[i]; \
       total_weight+=(weight); \
@@ -1404,7 +1392,7 @@ MagickExport Image *EnhanceImage(const Image *image,ExceptionInfo *exception)
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        MagickRealType
+        double
           aggregate,
           distance,
           distance_squared,
@@ -1421,9 +1409,9 @@ MagickExport Image *EnhanceImage(const Image *image,ExceptionInfo *exception)
         register const Quantum
           *restrict r;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
-        enhance_traits=GetPixelChannelMapTraits(enhance_image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
+        enhance_traits=GetPixelChannelTraits(enhance_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (enhance_traits == UndefinedPixelTrait))
           continue;
@@ -1514,7 +1502,7 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
   MagickOffsetType
     progress;
 
-  MagickRealType
+  double
     black[CompositePixelChannel],
     *equalize_map,
     *histogram,
@@ -1537,22 +1525,22 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  equalize_map=(MagickRealType *) AcquireQuantumMemory(MaxMap+1UL,
+  equalize_map=(double *) AcquireQuantumMemory(MaxMap+1UL,
     GetPixelChannels(image)*sizeof(*equalize_map));
-  histogram=(MagickRealType *) AcquireQuantumMemory(MaxMap+1UL,
+  histogram=(double *) AcquireQuantumMemory(MaxMap+1UL,
     GetPixelChannels(image)*sizeof(*histogram));
-  map=(MagickRealType *) AcquireQuantumMemory(MaxMap+1UL,
+  map=(double *) AcquireQuantumMemory(MaxMap+1UL,
     GetPixelChannels(image)*sizeof(*map));
-  if ((equalize_map == (MagickRealType *) NULL) ||
-      (histogram == (MagickRealType *) NULL) ||
-      (map == (MagickRealType *) NULL))
+  if ((equalize_map == (double *) NULL) ||
+      (histogram == (double *) NULL) ||
+      (map == (double *) NULL))
     {
-      if (map != (MagickRealType *) NULL)
-        map=(MagickRealType *) RelinquishMagickMemory(map);
-      if (histogram != (MagickRealType *) NULL)
-        histogram=(MagickRealType *) RelinquishMagickMemory(histogram);
-      if (equalize_map != (MagickRealType *) NULL)
-        equalize_map=(MagickRealType *) RelinquishMagickMemory(equalize_map);
+      if (map != (double *) NULL)
+        map=(double *) RelinquishMagickMemory(map);
+      if (histogram != (double *) NULL)
+        histogram=(double *) RelinquishMagickMemory(histogram);
+      if (equalize_map != (double *) NULL)
+        equalize_map=(double *) RelinquishMagickMemory(equalize_map);
       ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
         image->filename);
     }
@@ -1594,13 +1582,9 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
     Integrate the histogram to get the equalization map.
   */
   number_channels=GetPixelChannels(image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i < (ssize_t) number_channels; i++)
   {
-    MagickRealType
+    double
       intensity;
 
     register ssize_t
@@ -1616,10 +1600,6 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
   (void) ResetMagickMemory(equalize_map,0,(MaxMap+1)*GetPixelChannels(image)*
     sizeof(*equalize_map));
   number_channels=GetPixelChannels(image);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
   for (i=0; i < (ssize_t) number_channels; i++)
   {
     register ssize_t
@@ -1629,12 +1609,12 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
     white[i]=map[GetPixelChannels(image)*MaxMap+i];
     if (black[i] != white[i])
       for (j=0; j <= (ssize_t) MaxMap; j++)
-        equalize_map[GetPixelChannels(image)*j+i]=(MagickRealType)
-          ScaleMapToQuantum((MagickRealType) ((MaxMap*(map[
+        equalize_map[GetPixelChannels(image)*j+i]=(double)
+          ScaleMapToQuantum((double) ((MaxMap*(map[
           GetPixelChannels(image)*j+i]-black[i]))/(white[i]-black[i])));
   }
-  histogram=(MagickRealType *) RelinquishMagickMemory(histogram);
-  map=(MagickRealType *) RelinquishMagickMemory(map);
+  histogram=(double *) RelinquishMagickMemory(histogram);
+  map=(double *) RelinquishMagickMemory(map);
   if (image->storage_class == PseudoClass)
     {
       PixelChannel
@@ -1646,15 +1626,11 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
       /*
         Equalize colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
       for (j=0; j < (ssize_t) image->colors; j++)
       {
         if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
           {
-            channel=GetPixelChannelMapChannel(image,RedPixelChannel);
+            channel=GetPixelChannelChannel(image,RedPixelChannel);
             if (black[channel] != white[channel])
               image->colormap[j].red=equalize_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].red))]+
@@ -1662,7 +1638,7 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
           }
         if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
           {
-            channel=GetPixelChannelMapChannel(image,GreenPixelChannel);
+            channel=GetPixelChannelChannel(image,GreenPixelChannel);
             if (black[channel] != white[channel])
               image->colormap[j].green=equalize_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].green))]+
@@ -1670,7 +1646,7 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
           }
         if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
           {
-            channel=GetPixelChannelMapChannel(image,BluePixelChannel);
+            channel=GetPixelChannelChannel(image,BluePixelChannel);
             if (black[channel] != white[channel])
               image->colormap[j].blue=equalize_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].blue))]+
@@ -1678,7 +1654,7 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
           }
         if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
           {
-            channel=GetPixelChannelMapChannel(image,AlphaPixelChannel);
+            channel=GetPixelChannelChannel(image,AlphaPixelChannel);
             if (black[channel] != white[channel])
               image->colormap[j].alpha=equalize_map[GetPixelChannels(image)*
                 ScaleQuantumToMap(ClampToQuantum(image->colormap[j].alpha))]+
@@ -1729,8 +1705,8 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (((traits & UpdatePixelTrait) == 0) || (black[i] == white[i]))
           continue;
         q[i]=ClampToQuantum(equalize_map[GetPixelChannels(image)*
@@ -1754,7 +1730,7 @@ MagickExport MagickBooleanType EqualizeImage(Image *image,
       }
   }
   image_view=DestroyCacheView(image_view);
-  equalize_map=(MagickRealType *) RelinquishMagickMemory(equalize_map);
+  equalize_map=(double *) RelinquishMagickMemory(equalize_map);
   return(status);
 }
 
@@ -1830,37 +1806,27 @@ MagickExport MagickBooleanType GammaImage(Image *image,const double gamma,
       image->filename);
   (void) ResetMagickMemory(gamma_map,0,(MaxMap+1)*sizeof(*gamma_map));
   if (gamma != 0.0)
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && (MaxMap > 256)
-    #pragma omp parallel for \
-      dynamic_number_threads(image,image->columns,1,1)
-#endif
     for (i=0; i <= (ssize_t) MaxMap; i++)
-      gamma_map[i]=ScaleMapToQuantum((MagickRealType) (MaxMap*pow((double) i/
+      gamma_map[i]=ScaleMapToQuantum((double) (MaxMap*pow((double) i/
         MaxMap,1.0/gamma)));
   if (image->storage_class == PseudoClass)
+    for (i=0; i < (ssize_t) image->colors; i++)
     {
       /*
         Gamma-correct colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
-      for (i=0; i < (ssize_t) image->colors; i++)
-      {
-        if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].red=(MagickRealType) gamma_map[
-            ScaleQuantumToMap(ClampToQuantum(image->colormap[i].red))];
-        if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].green=(MagickRealType) gamma_map[
-            ScaleQuantumToMap(ClampToQuantum(image->colormap[i].green))];
-        if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].blue=(MagickRealType) gamma_map[
-            ScaleQuantumToMap(ClampToQuantum(image->colormap[i].blue))];
-        if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].alpha=(MagickRealType) gamma_map[
-            ScaleQuantumToMap(ClampToQuantum(image->colormap[i].alpha))];
-      }
+      if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].red=(double) gamma_map[
+          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].red))];
+      if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].green=(double) gamma_map[
+          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].green))];
+      if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].blue=(double) gamma_map[
+          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].blue))];
+      if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].alpha=(double) gamma_map[
+          ScaleQuantumToMap(ClampToQuantum(image->colormap[i].alpha))];
     }
   /*
     Gamma-correct image.
@@ -1906,8 +1872,8 @@ MagickExport MagickBooleanType GammaImage(Image *image,const double gamma,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         q[i]=gamma_map[ScaleQuantumToMap(q[i])];
@@ -1983,7 +1949,7 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
 
   typedef struct _HaldInfo
   {
-    MagickRealType
+    double
       x,
       y,
       z;
@@ -2022,8 +1988,8 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace,exception);
-  if (image->matte == MagickFalse)
+    (void) TransformImageColorspace(image,RGBColorspace,exception);
+  if (image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   /*
     Hald clut image.
@@ -2110,7 +2076,7 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
           (image->colorspace == CMYKColorspace))
         SetPixelBlack(image,ClampToQuantum(pixel.black),q);
       if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-          (image->matte != MagickFalse))
+          (image->alpha_trait == BlendPixelTrait))
         SetPixelAlpha(image,ClampToQuantum(pixel.alpha),q);
       q+=GetPixelChannels(image);
     }
@@ -2178,15 +2144,15 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
 %
 */
 
-static inline MagickRealType LevelPixel(const double black_point,
-  const double white_point,const double gamma,const MagickRealType pixel)
+static inline double LevelPixel(const double black_point,
+  const double white_point,const double gamma,const double pixel)
 {
   double
     level_pixel,
     scale;
 
   scale=(white_point != black_point) ? 1.0/(white_point-black_point) : 1.0;
-  level_pixel=(MagickRealType) QuantumRange*pow(scale*((double) pixel-
+  level_pixel=(double) QuantumRange*pow(scale*((double) pixel-
     black_point),1.0/gamma);
   return(level_pixel);
 }
@@ -2218,13 +2184,7 @@ MagickExport MagickBooleanType LevelImage(Image *image,const double black_point,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,sRGBColorspace,exception);
   if (image->storage_class == PseudoClass)
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(progress,status) \
-      dynamic_number_threads(image,image->columns,1,1)
-#endif
     for (i=0; i < (ssize_t) image->colors; i++)
     {
       /*
@@ -2287,12 +2247,12 @@ MagickExport MagickBooleanType LevelImage(Image *image,const double black_point,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         q[i]=ClampToQuantum(LevelPixel(black_point,white_point,gamma,
-          (MagickRealType) q[i]));
+          (double) q[i]));
       }
       q+=GetPixelChannels(image);
     }
@@ -2362,9 +2322,8 @@ MagickExport MagickBooleanType LevelizeImage(Image *image,
   ExceptionInfo *exception)
 {
 #define LevelizeImageTag  "Levelize/Image"
-#define LevelizeValue(x) (ClampToQuantum(((MagickRealType) \
-  pow((double) (QuantumScale*(x)),1.0/gamma))*(white_point-black_point)+ \
-  black_point))
+#define LevelizeValue(x) (ClampToQuantum((pow((double) (QuantumScale*(x)), \
+  1.0/gamma))*(white_point-black_point)+black_point))
 
   CacheView
     *image_view;
@@ -2389,12 +2348,8 @@ MagickExport MagickBooleanType LevelizeImage(Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,sRGBColorspace,exception);
+    (void) SetImageColorspace(image,RGBColorspace,exception);
   if (image->storage_class == PseudoClass)
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(progress,status) \
-      dynamic_number_threads(image,image->columns,1,1)
-#endif
     for (i=0; i < (ssize_t) image->colors; i++)
     {
       /*
@@ -2457,8 +2412,8 @@ MagickExport MagickBooleanType LevelizeImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         q[i]=LevelizeValue(q[i]);
@@ -2547,80 +2502,80 @@ MagickExport MagickBooleanType LevelImageColors(Image *image,
     {
       if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,RedChannel);
+          channel_mask=SetImageChannelMask(image,RedChannel);
           status|=LevelImage(image,black_color->red,white_color->red,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,GreenChannel);
+          channel_mask=SetImageChannelMask(image,GreenChannel);
           status|=LevelImage(image,black_color->green,white_color->green,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,BlueChannel);
+          channel_mask=SetImageChannelMask(image,BlueChannel);
           status|=LevelImage(image,black_color->blue,white_color->blue,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
           (image->colorspace == CMYKColorspace))
         {
-          channel_mask=SetPixelChannelMask(image,BlackChannel);
+          channel_mask=SetImageChannelMask(image,BlackChannel);
           status|=LevelImage(image,black_color->black,white_color->black,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-          (image->matte == MagickTrue))
+          (image->alpha_trait == BlendPixelTrait))
         {
-          channel_mask=SetPixelChannelMask(image,AlphaChannel);
+          channel_mask=SetImageChannelMask(image,AlphaChannel);
           status|=LevelImage(image,black_color->alpha,white_color->alpha,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
     }
   else
     {
       if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,RedChannel);
+          channel_mask=SetImageChannelMask(image,RedChannel);
           status|=LevelizeImage(image,black_color->red,white_color->red,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,GreenChannel);
+          channel_mask=SetImageChannelMask(image,GreenChannel);
           status|=LevelizeImage(image,black_color->green,white_color->green,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
         {
-          channel_mask=SetPixelChannelMask(image,BlueChannel);
+          channel_mask=SetImageChannelMask(image,BlueChannel);
           status|=LevelizeImage(image,black_color->blue,white_color->blue,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
           (image->colorspace == CMYKColorspace))
         {
-          channel_mask=SetPixelChannelMask(image,BlackChannel);
+          channel_mask=SetImageChannelMask(image,BlackChannel);
           status|=LevelizeImage(image,black_color->black,white_color->black,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
       if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-          (image->matte == MagickTrue))
+          (image->alpha_trait == BlendPixelTrait))
         {
-          channel_mask=SetPixelChannelMask(image,AlphaChannel);
+          channel_mask=SetImageChannelMask(image,AlphaChannel);
           status|=LevelizeImage(image,black_color->alpha,white_color->alpha,1.0,
             exception);
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
         }
     }
   return(status == 0 ? MagickFalse : MagickTrue);
@@ -2668,7 +2623,7 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
   MagickBooleanType
     status;
 
-  MagickRealType
+  double
     *histogram,
     intensity;
 
@@ -2682,9 +2637,9 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
   */
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
-  histogram=(MagickRealType *) AcquireQuantumMemory(MaxMap+1UL,
+  histogram=(double *) AcquireQuantumMemory(MaxMap+1UL,
     sizeof(*histogram));
-  if (histogram == (MagickRealType *) NULL)
+  if (histogram == (double *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
   /*
@@ -2705,7 +2660,11 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      histogram[ScaleQuantumToMap(GetPixelIntensity(image,p))]++;
+      double
+        intensity;
+
+      intensity=GetPixelIntensity(image,p);
+      histogram[ScaleQuantumToMap(ClampToQuantum(intensity))]++;
       p+=GetPixelChannels(image);
     }
   }
@@ -2727,7 +2686,7 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
     if (intensity >= white_point)
       break;
   }
-  histogram=(MagickRealType *) RelinquishMagickMemory(histogram);
+  histogram=(double *) RelinquishMagickMemory(histogram);
   status=LevelImage(image,(double) black,(double) white,1.0,exception);
   return(status);
 }
@@ -2746,8 +2705,8 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
 %  ModulateImage() lets you control the brightness, saturation, and hue
 %  of an image.  Modulate represents the brightness, saturation, and hue
 %  as one parameter (e.g. 90,150,100).  If the image colorspace is HSL, the
-%  modulation is lightness, saturation, and hue.  And if the colorspace is
-%  HWB, use blackness, whiteness, and hue.
+%  modulation is lightness, saturation, and hue.  For HWB, use blackness,
+%  whiteness, and hue. And for HCL, use chrome, luma, and hue.
 %
 %  The format of the ModulateImage method is:
 %
@@ -2764,7 +2723,30 @@ MagickExport MagickBooleanType LinearStretchImage(Image *image,
 %
 */
 
-static void ModulateHSB(const double percent_hue,
+static inline void ModulateHCL(const double percent_hue,
+  const double percent_chroma,const double percent_luma,double *red,
+  double *green,double *blue)
+{
+  double
+    hue,
+    luma,
+    chroma;
+
+  /*
+    Increase or decrease color luma, chroma, or hue.
+  */
+  ConvertRGBToHCL(*red,*green,*blue,&hue,&chroma,&luma);
+  hue+=0.5*(0.01*percent_hue-1.0);
+  while (hue < 0.0)
+    hue+=1.0;
+  while (hue > 1.0)
+    hue-=1.0;
+  chroma*=0.01*percent_chroma;
+  luma*=0.01*percent_luma;
+  ConvertHCLToRGB(hue,chroma,luma,red,green,blue);
+}
+
+static inline void ModulateHSB(const double percent_hue,
   const double percent_saturation,const double percent_brightness,double *red,
   double *green,double *blue)
 {
@@ -2776,9 +2758,6 @@ static void ModulateHSB(const double percent_hue,
   /*
     Increase or decrease color brightness, saturation, or hue.
   */
-  assert(red != (double *) NULL);
-  assert(green != (double *) NULL);
-  assert(blue != (double *) NULL);
   ConvertRGBToHSB(*red,*green,*blue,&hue,&saturation,&brightness);
   hue+=0.5*(0.01*percent_hue-1.0);
   while (hue < 0.0)
@@ -2790,7 +2769,7 @@ static void ModulateHSB(const double percent_hue,
   ConvertHSBToRGB(hue,saturation,brightness,red,green,blue);
 }
 
-static void ModulateHSL(const double percent_hue,
+static inline void ModulateHSL(const double percent_hue,
   const double percent_saturation,const double percent_lightness,double *red,
   double *green,double *blue)
 {
@@ -2802,9 +2781,6 @@ static void ModulateHSL(const double percent_hue,
   /*
     Increase or decrease color lightness, saturation, or hue.
   */
-  assert(red != (double *) NULL);
-  assert(green != (double *) NULL);
-  assert(blue != (double *) NULL);
   ConvertRGBToHSL(*red,*green,*blue,&hue,&saturation,&lightness);
   hue+=0.5*(0.01*percent_hue-1.0);
   while (hue < 0.0)
@@ -2816,7 +2792,9 @@ static void ModulateHSL(const double percent_hue,
   ConvertHSLToRGB(hue,saturation,lightness,red,green,blue);
 }
 
-static void ModulateHWB(const double percent_hue,const double percent_whiteness,  const double percent_blackness,double *red,double *green,double *blue)
+static inline void ModulateHWB(const double percent_hue,
+  const double percent_whiteness,const double percent_blackness,double *red,
+  double *green,double *blue)
 {
   double
     blackness,
@@ -2826,9 +2804,6 @@ static void ModulateHWB(const double percent_hue,const double percent_whiteness,
   /*
     Increase or decrease color blackness, whiteness, or hue.
   */
-  assert(red != (double *) NULL);
-  assert(green != (double *) NULL);
-  assert(blue != (double *) NULL);
   ConvertRGBToHWB(*red,*green,*blue,&hue,&whiteness,&blackness);
   hue+=0.5*(0.01*percent_hue-1.0);
   while (hue < 0.0)
@@ -2886,6 +2861,8 @@ MagickExport MagickBooleanType ModulateImage(Image *image,const char *modulate,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (modulate == (char *) NULL)
     return(MagickFalse);
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   flags=ParseGeometry(modulate,&geometry_info);
   percent_brightness=geometry_info.rho;
   percent_saturation=geometry_info.sigma;
@@ -2900,40 +2877,47 @@ MagickExport MagickBooleanType ModulateImage(Image *image,const char *modulate,
     colorspace=(ColorspaceType) ParseCommandOption(MagickColorspaceOptions,
       MagickFalse,artifact);
   if (image->storage_class == PseudoClass)
+    for (i=0; i < (ssize_t) image->colors; i++)
     {
+      double
+        blue,
+        green,
+        red;
+
       /*
         Modulate colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
-      for (i=0; i < (ssize_t) image->colors; i++)
-        switch (colorspace)
+      red=image->colormap[i].red;
+      green=image->colormap[i].green;
+      blue=image->colormap[i].blue;
+      switch (colorspace)
+      {
+        case HCLColorspace:
         {
-          case HSBColorspace:
-          {
-            ModulateHSB(percent_hue,percent_saturation,percent_brightness,
-              &image->colormap[i].red,&image->colormap[i].green,
-              &image->colormap[i].blue);
-            break;
-          }
-          case HSLColorspace:
-          default:
-          {
-            ModulateHSL(percent_hue,percent_saturation,percent_brightness,
-              &image->colormap[i].red,&image->colormap[i].green,
-              &image->colormap[i].blue);
-            break;
-          }
-          case HWBColorspace:
-          {
-            ModulateHWB(percent_hue,percent_saturation,percent_brightness,
-              &image->colormap[i].red,&image->colormap[i].green,
-              &image->colormap[i].blue);
-            break;
-          }
+          ModulateHCL(percent_hue,percent_saturation,percent_brightness,
+            &red,&green,&blue);
+          break;
         }
+        case HSBColorspace:
+        {
+          ModulateHSB(percent_hue,percent_saturation,percent_brightness,
+            &red,&green,&blue);
+          break;
+        }
+        case HSLColorspace:
+        default:
+        {
+          ModulateHSL(percent_hue,percent_saturation,percent_brightness,
+            &red,&green,&blue);
+          break;
+        }
+        case HWBColorspace:
+        {
+          ModulateHWB(percent_hue,percent_saturation,percent_brightness,
+            &red,&green,&blue);
+          break;
+        }
+      }
     }
   /*
     Modulate image.
@@ -2947,11 +2931,6 @@ MagickExport MagickBooleanType ModulateImage(Image *image,const char *modulate,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    double
-      blue,
-      green,
-      red;
-
     register Quantum
       *restrict q;
 
@@ -2968,11 +2947,22 @@ MagickExport MagickBooleanType ModulateImage(Image *image,const char *modulate,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
+      double
+        blue,
+        green,
+        red;
+
       red=(double) GetPixelRed(image,q);
       green=(double) GetPixelGreen(image,q);
       blue=(double) GetPixelBlue(image,q);
       switch (colorspace)
       {
+        case HCLColorspace:
+        {
+          ModulateHCL(percent_hue,percent_saturation,percent_brightness,
+            &red,&green,&blue);
+          break;
+        }
         case HSBColorspace:
         {
           ModulateHSB(percent_hue,percent_saturation,percent_brightness,
@@ -3070,30 +3060,21 @@ MagickExport MagickBooleanType NegateImage(Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->storage_class == PseudoClass)
+    for (i=0; i < (ssize_t) image->colors; i++)
     {
       /*
         Negate colormap.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
-      for (i=0; i < (ssize_t) image->colors; i++)
-      {
-        if (grayscale != MagickFalse)
-          if ((image->colormap[i].red != image->colormap[i].green) ||
-              (image->colormap[i].green != image->colormap[i].blue))
-            continue;
-        if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].red=(Quantum) QuantumRange-
-            image->colormap[i].red;
-        if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].green=(Quantum) QuantumRange-
-            image->colormap[i].green;
-        if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].blue=(Quantum) QuantumRange-
-            image->colormap[i].blue;
-      }
+      if (grayscale != MagickFalse)
+        if ((image->colormap[i].red != image->colormap[i].green) ||
+            (image->colormap[i].green != image->colormap[i].blue))
+          continue;
+      if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].red=QuantumRange-image->colormap[i].red;
+      if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].green=QuantumRange-image->colormap[i].green;
+      if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
+        image->colormap[i].blue=QuantumRange-image->colormap[i].blue;
     }
   /*
     Negate image.
@@ -3103,10 +3084,6 @@ MagickExport MagickBooleanType NegateImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
   if (grayscale != MagickFalse)
     {
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
         MagickBooleanType
@@ -3146,8 +3123,8 @@ MagickExport MagickBooleanType NegateImage(Image *image,
             PixelTrait
               traits;
 
-            channel=GetPixelChannelMapChannel(image,i);
-            traits=GetPixelChannelMapTraits(image,channel);
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
             if ((traits & UpdatePixelTrait) == 0)
               continue;
             q[i]=QuantumRange-q[i];
@@ -3178,7 +3155,7 @@ MagickExport MagickBooleanType NegateImage(Image *image,
     Negate image.
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(progress,status) \
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
     dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -3215,8 +3192,8 @@ MagickExport MagickBooleanType NegateImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         q[i]=QuantumRange-q[i];
@@ -3312,19 +3289,108 @@ MagickExport MagickBooleanType NormalizeImage(Image *image,
 %
 %    o sharpen: Increase or decrease image contrast.
 %
-%    o alpha: strength of the contrast, the larger the number the more
+%    o contrast: strength of the contrast, the larger the number the more
 %      'threshold-like' it becomes.
 %
-%    o beta: midpoint of the function as a color value 0 to QuantumRange.
+%    o midpoint: midpoint of the function as a color value 0 to QuantumRange.
 %
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+/*
+  ImageMagick 6 has a version of this function which uses LUTs.
+*/
+
+/*
+  Sigmoidal function Sigmoidal with inflexion point moved to b and "slope
+  constant" set to a.
+
+  The first version, based on the hyperbolic tangent tanh, when combined with
+  the scaling step, is an exact arithmetic clone of the the sigmoid function
+  based on the logistic curve. The equivalence is based on the identity
+
+    1/(1+exp(-t)) = (1+tanh(t/2))/2
+
+  (http://de.wikipedia.org/wiki/Sigmoidfunktion) and the fact that the
+  scaled sigmoidal derivation is invariant under affine transformations of
+  the ordinate.
+
+  The tanh version is almost certainly more accurate and cheaper.  The 0.5
+  factor in the argument is to clone the legacy ImageMagick behavior. The
+  reason for making the define depend on atanh even though it only uses tanh
+  has to do with the construction of the inverse of the scaled sigmoidal.
+*/
+#if defined(MAGICKCORE_HAVE_ATANH)
+#define Sigmoidal(a,b,x) ( tanh((0.5*(a))*((x)-(b))) )
+#else
+#define Sigmoidal(a,b,x) ( 1.0/(1.0+exp((a)*((b)-(x)))) )
+#endif
+/*
+  Scaled sigmoidal function:
+
+    ( Sigmoidal(a,b,x) - Sigmoidal(a,b,0) ) /
+    ( Sigmoidal(a,b,1) - Sigmoidal(a,b,0) )
+
+  See http://osdir.com/ml/video.image-magick.devel/2005-04/msg00006.html and
+  http://www.cs.dartmouth.edu/farid/downloads/tutorials/fip.pdf.  The limit
+  of ScaledSigmoidal as a->0 is the identity, but a=0 gives a division by
+  zero. This is fixed below by exiting immediately when contrast is small,
+  leaving the image (or colormap) unmodified. This appears to be safe because
+  the series expansion of the logistic sigmoidal function around x=b is
+
+  1/2-a*(b-x)/4+...
+
+  so that the key denominator s(1)-s(0) is about a/4 (a/2 with tanh).
+*/
+#define ScaledSigmoidal(a,b,x) (                    \
+  (Sigmoidal((a),(b),(x))-Sigmoidal((a),(b),0.0)) / \
+  (Sigmoidal((a),(b),1.0)-Sigmoidal((a),(b),0.0)) )
+/*
+  Inverse of ScaledSigmoidal, used for +sigmoidal-contrast.  Because b
+  may be 0 or 1, the argument of the hyperbolic tangent (resp. logistic
+  sigmoidal) may be outside of the interval (-1,1) (resp. (0,1)), even
+  when creating a LUT from in gamut values, hence the branching.  In
+  addition, HDRI may have out of gamut values.
+  InverseScaledSigmoidal is not a two-sided inverse of ScaledSigmoidal:
+  It is only a right inverse. This is unavoidable.
+*/
+static inline double InverseScaledSigmoidal(const double a,const double b,
+  const double x)
+{
+  const double sig0=Sigmoidal(a,b,0.0);
+  const double sig1=Sigmoidal(a,b,1.0);
+  const double argument=(sig1-sig0)*x+sig0;
+  const double clamped=
+    (
+#if defined(MAGICKCORE_HAVE_ATANH)
+      argument < -1+MagickEpsilon
+      ?
+      -1+MagickEpsilon
+      :
+      ( argument > 1-MagickEpsilon ? 1-MagickEpsilon : argument )
+    );
+  return(b+(2.0/a)*atanh(clamped));
+#else
+      argument < MagickEpsilon
+      ?
+      MagickEpsilon
+      :
+      ( argument > 1-MagickEpsilon ? 1-MagickEpsilon : argument )
+    );
+  return(b-log(1.0/clamped-1.0)/a);
+#endif
+}
+
 MagickExport MagickBooleanType SigmoidalContrastImage(Image *image,
   const MagickBooleanType sharpen,const double contrast,const double midpoint,
   ExceptionInfo *exception)
 {
 #define SigmoidalContrastImageTag  "SigmoidalContrast/Image"
+#define ScaledSig(x) ( ClampToQuantum(QuantumRange* \
+  ScaledSigmoidal(contrast,QuantumScale*midpoint,QuantumScale*(x))) )
+#define InverseScaledSig(x) ( ClampToQuantum(QuantumRange* \
+  InverseScaledSigmoidal(contrast,QuantumScale*midpoint,QuantumScale*(x))) )
 
   CacheView
     *image_view;
@@ -3335,111 +3401,54 @@ MagickExport MagickBooleanType SigmoidalContrastImage(Image *image,
   MagickOffsetType
     progress;
 
-  MagickRealType
-    *sigmoidal_map;
-
-  register ssize_t
-    i;
-
   ssize_t
     y;
 
   /*
-    Allocate and initialize sigmoidal maps.
+    Convenience macros.
   */
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  sigmoidal_map=(MagickRealType *) AcquireQuantumMemory(MaxMap+1UL,
-    sizeof(*sigmoidal_map));
-  if (sigmoidal_map == (MagickRealType *) NULL)
-    ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
-      image->filename);
-  (void) ResetMagickMemory(sigmoidal_map,0,(MaxMap+1)*sizeof(*sigmoidal_map));
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,1,1)
-#endif
-  for (i=0; i <= (ssize_t) MaxMap; i++)
-  {
-    if (sharpen != MagickFalse)
-      {
-#define sigmoidal(a,b,x)  (1/(1+exp((a)*((b)-(x)))))
-#if 1
-        /* Simpilified function scaling,
-         * with better 'contrast=0' or 'flatline' handling (greyscale)
-         */
-        double
-          u0 = sigmoidal(contrast,QuantumScale*midpoint,0.0),
-          u1 = sigmoidal(contrast,QuantumScale*midpoint,1.0);
-        sigmoidal_map[i]=(MagickRealType) ScaleMapToQuantum(
-           (MagickRealType)(MaxMap*(
-               (sigmoidal(contrast,QuantumScale*midpoint,(double)i/MaxMap)
-                  -(u0+u1)/2.0)/(u1-u0+MagickEpsilon)+0.5)   ));
-#else
-        /* Scaled sigmoidal formula...
-             (1/(1+exp(a*(b-u))) - 1/(1+exp(a))) /
-                     (1/(1+exp(a*(b-1)))/(1+exp(a)))) */
-        sigmoidal_map[i]=(MagickRealType) ScaleMapToQuantum((MagickRealType)
-          (MaxMap*((1.0/(1.0+exp(contrast*(midpoint/(double) QuantumRange-
-          (double) i/MaxMap))))-(1.0/(1.0+exp(contrast*(midpoint/
-          (double) QuantumRange)))))/((1.0/(1.0+exp(contrast*(midpoint/
-          (double) QuantumRange-1.0))))-(1.0/(1.0+exp(contrast*(midpoint/
-          (double) QuantumRange)))))+0.5));
-#endif
-        continue;
-      }
-#if 1
-    {
-      /* Inverse -- See
-         http://osdir.com/ml/video.image-magick.devel/2005-04/msg00006.html
-      */
-      double
-        min = sigmoidal(contrast,1.0,0.0),
-        max = sigmoidal(contrast,QuantumScale*midpoint,1.0),
-        xi  = min+(double)i/MaxMap*(max-min);
-      sigmoidal_map[i]=(MagickRealType) ScaleMapToQuantum(
-         (MagickRealType)(MaxMap*(
-             QuantumScale*midpoint-log((1-xi)/xi)/contrast) ));
-    }
-#else
-    /* expanded form of the above */
-    sigmoidal_map[i]=(MagickRealType) ScaleMapToQuantum((MagickRealType)
-      (MaxMap*(QuantumScale*midpoint-log((1.0-(1.0/(1.0+exp(midpoint/
-      (double) QuantumRange*contrast))+((double) i/MaxMap)*((1.0/
-      (1.0+exp(contrast*(midpoint/(double) QuantumRange-1.0))))-(1.0/
-      (1.0+exp(midpoint/(double) QuantumRange*contrast))))))/
-      (1.0/(1.0+exp(midpoint/(double) QuantumRange*contrast))+
-      ((double) i/MaxMap)*((1.0/(1.0+exp(contrast*(midpoint/
-      (double) QuantumRange-1.0))))-(1.0/(1.0+exp(midpoint/
-      (double) QuantumRange*contrast))))))/contrast)));
-#endif
-  }
+  /*
+    Side effect: may clamp values unless contrast<MagickEpsilon, in which
+    case nothing is done.
+  */
+  if (contrast < MagickEpsilon)
+    return(MagickTrue);
+  /*
+    Sigmoidal-contrast enhance colormap.
+  */
   if (image->storage_class == PseudoClass)
     {
-      /*
-        Sigmoidal-contrast enhance colormap.
-      */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,1,1)
-#endif
-      for (i=0; i < (ssize_t) image->colors; i++)
-      {
-        if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].red=sigmoidal_map[ScaleQuantumToMap(
-            ClampToQuantum(image->colormap[i].red))];
-        if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].green=sigmoidal_map[ScaleQuantumToMap(
-            ClampToQuantum(image->colormap[i].green))];
-        if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].blue=sigmoidal_map[ScaleQuantumToMap(
-            ClampToQuantum(image->colormap[i].blue))];
-        if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-          image->colormap[i].alpha=sigmoidal_map[ScaleQuantumToMap(
-            ClampToQuantum(image->colormap[i].alpha))];
-      }
+      register ssize_t
+        i;
+
+      if (sharpen != MagickFalse)
+        for (i=0; i < (ssize_t) image->colors; i++)
+        {
+          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].red=ScaledSig(image->colormap[i].red);
+          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].green=ScaledSig(image->colormap[i].green);
+          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].blue=ScaledSig(image->colormap[i].blue);
+          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].alpha=ScaledSig(image->colormap[i].alpha);
+        }
+      else
+        for (i=0; i < (ssize_t) image->colors; i++)
+        {
+          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].red=InverseScaledSig(image->colormap[i].red);
+          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].green=InverseScaledSig(image->colormap[i].green);
+          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].blue=InverseScaledSig(image->colormap[i].blue);
+          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
+            image->colormap[i].alpha=InverseScaledSig(image->colormap[i].alpha);
+        }
     }
   /*
     Sigmoidal-contrast enhance image.
@@ -3485,11 +3494,14 @@ MagickExport MagickBooleanType SigmoidalContrastImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
-        q[i]=ClampToQuantum(sigmoidal_map[ScaleQuantumToMap(q[i])]);
+        if (sharpen != MagickFalse)
+          q[i]=ScaledSig(q[i]);
+        else
+          q[i]=InverseScaledSig(q[i]);
       }
       q+=GetPixelChannels(image);
     }
@@ -3510,6 +3522,5 @@ MagickExport MagickBooleanType SigmoidalContrastImage(Image *image,
       }
   }
   image_view=DestroyCacheView(image_view);
-  sigmoidal_map=(MagickRealType *) RelinquishMagickMemory(sigmoidal_map);
   return(status);
 }

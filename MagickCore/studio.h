@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -97,6 +97,7 @@ extern "C" {
 #define _CRTDBG_MAP_ALLOC
 #endif
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
+# include <io.h>
 # include <direct.h>
 # if !defined(MAGICKCORE_HAVE_STRERROR)
 #  define HAVE_STRERROR
@@ -203,6 +204,9 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 # if defined(MAGICKCORE_HAVE_SYS_RESOURCE_H)
 #  include <sys/resource.h>
 # endif
+# if defined(MAGICKCORE_HAVE_SYS_MMAN_H)
+#  include <sys/mman.h>
+# endif
 #endif
 #else
 # include <types.h>
@@ -264,8 +268,6 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 #  define IsBasenameSeparator(c) \
   (((c) == ']') || ((c) == ':') || ((c) == '/') ? MagickTrue : MagickFalse)
 #  define MAGICKCORE_LIBRARY_PATH  "sys$login:"
-#  define MAGICKCORE_CODER_PATH  "sys$login:"
-#  define MAGICKCORE_FILTER_PATH  "sys$login:"
 #  define MAGICKCORE_SHARE_PATH  "sys$login:"
 #  define X11_PREFERENCES_PATH  "decw$user_defaults:"
 #  define ProcessPendingEvents(text)
@@ -291,8 +293,6 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 #  define EditorOptions ""
 #  define IsBasenameSeparator(c)  ((c) == ':' ? MagickTrue : MagickFalse)
 #  define MAGICKCORE_LIBRARY_PATH  ""
-#  define MAGICKCORE_CODER_PATH  ""
-#  define MAGICKCORE_FILTER_PATH  ""
 #  define MAGICKCORE_SHARE_PATH  ""
 #  define X11_PREFERENCES_PATH  "~/."
 #  if defined(DISABLE_SIOUX)

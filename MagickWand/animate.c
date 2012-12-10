@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -479,9 +479,9 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowAnimateException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,argv[i]);
             if (type < 0)
-              ThrowAnimateException(OptionError,"UnrecognizedAlphaChannelType",
+              ThrowAnimateException(OptionError,"UnrecognizedAlphaChannelOption",
                 argv[i]);
             break;
           }

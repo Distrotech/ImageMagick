@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -470,7 +470,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
     }
   else
     if (bits_per_pixel == 32)
-      width*=image->matte ? 4 : 3;
+      width*=image->alpha_trait ? 4 : 3;
   if (bytes_per_line == 0)
     bytes_per_line=width;
   row_bytes=(size_t) (image->columns | 0x8000);
@@ -745,6 +745,13 @@ static size_t EncodeImage(Image *image,const unsigned char *scanline,
 */
 static MagickBooleanType IsPICT(const unsigned char *magick,const size_t length)
 {
+  if (length < 12)
+    return(MagickFalse);
+  /*
+    Embedded OLE2 macintosh have "PICT" instead of 512 platform header.
+  */
+  if (memcmp(magick,"PICT",4) == 0)
+    return(MagickTrue);
   if (length < 528)
     return(MagickFalse);
   if (memcmp(magick+522,"\000\021\002\377\014\000",6) == 0)
@@ -793,7 +800,8 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
   ExceptionInfo *exception)
 {
   char
-    geometry[MaxTextExtent];
+    geometry[MaxTextExtent],
+    header_ole[4];
 
   Image
     *image;
@@ -847,7 +855,6 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
   image=AcquireImage(image_info,exception);
-  image->depth=8;
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
   if (status == MagickFalse)
     {
@@ -859,8 +866,17 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
   */
   pixmap.bits_per_pixel=0;
   pixmap.component_count=0;
-  for (i=0; i < 512; i++)
-    (void) ReadBlobByte(image);  /* skip header */
+  /*
+    Skip header : 512 for standard PICT and 4, ie "PICT" for OLE2.
+  */
+  header_ole[0]=ReadBlobByte(image);
+  header_ole[1]=ReadBlobByte(image);
+  header_ole[2]=ReadBlobByte(image);
+  header_ole[3]=ReadBlobByte(image);
+  if (!((header_ole[0] == 0x50) && (header_ole[1] == 0x49) &&
+      (header_ole[2] == 0x43) && (header_ole[3] == 0x54 )))
+    for (i=0; i < 508; i++)
+      (void) ReadBlobByte(image);
   (void) ReadBlobMSBShort(image);  /* skip picture size */
   ReadRectangle(image,frame);
   while ((c=ReadBlobByte(image)) == 0) ;
@@ -884,6 +900,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
     Create black canvas.
   */
   flags=0;
+  image->depth=8;
   image->columns=1UL*(frame.right-frame.left);
   image->rows=1UL*(frame.bottom-frame.top);
   image->resolution.x=DefaultResolution;
@@ -1075,13 +1092,13 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
               {
                 ReadPixmap(pixmap);
                 tile_image->depth=1UL*pixmap.component_size;
-                tile_image->matte=pixmap.component_count == 4 ?
-                  MagickTrue : MagickFalse;
+                tile_image->alpha_trait=pixmap.component_count == 4 ?
+                  BlendPixelTrait : UndefinedPixelTrait;
                 tile_image->resolution.x=(double) pixmap.horizontal_resolution;
                 tile_image->resolution.y=(double) pixmap.vertical_resolution;
                 tile_image->units=PixelsPerInchResolution;
-                if (tile_image->matte != MagickFalse)
-                  image->matte=tile_image->matte;
+                if (tile_image->alpha_trait == BlendPixelTrait)
+                  image->alpha_trait=tile_image->alpha_trait;
               }
             if ((code != 0x9a) && (code != 0x9b))
               {
@@ -1196,7 +1213,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
                           (unsigned char) ((j & 0x1f) << 3)),q);
                       }
                     else
-                      if (tile_image->matte == MagickFalse)
+                      if (tile_image->alpha_trait != BlendPixelTrait)
                         {
                           if (p > (pixels+extent+2*image->columns))
                             ThrowReaderException(CorruptImageError,
@@ -1385,7 +1402,7 @@ static Image *ReadPICTImage(const ImageInfo *image_info,
         (void) SetImageExtent(image,
           MagickMax(image->columns,tile_image->columns),
           MagickMax(image->rows,tile_image->rows),exception);
-        if (IssRGBColorspace(image->colorspace) == MagickFalse)
+        if (IssRGBCompatibleColorspace(tile_image->colorspace) == MagickFalse)
           (void) TransformImageColorspace(image,tile_image->colorspace,
             exception);
         (void) CompositeImage(image,tile_image,CopyCompositeOp,MagickTrue,
@@ -1603,7 +1620,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Initialize image info.
@@ -1640,9 +1657,9 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   storage_class=image->storage_class;
   if (image_info->compression == JPEGCompression)
     storage_class=DirectClass;
-  if ((storage_class == DirectClass) || (image->matte != MagickFalse))
+  if ((storage_class == DirectClass) || (image->alpha_trait == BlendPixelTrait))
     {
-      pixmap.component_count=image->matte ? 4 : 3;
+      pixmap.component_count=image->alpha_trait ? 4 : 3;
       pixmap.pixel_type=16;
       pixmap.bits_per_pixel=32;
       pixmap.pack_type=0x04;
@@ -1653,8 +1670,8 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
     Allocate memory.
   */
   bytes_per_line=image->columns;
-  if ((storage_class == DirectClass) || (image->matte != MagickFalse))
-    bytes_per_line*=image->matte ? 4 : 3;
+  if ((storage_class == DirectClass) || (image->alpha_trait == BlendPixelTrait))
+    bytes_per_line*=image->alpha_trait ? 4 : 3;
   buffer=(unsigned char *) AcquireQuantumMemory(PictInfoSize,sizeof(*buffer));
   packed_scanline=(unsigned char *) AcquireQuantumMemory((size_t)
    (row_bytes+MaxCount),sizeof(*packed_scanline));
@@ -1877,7 +1894,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
     Write picture data.
   */
   count=0;
-  if ((storage_class == PseudoClass) && (image->matte == MagickFalse))
+  if ((storage_class == PseudoClass) && (image->alpha_trait != BlendPixelTrait))
     for (y=0; y < (ssize_t) image->rows; y++)
     {
       p=GetVirtualPixels(image,0,y,image->columns,1,exception);
@@ -1926,7 +1943,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
           red=scanline;
           green=scanline+image->columns;
           blue=scanline+2*image->columns;
-          if (image->matte != MagickFalse)
+          if (image->alpha_trait == BlendPixelTrait)
             {
               opacity=scanline;
               red=scanline+image->columns;
@@ -1938,7 +1955,7 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
             *red++=ScaleQuantumToChar(GetPixelRed(image,p));
             *green++=ScaleQuantumToChar(GetPixelGreen(image,p));
             *blue++=ScaleQuantumToChar(GetPixelBlue(image,p));
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               *opacity++=ScaleQuantumToChar((Quantum) (GetPixelAlpha(image,p)));
             p+=GetPixelChannels(image);
           }

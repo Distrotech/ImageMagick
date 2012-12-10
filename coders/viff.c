@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -485,9 +485,10 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
     /*
       Initialize image structure.
     */
-    image->matte=viff_info.number_data_bands == 4 ? MagickTrue : MagickFalse;
-    image->storage_class=
-      (viff_info.number_data_bands < 3 ? PseudoClass : DirectClass);
+    image->alpha_trait=viff_info.number_data_bands == 4 ? BlendPixelTrait : 
+      UndefinedPixelTrait;
+    image->storage_class=(viff_info.number_data_bands < 3 ? PseudoClass :
+      DirectClass);
     image->columns=viff_info.rows;
     image->rows=viff_info.columns;
     if ((image_info->ping != MagickFalse) && (image_info->number_scenes != 0))
@@ -574,11 +575,11 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
         else
           if (min_value == max_value)
             {
-              scale_factor=(MagickRealType) QuantumRange/min_value;
+              scale_factor=(double) QuantumRange/min_value;
               min_value=0;
             }
           else
-            scale_factor=(MagickRealType) QuantumRange/(max_value-min_value);
+            scale_factor=(double) QuantumRange/(max_value-min_value);
       }
     /*
       Convert pixels to Quantum size.
@@ -626,7 +627,7 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
           {
             for (bit=0; bit < 8; bit++)
             {
-              if (GetPixelIntensity(image,q) < ((MagickRealType) QuantumRange/2.0))
+              if (GetPixelIntensity(image,q) < ((double) QuantumRange/2.0))
                 {
                   quantum=(size_t) GetPixelIndex(image,q);
                   quantum|=0x01;
@@ -639,7 +640,7 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
           if ((image->columns % 8) != 0)
             {
               for (bit=0; bit < (ssize_t) (image->columns % 8); bit++)
-                if (GetPixelIntensity(image,q) < ((MagickRealType) QuantumRange/2.0))
+                if (GetPixelIntensity(image,q) < ((double) QuantumRange/2.0))
                   {
                     quantum=(size_t) GetPixelIndex(image,q);
                     quantum|=0x01;
@@ -706,7 +707,7 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
                   SetPixelBlue(image,image->colormap[(ssize_t)
                     GetPixelBlue(image,q)].blue,q);
                 }
-              SetPixelAlpha(image,image->matte != MagickFalse ?
+              SetPixelAlpha(image,image->alpha_trait == BlendPixelTrait ?
                 ScaleCharToQuantum(*(p+number_pixels*3)) : OpaqueAlpha,q);
               p++;
               q+=GetPixelChannels(image);
@@ -974,10 +975,8 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
     /*
       Initialize VIFF image structure.
     */
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
-    if (IsImageGray(image,exception) != MagickFalse)
-      (void) SetImageStorageClass(image,DirectClass,exception);
     viff_info.identifier=(char) 0xab;
     viff_info.file_type=1;
     viff_info.release=1;
@@ -1012,7 +1011,7 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
         /*
           Full color VIFF raster.
         */
-        viff_info.number_data_bands=image->matte ? 4UL : 3UL;
+        viff_info.number_data_bands=image->alpha_trait ? 4UL : 3UL;
         viff_info.color_space_model=VFF_CM_genericRGB;
         viff_info.data_storage_type=VFF_TYP_1_BYTE;
         packets=viff_info.number_data_bands*number_pixels;
@@ -1105,7 +1104,7 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
             *q=ScaleQuantumToChar(GetPixelRed(image,p));
             *(q+number_pixels)=ScaleQuantumToChar(GetPixelGreen(image,p));
             *(q+number_pixels*2)=ScaleQuantumToChar(GetPixelBlue(image,p));
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               *(q+number_pixels*3)=ScaleQuantumToChar((Quantum)
                 (GetPixelAlpha(image,p)));
             p+=GetPixelChannels(image);
@@ -1190,7 +1189,7 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
               for (x=0; x < (ssize_t) image->columns; x++)
               {
                 byte>>=1;
-                if (GetPixelIntensity(image,p) < ((MagickRealType) QuantumRange/2.0))
+                if (GetPixelIntensity(image,p) < ((double) QuantumRange/2.0))
                   byte|=0x80;
                 bit++;
                 if (bit == 8)

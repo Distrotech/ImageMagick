@@ -17,7 +17,7 @@
 %                              August 2007                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -268,7 +268,7 @@ MagickPrivate MagickBooleanType GaussJordanElimination(double **matrix,
     columns[i]=column;
     if (matrix[column][column] == 0.0)
       return(MagickFalse);  /* singularity */
-    scale=MagickEpsilonReciprocal(matrix[column][column]);
+    scale=PerceptibleReciprocal(matrix[column][column]);
     matrix[column][column]=1.0;
     for (j=0; j < (ssize_t) rank; j++)
       matrix[column][j]*=scale;

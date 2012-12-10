@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -530,7 +530,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Initialize image structure.
     */
-    image->matte=iris_info.depth == 4 ? MagickTrue : MagickFalse;
+    image->alpha_trait=iris_info.depth == 4 ? BlendPixelTrait : 
+      UndefinedPixelTrait;
     image->columns=iris_info.columns;
     image->rows=iris_info.rows;
     /*
@@ -558,7 +559,7 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 SetPixelBlue(image,ScaleShortToQuantum((unsigned short)
                   ((*(p+4) << 8) | (*(p+5)))),q);
                 SetPixelAlpha(image,OpaqueAlpha,q);
-                if (image->matte != MagickFalse)
+                if (image->alpha_trait == BlendPixelTrait)
                   SetPixelAlpha(image,ScaleShortToQuantum((unsigned short)
                     ((*(p+6) << 8) | (*(p+7)))),q);
                 p+=8;
@@ -588,7 +589,7 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
               SetPixelGreen(image,ScaleCharToQuantum(*(p+1)),q);
               SetPixelBlue(image,ScaleCharToQuantum(*(p+2)),q);
               SetPixelAlpha(image,OpaqueAlpha,q);
-              if (image->matte != MagickFalse)
+              if (image->alpha_trait == BlendPixelTrait)
                 SetPixelAlpha(image,ScaleCharToQuantum(*(p+3)),q);
               p+=4;
               q+=GetPixelChannels(image);
@@ -907,7 +908,7 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
     /*
       Initialize SGI raster file header.
     */
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     (void) ResetMagickMemory(&iris_info,0,sizeof(iris_info));
     iris_info.magic=0x01DA;
@@ -924,7 +925,7 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
     iris_info.dimension=3;
     iris_info.columns=(unsigned short) image->columns;
     iris_info.rows=(unsigned short) image->rows;
-    if (image->matte != MagickFalse)
+    if (image->alpha_trait == BlendPixelTrait)
       iris_info.depth=4;
     else
       {
@@ -939,8 +940,8 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
       }
     iris_info.minimum_value=0;
     iris_info.maximum_value=(size_t) (image->depth <= 8 ?
-      1UL*ScaleQuantumToChar((Quantum) QuantumRange) :
-      1UL*ScaleQuantumToShort((Quantum) QuantumRange));
+      1UL*ScaleQuantumToChar(QuantumRange) :
+      1UL*ScaleQuantumToShort(QuantumRange));
     /*
       Write SGI header.
     */

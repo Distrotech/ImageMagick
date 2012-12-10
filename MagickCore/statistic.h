@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ typedef struct _ChannelStatistics
     depth;
 
   double
+    area,
     minima,
     maxima,
     sum,
@@ -104,6 +105,7 @@ extern MagickExport ChannelStatistics
 
 extern MagickExport Image
   *EvaluateImages(const Image *,const MagickEvaluateOperator,ExceptionInfo *),
+  *PolynomialImage(const Image *,const size_t,const double *,ExceptionInfo *),
   *StatisticImage(const Image *,const StatisticType,const size_t,const size_t,
     ExceptionInfo *);
 

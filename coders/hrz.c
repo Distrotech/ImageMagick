@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -158,9 +158,9 @@ static Image *ReadHRZImage(const ImageInfo *image_info,ExceptionInfo *exception)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelRed(image,4*ScaleCharToQuantum(*p++),q);
-      SetPixelGreen(image,4*ScaleCharToQuantum(*p++),q);
-      SetPixelBlue(image,4*ScaleCharToQuantum(*p++),q);
+      SetPixelRed(image,ScaleCharToQuantum(4**p++),q);
+      SetPixelGreen(image,ScaleCharToQuantum(4**p++),q);
+      SetPixelBlue(image,ScaleCharToQuantum(4**p++),q);
       SetPixelAlpha(image,OpaqueAlpha,q);
       q+=GetPixelChannels(image);
     }
@@ -307,7 +307,7 @@ static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image,
   hrz_image=ResizeImage(image,256,240,image->filter,exception);
   if (hrz_image == (Image *) NULL)
     return(MagickFalse);
-  if (IssRGBColorspace(hrz_image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(hrz_image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(hrz_image,sRGBColorspace,exception);
   /*
     Allocate memory for pixels.
@@ -330,9 +330,9 @@ static MagickBooleanType WriteHRZImage(const ImageInfo *image_info,Image *image,
     q=pixels;
     for (x=0; x < (ssize_t) hrz_image->columns; x++)
     {
-      *q++=ScaleQuantumToChar(GetPixelRed(hrz_image,p))/4;
-      *q++=ScaleQuantumToChar(GetPixelGreen(hrz_image,p))/4;
-      *q++=ScaleQuantumToChar(GetPixelBlue(hrz_image,p))/4;
+      *q++=ScaleQuantumToChar(GetPixelRed(hrz_image,p)/4);
+      *q++=ScaleQuantumToChar(GetPixelGreen(hrz_image,p)/4);
+      *q++=ScaleQuantumToChar(GetPixelBlue(hrz_image,p)/4);
       p+=GetPixelChannels(hrz_image);
     }
     count=WriteBlob(image,(size_t) (q-pixels),pixels);

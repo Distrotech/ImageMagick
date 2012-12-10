@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,6 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -276,9 +277,9 @@ static Image *ReadXBMImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Initialize colormap.
   */
-  image->colormap[0].red=(Quantum) QuantumRange;
-  image->colormap[0].green=(Quantum) QuantumRange;
-  image->colormap[0].blue=(Quantum) QuantumRange;
+  image->colormap[0].red=QuantumRange;
+  image->colormap[0].green=QuantumRange;
+  image->colormap[0].blue=QuantumRange;
   image->colormap[1].red=(Quantum) 0;
   image->colormap[1].green=(Quantum) 0;
   image->colormap[1].blue=(Quantum) 0;
@@ -510,7 +511,7 @@ static MagickBooleanType WriteXBMImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Write X bitmap header.

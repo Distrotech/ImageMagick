@@ -17,7 +17,7 @@
 %                               January 2010                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -195,6 +195,13 @@ static const char
     "#endif\n"
     "}\n"
     "\n"
+    "static inline float PerceptibleReciprocal(const float x)\n"
+    "{\n"
+    "  float sign = x < (float) 0.0 ? (float) -1.0 : (float) 1.0;\n"
+    "  return((sign*x) >= MagickEpsilon ? (float) 1.0/x : sign*((float) 1.0/\n"
+    "    MagickEpsilon));\n"
+    "}\n"
+    "\n"
     "__kernel void Convolve(const __global CLPixelType *input,\n"
     "  __constant float *filter,const unsigned long width,const unsigned long height,\n"
     "  const unsigned int matte,__global CLPixelType *output)\n"
@@ -295,7 +302,7 @@ static const char
     "      break;\n"
     "    }\n"
     "  }\n"
-    "  gamma=MagickEpsilonReciprocal(gamma);\n"
+    "  gamma=PerceptibleReciprocal(gamma);\n"
     "  const unsigned long index = y*columns+x;\n"
     "  output[index].x=ClampToQuantum(gamma*sum.x);\n"
     "  output[index].y=ClampToQuantum(gamma*sum.y);\n"
@@ -376,7 +383,8 @@ static MagickBooleanType BindConvolveParameters(ConvolveInfo *convolve_info,
     &convolve_info->height);
   if (status != CL_SUCCESS)
     return(MagickFalse);
-  convolve_info->matte=(cl_uint) image->matte;
+  convolve_info->matte=(cl_uint) image->alpha_trait == BlendPixelTrait ?
+    MagickTrue : MagickFalse;
   status=clSetKernelArg(convolve_info->kernel,i++,sizeof(cl_uint),(void *)
     &convolve_info->matte);
   if (status != CL_SUCCESS)
@@ -662,7 +670,7 @@ MagickExport MagickBooleanType AccelerateConvolveImage(const Image *image,
   assert(convolve_image->signature == MagickSignature);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  if ((image->storage_class != DirectClass) || 
+  if ((image->storage_class != DirectClass) ||
       (image->colorspace == CMYKColorspace))
     return(MagickFalse);
   if ((GetImageVirtualPixelMethod(image) != UndefinedVirtualPixelMethod) &&

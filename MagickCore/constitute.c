@@ -17,7 +17,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -179,9 +179,9 @@ MagickPrivate void ConstituteComponentTerminus(void)
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *ConstituteImage(const size_t columns,
-  const size_t rows,const char *map,const StorageType storage,
-  const void *pixels,ExceptionInfo *exception)
+MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
+  const char *map,const StorageType storage,const void *pixels,
+  ExceptionInfo *exception)
 {
   Image
     *image;
@@ -351,6 +351,11 @@ MagickExport Image *PingImages(ImageInfo *image_info,const char *filename,
       sans=AcquireExceptionInfo();
       (void) SetImageInfo(read_info,0,sans);
       sans=DestroyExceptionInfo(sans);
+      if (read_info->number_scenes == 0)
+        {
+          read_info=DestroyImageInfo(read_info);
+          return(PingImage(image_info,exception));
+        }
       (void) CopyMagickString(ping_filename,read_info->filename,MaxTextExtent);
       images=NewImageList();
       extent=(ssize_t) (read_info->scene+read_info->number_scenes);
@@ -459,6 +464,7 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       errno=EPERM;
       (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
         "NotAuthorized","'%s'",read_info->filename);
+      read_info=DestroyImageInfo(read_info);
       return((Image *) NULL);
     }
   /*
@@ -664,8 +670,6 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       next->magick_columns=next->columns;
     if (next->magick_rows == 0)
       next->magick_rows=next->rows;
-    if ((next->colorspace == sRGBColorspace) && (next->gamma == 1.0))
-      next->colorspace=RGBColorspace;
     value=GetImageProperty(next,"tiff:Orientation",exception);
     if (value == (char *) NULL)
       value=GetImageProperty(next,"exif:Orientation",exception);
@@ -1064,9 +1068,13 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
   if (IsRightsAuthorized(domain,rights,write_info->magick) == MagickFalse)
     {
       sans_exception=DestroyExceptionInfo(sans_exception);
+      write_info=DestroyImageInfo(write_info);
       errno=EPERM;
       ThrowBinaryException(PolicyError,"NotAuthorized",filename);
     }
+  /*
+    Call appropriate image reader based on image type.
+  */
   magick_info=GetMagickInfo(write_info->magick,sans_exception);
   sans_exception=DestroyExceptionInfo(sans_exception);
   if (magick_info != (const MagickInfo *) NULL)

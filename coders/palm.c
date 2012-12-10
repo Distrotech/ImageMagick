@@ -42,6 +42,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -355,9 +356,9 @@ static Image *ReadPALMImage(const ImageInfo *image_info,
         (void) bluebits;
         ReadBlobByte(image);  /* reserved by Palm */
         ReadBlobByte(image);  /* reserved by Palm */
-        transpix.red=(MagickRealType) (QuantumRange*ReadBlobByte(image)/31);
-        transpix.green=(MagickRealType) (QuantumRange*ReadBlobByte(image)/63);
-        transpix.blue=(MagickRealType) (QuantumRange*ReadBlobByte(image)/31);
+        transpix.red=(double) (QuantumRange*ReadBlobByte(image)/31);
+        transpix.green=(double) (QuantumRange*ReadBlobByte(image)/63);
+        transpix.blue=(double) (QuantumRange*ReadBlobByte(image)/31);
       }
     if (bits_per_pixel == 8)
       {
@@ -732,7 +733,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   scene=0;
   do
   {
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     count=GetNumberColors(image,NULL,exception);
     for (bits_per_pixel=1;  (one << bits_per_pixel) < count; bits_per_pixel*=2) ;

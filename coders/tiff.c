@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -66,6 +66,7 @@
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/pixel-private.h"
 #include "MagickCore/property.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
@@ -426,6 +427,58 @@ static Image *ReadGROUP4Image(const ImageInfo *image_info,
 %
 */
 
+static MagickBooleanType DecodeLabImage(Image *image,ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  ssize_t
+    y;
+
+  status=MagickTrue;
+  image_view=AcquireAuthenticCacheView(image,exception);
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register Quantum
+      *restrict q;
+
+    register ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      double
+        a,
+        b;
+
+      a=QuantumScale*GetPixela(image,q)+0.5;
+      if (a > 1.0)
+        a-=1.0;
+      b=QuantumScale*GetPixelb(image,q)+0.5;
+      if (b > 1.0)
+        b-=1.0;
+      SetPixela(image,QuantumRange*a,q);
+      SetPixelb(image,QuantumRange*b,q);
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+  }
+  image_view=DestroyCacheView(image_view);
+  return(status);
+}
+
 static inline size_t MagickMax(const size_t x,const size_t y)
 {
   if (x > y)
@@ -549,6 +602,8 @@ static void TIFFGetProfiles(TIFF *tiff,Image *image,ExceptionInfo *exception)
   length=0;
   if (TIFFGetField(tiff,37724,&length,&profile) == 1)
     (void) ReadProfile(image,"tiff:37724",profile,(ssize_t) length,exception);
+  if (TIFFGetField(tiff,34118,&length,&profile) == 1)
+    (void) ReadProfile(image,"tiff:34118",profile,(ssize_t) length,exception);
 }
 
 static void TIFFGetProperties(TIFF *tiff,Image *image,ExceptionInfo *exception)
@@ -1026,8 +1081,8 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
     (void) TIFFGetFieldDefaulted(tiff,TIFFTAG_YRESOLUTION,&y_resolution);
     image->resolution.x=x_resolution;
     image->resolution.y=y_resolution;
-    x_position=(float) image->page.x/x_resolution;
-    y_position=(float) image->page.y/y_resolution;
+    x_position=(float) PerceptibleReciprocal(x_resolution)*image->page.x;
+    y_position=(float) PerceptibleReciprocal(y_resolution)*image->page.y;
     (void) TIFFGetFieldDefaulted(tiff,TIFFTAG_XPOSITION,&x_position);
     (void) TIFFGetFieldDefaulted(tiff,TIFFTAG_YPOSITION,&y_position);
     image->page.x=(ssize_t) ceil(x_position*x_resolution-0.5);
@@ -1084,12 +1139,6 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
              sampling_factor,exception);
            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
              "Sampling Factors: %s",sampling_factor);
-           if ((samples_per_pixel > 1) && (photometric == PHOTOMETRIC_YCBCR))
-             {
-               (void) TIFFSetField(tiff,TIFFTAG_JPEGCOLORMODE,
-                 JPEGCOLORMODE_RGB);
-               photometric=PHOTOMETRIC_RGB;
-             }
          }
 #endif
         break;
@@ -1152,12 +1201,12 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
     if (extra_samples == 0)
       {
         if ((samples_per_pixel == 4) && (photometric == PHOTOMETRIC_RGB))
-          image->matte=MagickTrue;
+          image->alpha_trait=BlendPixelTrait;
       }
     else
       for (i=0; i < extra_samples; i++)
       {
-        image->matte=MagickTrue;
+        image->alpha_trait=BlendPixelTrait;
         if (sample_info[i] == EXTRASAMPLE_ASSOCALPHA)
           SetQuantumAlphaType(quantum_info,DisassociatedQuantumAlpha);
       }
@@ -1165,7 +1214,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
     if (option != (const char *) NULL)
       associated_alpha=LocaleCompare(option,"associated") == 0 ? MagickTrue :
         MagickFalse;
-    if (image->matte != MagickFalse)
+    if (image->alpha_trait == BlendPixelTrait)
       (void) SetImageProperty(image,"tiff:alpha",
         associated_alpha != MagickFalse ? "associated" : "unassociated",
         exception);
@@ -1249,29 +1298,37 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
             /*
               Initialize colormap.
             */
+            red_colormap=(uint16 *) NULL;
+            green_colormap=(uint16 *) NULL;
+            blue_colormap=(uint16 *) NULL;
             (void) TIFFGetField(tiff,TIFFTAG_COLORMAP,&red_colormap,
               &green_colormap,&blue_colormap);
-            range=255;  /* might be old style 8-bit colormap */
-            for (i=0; i < (ssize_t) image->colors; i++)
-              if ((red_colormap[i] >= 256) || (green_colormap[i] >= 256) ||
-                  (blue_colormap[i] >= 256))
+            if ((red_colormap != (uint16 *) NULL) &&
+                (green_colormap != (uint16 *) NULL) &&
+                (blue_colormap != (uint16 *) NULL))
+              {
+                range=255;  /* might be old style 8-bit colormap */
+                for (i=0; i < (ssize_t) image->colors; i++)
+                  if ((red_colormap[i] >= 256) || (green_colormap[i] >= 256) ||
+                      (blue_colormap[i] >= 256))
+                    {
+                      range=65535;
+                      break;
+                    }
+                for (i=0; i < (ssize_t) image->colors; i++)
                 {
-                  range=65535;
-                  break;
+                  image->colormap[i].red=ClampToQuantum(((double)
+                    QuantumRange*red_colormap[i])/range);
+                  image->colormap[i].green=ClampToQuantum(((double)
+                    QuantumRange*green_colormap[i])/range);
+                  image->colormap[i].blue=ClampToQuantum(((double)
+                    QuantumRange*blue_colormap[i])/range);
                 }
-            for (i=0; i < (ssize_t) image->colors; i++)
-            {
-              image->colormap[i].red=ClampToQuantum(((double) QuantumRange*
-                red_colormap[i])/range);
-              image->colormap[i].green=ClampToQuantum(((double) QuantumRange*
-                green_colormap[i])/range);
-              image->colormap[i].blue=ClampToQuantum(((double) QuantumRange*
-                blue_colormap[i])/range);
-            }
+              }
           }
         quantum_type=IndexQuantum;
         pad=(size_t) MagickMax((size_t) samples_per_pixel-1,0);
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           {
             if (image->storage_class != PseudoClass)
               {
@@ -1334,7 +1391,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
         */
         pad=(size_t) MagickMax((size_t) samples_per_pixel-3,0);
         quantum_type=RGBQuantum;
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           {
             quantum_type=RGBAQuantum;
             pad=(size_t) MagickMax((size_t) samples_per_pixel-4,0);
@@ -1343,7 +1400,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
           {
             pad=(size_t) MagickMax((size_t) samples_per_pixel-4,0);
             quantum_type=CMYKQuantum;
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               {
                 quantum_type=CMYKAQuantum;
                 pad=(size_t) MagickMax((size_t) samples_per_pixel-5,0);
@@ -1478,7 +1535,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
               (TIFFGetG(*p))),q);
             SetPixelBlue(image,ScaleCharToQuantum((unsigned char)
               (TIFFGetB(*p))),q);
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               SetPixelAlpha(image,ScaleCharToQuantum((unsigned char)
                 (TIFFGetA(*p))),q);
             p++;
@@ -1563,7 +1620,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
               x);
             for (row=rows_remaining; row > 0; row--)
             {
-              if (image->matte != MagickFalse)
+              if (image->alpha_trait == BlendPixelTrait)
                 for (column=columns_remaining; column > 0; column--)
                 {
                   SetPixelRed(image,ScaleCharToQuantum((unsigned char)
@@ -1658,7 +1715,7 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
               TIFFGetG(*p)),q);
             SetPixelBlue(image,ScaleCharToQuantum((unsigned char)
               TIFFGetB(*p)),q);
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               SetPixelAlpha(image,ScaleCharToQuantum((unsigned char)
                 TIFFGetA(*p)),q);
             p--;
@@ -1681,6 +1738,8 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
     SetQuantumImageType(image,quantum_type);
   next_tiff_frame:
     quantum_info=DestroyQuantumInfo(quantum_info);
+    if (photometric == PHOTOMETRIC_CIELAB)
+      DecodeLabImage(image,exception);
     if ((photometric == PHOTOMETRIC_LOGL) ||
         (photometric == PHOTOMETRIC_MINISBLACK) ||
         (photometric == PHOTOMETRIC_MINISWHITE))
@@ -1691,14 +1750,6 @@ static Image *ReadTIFFImage(const ImageInfo *image_info,
       }
     if (image->storage_class == PseudoClass)
       image->depth=GetImageDepth(image,exception);
-    if ((photometric == PHOTOMETRIC_LOGL) ||
-        (photometric == PHOTOMETRIC_MINISBLACK) ||
-        (photometric == PHOTOMETRIC_MINISWHITE))
-      {
-         image->type=GrayscaleType;
-         if (bits_per_sample == 1)
-           image->type=BilevelType;
-      }
     /*
       Proceed to next image.
     */
@@ -1764,10 +1815,10 @@ static void TIFFTagExtender(TIFF *tiff)
   static const TIFFFieldInfo
     TIFFExtensions[] =
     {
-      {
-        37724, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
-          (char *) "PhotoshopLayerData"
-      }
+      { 37724, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
+        (char *) "PhotoshopLayerData" },
+      { 34118, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
+        (char *) "Microscope" }
     };
 
   TIFFMergeFieldInfo(tiff,TIFFExtensions,sizeof(TIFFExtensions)/
@@ -2239,6 +2290,58 @@ static void DestroyTIFFInfo(TIFFInfo *tiff_info)
       tiff_info->pixels);
 }
 
+static MagickBooleanType EncodeLabImage(Image *image,ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  ssize_t
+    y;
+
+  status=MagickTrue;
+  image_view=AcquireAuthenticCacheView(image,exception);
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register Quantum
+      *restrict q;
+
+    register ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      double
+        a,
+        b;
+
+      a=QuantumScale*GetPixela(image,q)-0.5;
+      if (a < 0.0)
+        a+=1.0;
+      b=QuantumScale*GetPixelb(image,q)-0.5;
+      if (b < 0.0)
+        b+=1.0;
+      SetPixela(image,QuantumRange*a,q);
+      SetPixelb(image,QuantumRange*b,q);
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+  }
+  image_view=DestroyCacheView(image_view);
+  return(status);
+}
+
 static MagickBooleanType GetTIFFInfo(const ImageInfo *image_info,TIFF *tiff,
   TIFFInfo *tiff_info)
 {
@@ -2405,6 +2508,9 @@ static void TIFFSetProfiles(TIFF *tiff,Image *image)
 #endif
     if (LocaleCompare(name,"tiff:37724") == 0)
       (void) TIFFSetField(tiff,37724,(uint32) GetStringInfoLength(profile),
+        GetStringInfoDatum(profile));
+    if (LocaleCompare(name,"tiff:34118") == 0)
+      (void) TIFFSetField(tiff,34118,(uint32) GetStringInfoLength(profile),
         GetStringInfoDatum(profile));
     name=GetNextImageProfile(image);
   }
@@ -2793,7 +2899,10 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
           Full color TIFF raster.
         */
         if (image->colorspace == LabColorspace)
-          photometric=PHOTOMETRIC_CIELAB;
+          {
+            photometric=PHOTOMETRIC_CIELAB;
+            EncodeLabImage(image,exception);
+          }
         else
           if (image->colorspace == YCbCrColorspace)
             {
@@ -2815,7 +2924,8 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
                   MagickFalse ? PHOTOMETRIC_MINISWHITE :
                   PHOTOMETRIC_MINISBLACK);
                 (void) TIFFSetField(tiff,TIFFTAG_SAMPLESPERPIXEL,1);
-                if ((image_info->depth == 0) && (image->matte == MagickFalse) &&
+                if ((image_info->depth == 0) &&
+                    (image->alpha_trait != BlendPixelTrait) &&
                     (IsImageMonochrome(image,exception) != MagickFalse))
                   {
                     status=SetQuantumDepth(image,quantum_info,1);
@@ -2846,7 +2956,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
           }
       }
     if ((photometric == PHOTOMETRIC_RGB) &&
-        (IssRGBColorspace(image->colorspace) == MagickFalse))
+        (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse))
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     switch (image->endian)
     {
@@ -2891,7 +3001,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
     (void) TIFFSetField(tiff,TIFFTAG_COMPRESSION,compress_tag);
     (void) TIFFSetField(tiff,TIFFTAG_FILLORDER,endian);
     (void) TIFFSetField(tiff,TIFFTAG_BITSPERSAMPLE,quantum_info->depth);
-    if (image->matte != MagickFalse)
+    if (image->alpha_trait == BlendPixelTrait)
       {
         uint16
           extra_samples,
@@ -2971,7 +3081,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
         if (image_info->quality != UndefinedCompressionQuality)
           (void) TIFFSetField(tiff,TIFFTAG_JPEGQUALITY,image_info->quality);
         (void) TIFFSetField(tiff,TIFFTAG_JPEGCOLORMODE,JPEGCOLORMODE_RAW);
-        if (IssRGBColorspace(image->colorspace) == MagickTrue)
+        if (IssRGBCompatibleColorspace(image->colorspace) != MagickFalse)
           {
             const char
               *value;
@@ -3076,7 +3186,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
         (void) TIFFSetField(tiff,TIFFTAG_RESOLUTIONUNIT,(uint16) units);
         (void) TIFFSetField(tiff,TIFFTAG_XRESOLUTION,image->resolution.x);
         (void) TIFFSetField(tiff,TIFFTAG_YRESOLUTION,image->resolution.y);
-        if ((image->page.x != 0) || (image->page.y != 0))
+        if ((image->page.x > 0) && (image->page.y > 0))
           {
             /*
               Set image position.
@@ -3155,7 +3265,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
           default:
           {
             quantum_type=RGBQuantum;
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               quantum_type=RGBAQuantum;
             for (y=0; y < (ssize_t) image->rows; y++)
             {
@@ -3243,7 +3353,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
                 if (status == MagickFalse)
                   break;
               }
-            if (image->matte != MagickFalse)
+            if (image->alpha_trait == BlendPixelTrait)
               for (y=0; y < (ssize_t) image->rows; y++)
               {
                 register const Quantum
@@ -3274,7 +3384,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
           CMYK TIFF image.
         */
         quantum_type=CMYKQuantum;
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           quantum_type=CMYKAQuantum;
         if (image->colorspace != CMYKColorspace)
           (void) TransformImageColorspace(image,CMYKColorspace,exception);
@@ -3339,7 +3449,7 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
           Convert PseudoClass packets to contiguous grayscale scanlines.
         */
         quantum_type=IndexQuantum;
-        if (image->matte != MagickFalse)
+        if (image->alpha_trait == BlendPixelTrait)
           {
             if (photometric != PHOTOMETRIC_PALETTE)
               quantum_type=GrayAlphaQuantum;
@@ -3373,6 +3483,8 @@ static MagickBooleanType WriteTIFFImage(const ImageInfo *image_info,
       }
     }
     quantum_info=DestroyQuantumInfo(quantum_info);
+    if (image->colorspace == LabColorspace)
+      DecodeLabImage(image,exception);
     DestroyTIFFInfo(&tiff_info);
     if (0 && (image_info->verbose == MagickTrue))
       TIFFPrintDirectory(tiff,stdout,MagickFalse);

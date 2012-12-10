@@ -23,7 +23,7 @@
 %                               February 2000                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -51,6 +51,7 @@
 #include "MagickCore/cache-private.h"
 #include "MagickCore/cache-view.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/pixel-accessor.h"
@@ -160,12 +161,17 @@ MagickExport CacheView *AcquireVirtualCacheView(const Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   (void) exception;
-  cache_view=(CacheView *) AcquireQuantumMemory(1,sizeof(*cache_view));
+  cache_view=(CacheView *) MagickAssumeAligned(AcquireAlignedMemory(1,
+    sizeof(*cache_view)));
   if (cache_view == (CacheView *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   (void) ResetMagickMemory(cache_view,0,sizeof(*cache_view));
   cache_view->image=ReferenceImage((Image *) image);
   cache_view->number_threads=GetOpenMPMaximumThreads();
+  if (GetMagickResourceLimit(ThreadResource) > cache_view->number_threads)
+    cache_view->number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
+  if (cache_view->number_threads == 0)
+    cache_view->number_threads=1;
   cache_view->nexus_info=AcquirePixelCacheNexus(cache_view->number_threads);
   cache_view->virtual_pixel_method=GetImageVirtualPixelMethod(image);
   cache_view->debug=IsEventLogging();
@@ -207,7 +213,8 @@ MagickExport CacheView *CloneCacheView(const CacheView *cache_view)
   if (cache_view->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       cache_view->image->filename);
-  clone_view=(CacheView *) AcquireQuantumMemory(1,sizeof(*clone_view));
+  clone_view=(CacheView *) MagickAssumeAligned(AcquireAlignedMemory(1,
+    sizeof(*clone_view)));
   if (clone_view == (CacheView *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   (void) ResetMagickMemory(clone_view,0,sizeof(*clone_view));
@@ -255,7 +262,7 @@ MagickExport CacheView *DestroyCacheView(CacheView *cache_view)
       cache_view->number_threads);
   cache_view->image=DestroyImage(cache_view->image);
   cache_view->signature=(~MagickSignature);
-  cache_view=(CacheView *) RelinquishMagickMemory(cache_view);
+  cache_view=(CacheView *) RelinquishAlignedMemory(cache_view);
   return(cache_view);
 }
 
@@ -739,7 +746,7 @@ MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
     PixelChannel
       channel;
 
-    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);
@@ -815,7 +822,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualPixel(
     PixelChannel
       channel;
 
-    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);
@@ -949,7 +956,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualMethodPixel(
     PixelChannel
       channel;
 
-    channel=GetPixelChannelMapChannel(cache_view->image,i);
+    channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);

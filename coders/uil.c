@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,6 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -213,7 +214,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   transparent=MagickFalse;
   i=0;
@@ -229,7 +230,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
         Convert DirectClass to PseudoClass image.
       */
       matte_image=(unsigned char *) NULL;
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         {
           /*
             Map all the transparent pixels.
@@ -306,7 +307,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
     pixel=image->colormap[i];
     pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
-    pixel.alpha=(MagickRealType) OpaqueAlpha;
+    pixel.alpha=(double) OpaqueAlpha;
     GetColorTuple(&pixel,MagickTrue,name);
     if (transparent != MagickFalse)
       if (i == (ssize_t) (colors-1))
@@ -330,7 +331,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
       (void) FormatLocaleString(buffer,MaxTextExtent,
         "    color('%s',%s) = '%s'",name,
         GetPixelInfoIntensity(image->colormap+i) <
-        ((Quantum) QuantumRange/2) ? "background" : "foreground",symbol);
+        (QuantumRange/2) ? "background" : "foreground",symbol);
     (void) WriteBlobString(image,buffer);
     (void) FormatLocaleString(buffer,MaxTextExtent,"%s",
       (i == (ssize_t) (colors-1) ? ");\n" : ",\n"));

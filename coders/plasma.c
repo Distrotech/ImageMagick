@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -162,7 +162,7 @@ static Image *ReadPlasmaImage(const ImageInfo *image_info,
   read_info=DestroyImageInfo(read_info);
   if (image == (Image *) NULL)
     return((Image *) NULL);
-  image->storage_class=DirectClass;
+  (void) SetImageStorageClass(image,DirectClass,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
@@ -188,6 +188,7 @@ static Image *ReadPlasmaImage(const ImageInfo *image_info,
       /*
         Seed pixels before recursion.
       */
+      (void) SetImageColorspace(image,sRGBColorspace,exception);
       random_info=AcquireRandomInfo();
       PlasmaPixel(image,random_info,segment_info.x1,segment_info.y1,exception);
       PlasmaPixel(image,random_info,segment_info.x1,(segment_info.y1+

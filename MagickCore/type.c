@@ -622,6 +622,10 @@ MagickExport char **GetTypeList(const char *pattern,size_t *number_fonts,
 MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_list,
   ExceptionInfo *exception)
 {
+#if !defined(FC_FULLNAME)
+#define FC_FULLNAME "fullname"
+#endif
+
   char
     extension[MaxTextExtent],
     name[MaxTextExtent];
@@ -629,6 +633,7 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_list,
   FcChar8
     *family,
     *file,
+    *fullname,
     *style;
 
   FcConfig
@@ -665,8 +670,8 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_list,
   if (font_config == (FcConfig *) NULL)
     return(MagickFalse);
   font_set=(FcFontSet *) NULL;
-  object_set=FcObjectSetBuild(FC_FAMILY,FC_STYLE,FC_SLANT,FC_WIDTH,FC_WEIGHT,
-    FC_FILE,(char *) NULL);
+  object_set=FcObjectSetBuild(FC_FULLNAME,FC_FAMILY,FC_STYLE,FC_SLANT,
+    FC_WIDTH,FC_WEIGHT,FC_FILE,(char *) NULL);
   if (object_set != (FcObjectSet *) NULL)
     {
       pattern=FcPatternCreate();
@@ -700,17 +705,26 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_list,
     (void) ResetMagickMemory(type_info,0,sizeof(*type_info));
     type_info->path=ConstantString("System Fonts");
     type_info->signature=MagickSignature;
-    (void) CopyMagickString(name,(const char *) family,MaxTextExtent);
-    (void) ConcatenateMagickString(name," ",MaxTextExtent);
-    status=FcPatternGetString(font_set->fonts[i],FC_STYLE,0,&style);
-    if (status == FcResultMatch)
-      (void) ConcatenateMagickString(name,(const char *) style,MaxTextExtent);
+    (void) CopyMagickString(name,"Unknown",MaxTextExtent);
+    status=FcPatternGetString(font_set->fonts[i],FC_FULLNAME,0,&fullname);
+    if ((status == FcResultMatch) && (fullname != (FcChar8 *) NULL))
+      (void) CopyMagickString(name,(const char *) fullname,MaxTextExtent);
+    else
+      {
+        if (family != (FcChar8 *) NULL)
+          (void) CopyMagickString(name,(const char *) family,MaxTextExtent);
+        status=FcPatternGetString(font_set->fonts[i],FC_STYLE,0,&style);
+        if ((status == FcResultMatch) && (style != (FcChar8 *) NULL) &&
+            (LocaleCompare((const char *) style,"Regular") != 0))
+          {
+            (void) ConcatenateMagickString(name," ",MaxTextExtent);
+            (void) ConcatenateMagickString(name,(const char *) style,
+              MaxTextExtent);
+          }
+      }
     type_info->name=ConstantString(name);
     (void) SubstituteString(&type_info->name," ","-");
-    (void) SubstituteString(&type_info->name,"-L-","-");
-    (void) SubstituteString(&type_info->name,"semicondensed","SemiCondensed");
     type_info->family=ConstantString((const char *) family);
-    (void) SubstituteString(&type_info->family," L","");
     status=FcPatternGetInteger(font_set->fonts[i],FC_SLANT,0,&slant);
     type_info->style=NormalStyle;
     if (slant == FC_SLANT_ITALIC)

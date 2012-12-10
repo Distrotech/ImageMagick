@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -721,7 +721,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image,
   one=1;
   do
   {
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     /*
       Initialize the printer.
@@ -871,7 +871,7 @@ static MagickBooleanType WritePCLImage(const ImageInfo *image_info,Image *image,
           for (x=0; x < (ssize_t) image->columns; x++)
           {
             byte<<=1;
-            if (GetPixelIntensity(image,p) < ((MagickRealType) QuantumRange/2.0))
+            if (GetPixelIntensity(image,p) < ((double) QuantumRange/2.0))
               byte|=0x01;
             bit++;
             if (bit == 8)

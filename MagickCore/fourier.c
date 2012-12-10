@@ -19,7 +19,7 @@
 %                                 July 2009                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -235,11 +235,11 @@ static MagickBooleanType ForwardFourier(const FourierInfo *fourier_info,
   MagickBooleanType
     status;
 
-  register ssize_t
-    x;
-
   register Quantum
     *q;
+
+  register ssize_t
+    x;
 
   ssize_t
     i,
@@ -271,6 +271,8 @@ static MagickBooleanType ForwardFourier(const FourierInfo *fourier_info,
       magnitude_source=(double *) RelinquishMagickMemory(magnitude_source);
       return(MagickFalse);
     }
+  (void) ResetMagickMemory(phase_source,0,fourier_info->height*
+    fourier_info->width*sizeof(*phase_source));
   status=ForwardQuadrantSwap(fourier_info->height,fourier_info->height,
     magnitude,magnitude_source);
   if (status != MagickFalse)
@@ -492,7 +494,7 @@ static MagickBooleanType ForwardFourierTransform(FourierInfo *fourier_info,
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp critical (MagickCore_ForwardFourierTransform)
 #endif
-  fftw_r2c_plan=fftw_plan_dft_r2c_2d(fourier_info->width,fourier_info->width,
+  fftw_r2c_plan=fftw_plan_dft_r2c_2d(fourier_info->width,fourier_info->height,
     source,fourier,FFTW_ESTIMATE);
   fftw_execute(fftw_r2c_plan);
   fftw_destroy_plan(fftw_r2c_plan);
@@ -565,7 +567,7 @@ static MagickBooleanType ForwardFourierTransformChannel(const Image *image,
       fourier_info.width=(extent & 0x01) == 1 ? extent+1UL : extent;
     }
   fourier_info.height=fourier_info.width;
-  fourier_info.center=(ssize_t) floor((double) fourier_info.width/2.0)+1L;
+  fourier_info.center=(ssize_t) floor((double) fourier_info.width/2L)+1L;
   fourier_info.channel=channel;
   fourier_info.modulus=modulus;
   magnitude=(double *) AcquireQuantumMemory((size_t) fourier_info.height,
@@ -727,7 +729,7 @@ MagickExport Image *ForwardFourierTransformImage(const Image *image,
                   thread_status;
 
                 thread_status=MagickTrue;
-                if (image->matte != MagickFalse)
+                if (image->alpha_trait == BlendPixelTrait)
                   thread_status=ForwardFourierTransformChannel(image,
                     AlphaPixelChannel,modulus,fourier_image,exception);
                 if (thread_status == MagickFalse)
@@ -792,7 +794,7 @@ static MagickBooleanType InverseQuadrantSwap(const size_t width,
   /*
     Swap quadrants.
   */
-  center=(ssize_t) floor((double) width/2.0)+1L;
+  center=(ssize_t) floor((double) width/2L)+1L;
   for (y=1L; y < (ssize_t) height; y++)
     for (x=0L; x < (ssize_t) (width/2L+1L); x++)
       destination[center*(height-y)-x+width/2L]=source[y*width+x];
@@ -1064,35 +1066,36 @@ static MagickBooleanType InverseFourierTransform(FourierInfo *fourier_info,
       break;
     for (x=0L; x < (ssize_t) fourier_info->width; x++)
     {
-      switch (fourier_info->channel)
-      {
-        case RedPixelChannel:
-        default:
+      if (x < (ssize_t) image->columns)
+        switch (fourier_info->channel)
         {
-          SetPixelRed(image,ClampToQuantum(QuantumRange*source[i]),q);
-          break;
+          case RedPixelChannel:
+          default:
+          {
+            SetPixelRed(image,ClampToQuantum(QuantumRange*source[i]),q);
+            break;
+          }
+          case GreenPixelChannel:
+          {
+            SetPixelGreen(image,ClampToQuantum(QuantumRange*source[i]),q);
+            break;
+          }
+          case BluePixelChannel:
+          {
+            SetPixelBlue(image,ClampToQuantum(QuantumRange*source[i]),q);
+            break;
+          }
+          case BlackPixelChannel:
+          {
+            SetPixelBlack(image,ClampToQuantum(QuantumRange*source[i]),q);
+            break;
+          }
+          case AlphaPixelChannel:
+          {
+            SetPixelAlpha(image,ClampToQuantum(QuantumRange*source[i]),q);
+            break;
+          }
         }
-        case GreenPixelChannel:
-        {
-          SetPixelGreen(image,ClampToQuantum(QuantumRange*source[i]),q);
-          break;
-        }
-        case BluePixelChannel:
-        {
-          SetPixelBlue(image,ClampToQuantum(QuantumRange*source[i]),q);
-          break;
-        }
-        case BlackPixelChannel:
-        {
-          SetPixelBlack(image,ClampToQuantum(QuantumRange*source[i]),q);
-          break;
-        }
-        case AlphaPixelChannel:
-        {
-          SetPixelAlpha(image,ClampToQuantum(QuantumRange*source[i]),q);
-          break;
-        }
-      }
       i++;
       q+=GetPixelChannels(image);
     }
@@ -1135,7 +1138,7 @@ static MagickBooleanType InverseFourierTransformChannel(
       fourier_info.width=(extent & 0x01) == 1 ? extent+1UL : extent;
     }
   fourier_info.height=fourier_info.width;
-  fourier_info.center=(ssize_t) floor((double) fourier_info.width/2.0)+1L;
+  fourier_info.center=(ssize_t) floor((double) fourier_info.width/2L)+1L;
   fourier_info.channel=channel;
   fourier_info.modulus=modulus;
   magnitude=(double *) AcquireQuantumMemory((size_t) fourier_info.height,
@@ -1288,7 +1291,7 @@ MagickExport Image *InverseFourierTransformImage(const Image *magnitude_image,
               thread_status;
 
             thread_status=MagickTrue;
-            if (magnitude_image->matte != MagickFalse)
+            if (magnitude_image->alpha_trait == BlendPixelTrait)
               thread_status=InverseFourierTransformChannel(magnitude_image,
                 phase_image,AlphaPixelChannel,modulus,fourier_image,exception);
             if (thread_status == MagickFalse)

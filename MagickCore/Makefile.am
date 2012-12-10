@@ -1,4 +1,4 @@
-#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -37,16 +37,25 @@ MAGICKCORE_LIBS = MagickCore/libMagickCore.la
 
 if WITH_MODULES
 MagickCore_libMagickCore_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS)
-MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS) $(MAGICK_LIBLTDL)
+MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS)
 else
 MagickCore_libMagickCore_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS) $(MAGICKCORE_CODER_SRCS) $(MAGICKCORE_FILTER_SRCS)
-MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS) $(MAGICK_LIBLTDL)
+MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS)
 endif # WITH_MODULES
 MagickCore_libMagickCore_la_CPPFLAGS = -I$(top_builddir)/ltdl -I$(top_srcdir)/ltdl $(LIBRARY_EXTRA_CPPFLAGS)
-MagickCore_libMagickCore_la_LDFLAGS = -no-undefined -export-symbols-regex ".*" \
-  $(OSX_GCOV_LDFLAG) -version-info \
+
+if HAVE_LD_VERSION_SCRIPT
+MagickCore_libMagickCore_la_LDFLAGS_VERSION =  -Wl,--version-script=$(top_srcdir)/MagickCore/libMagickCore.map
+else
+MagickCore_libMagickCore_la_LDFLAGS_VERSION = -export-symbols-regex ".*"
+endif
+
+MagickCore_libMagickCore_la_LDFLAGS = -no-undefined \
+  $(MagickCore_libMagickCore_la_LDFLAGS_VERSION) \
+  $(OSX_GCOV_LDFLAG) $(MAGICK_LT_RELEASE_OPTS) \
+  -release $(MAGICK_ABI_SUFFIX) -version-info \
   $(MAGICK_LIBRARY_CURRENT):$(MAGICK_LIBRARY_REVISION):$(MAGICK_LIBRARY_AGE)
-MagickCore_libMagickCore_la_DEPENDENCIES = $(MAGICKCORE_LTDLDEPS)
+MagickCore_libMagickCore_la_DEPENDENCIES =
 
 # Library base sources
 MAGICKCORE_BASE_SRCS = \
@@ -340,6 +349,7 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/magic-private.h \
 	MagickCore/magick.h \
 	MagickCore/magick-config.h \
+	MagickCore/magick-baseconfig.h \
 	MagickCore/magick-type.h \
 	MagickCore/matrix.h \
 	MagickCore/memory_.h \
@@ -455,7 +465,7 @@ MAGICKCORE_EXTRA_DIST = \
 	$(MAGICKCORE_MANS) \
 	MagickCore/ImageMagick.pc.in \
 	MagickCore/MagickCore.pc.in \
-	MagickCore/Make.com \
+	MagickCore/libMagickCore.map \
 	MagickCore/config.h_vms \
 	MagickCore/mac.c \
 	MagickCore/nt-base.c \
@@ -463,14 +473,14 @@ MAGICKCORE_EXTRA_DIST = \
 	MagickCore/vms.c \
 	MagickCore/xwdfile.h_vms 
 
-# Install magick-config.h
+# Install magick-baseconfig.h
 MAGICKCORE_INSTALL_DATA_LOCAL_TARGETS = MagickCore-install-data-local
 MagickCore-install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(MagickCoreincdir)
-	$(INSTALL_HEADER) MagickCore/magick-config.h $(DESTDIR)$(MagickCoreincdir)/magick-config.h
+	$(INSTALL_HEADER) MagickCore/magick-baseconfig.h $(DESTDIR)$(MagickCoreincdir)/magick-baseconfig.h
 
 # Uninstall magick-config.h
 MAGICKCORE_UNINSTALL_LOCAL_TARGETS = MagickCore-uninstall-local
 MagickCore-uninstall-local:
-	rm -f $(DESTDIR)$(MagickCoreincdir)/magick-config.h
+	rm -f $(DESTDIR)$(MagickCoreincdir)/magick-baseconfig.h
 

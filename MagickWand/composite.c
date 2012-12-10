@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -125,7 +125,7 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",(*image)->filename);
   assert(exception != (ExceptionInfo *) NULL);
   status=MagickTrue;
-  channel_mask=SetPixelChannelMask(composite_image,composite_options->channel);
+  channel_mask=SetImageChannelMask(composite_image,composite_options->channel);
   if (composite_image != (Image *) NULL)
     {
       assert(composite_image->signature == MagickSignature);
@@ -220,7 +220,7 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
                 exception);
             }
     }
-  (void) SetPixelChannelMapMask(composite_image,channel_mask);
+  (void) SetPixelChannelMask(composite_image,channel_mask);
   return(status != 0 ? MagickTrue : MagickFalse);
 }
 
@@ -554,10 +554,10 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowCompositeException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,argv[i]);
             if (type < 0)
               ThrowCompositeException(OptionError,
-                "UnrecognizedAlphaChannelType",argv[i]);
+                "UnrecognizedAlphaChannelOption",argv[i]);
             break;
           }
         if (LocaleCompare("authenticate",option+1) == 0)

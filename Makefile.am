@@ -1,4 +1,4 @@
-#  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -23,6 +23,8 @@ ACLOCAL_AMFLAGS = -I m4
 
 MODULECOMMONFLAGS = -no-undefined -export-symbols-regex ".*" -shared -module -avoid-version
 
+SUBDIRS = .
+
 # Options to pass when running configure in the distcheck target.
 #
 # We want to preserve user-provided option variables so the same
@@ -33,7 +35,6 @@ DISTCLEANFILES = _configs.sed MagickCore/magick-config.h
 
 ## Make sure these will be cleaned even when they're not built by default.
 CLEANFILES = \
-	$(LTDL_CLEANFILES) \
 	$(MAGICKWAND_CLEANFILES) \
 	$(MAGICKPP_CLEANFILES) \
 	$(UTILITIES_CLEANFILES) \
@@ -48,12 +49,10 @@ bin_SCRIPTS = \
 	$(MAGICKWAND_BIN_SCRPTS) \
 	$(MAGICKPP_SCRPTS)
 
-include_HEADERS = \
-	$(LTDL_INSTALLHEADERS)
+include_HEADERS =
 
 # Headers which are not installed but which are distributed
 noinst_HEADERS = \
-	$(LIBLTDL_NOINST_HDRS) \
 	$(MAGICKCORE_NOINST_HDRS)
 
 if WIN32_NATIVE_BUILD
@@ -62,29 +61,23 @@ else
 SRCDIR="$(srcdir)/"
 endif
 
-# Environment parameters to be used during tests
-TESTS_ENVIRONMENT = \
-	COMPARE="$(MEMCHECK) @abs_top_builddir@/utilities/compare" \
-	COMPOSITE="$(MEMCHECK) @abs_top_builddir@/utilities/composite" \
-	CONJURE="$(MEMCHECK) @abs_top_builddir@/utilities/conjure" \
-	CONVERT="$(MEMCHECK) @abs_top_builddir@/utilities/convert" \
-	DISPLAY="$(MEMCHECK) @abs_top_builddir@/utilities/display" \
-	IDENTIFY="$(MEMCHECK) @abs_top_builddir@/utilities/identify" \
-	MAGICK="$(MEMCHECK) @abs_top_builddir@/utilities/magick" \
-	MONTAGE="$(MEMCHECK) @abs_top_builddir@/utilities/montage" \
-	VALIDATE="$(MEMCHECK) @abs_top_builddir@/tests/validate" \
-	LD_LIBRARY_PATH="@abs_top_builddir@/MagickCore/.libs:${LD_LIBRARY_PATH}" \
-	MAGICK_CODER_MODULE_PATH='@MAGICK_CODER_MODULE_PATH@' \
-	MAGICK_CONFIGURE_PATH='@MAGICK_CONFIGURE_BUILD_PATH@@DIRSEP@@MAGICK_CONFIGURE_SRC_PATH@' \
-	MAGICK_FILTER_MODULE_PATH='@MAGICK_FILTER_MODULE_PATH@' \
-	MAKE="$(MAKE)" \
-	MAKEFLAGS="$(MAKEFLAGS)" \
-	MEMCHECK="$(MEMCHECK)" \
-	PATH="@abs_top_builddir@/utilities:${PATH}" \
-	SRCDIR=$(SRCDIR)
+# Tests with .tap extensions use the TAP protocol and TAP driver
+LOG_COMPILER = $(SHELL)
+
+SH_LOG_COMPILER = $(LOG_COMPILER)
+TAP_LOG_COMPILER = $(LOG_COMPILER)
 
 # Test extensions
-TEST_EXTENSIONS = .sh
+TEST_EXTENSIONS = .sh .tap
+
+TAP_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) \
+	$(top_srcdir)/config/tap-driver.sh
+
+# Environment parameters to be used during tests
+TESTS_ENVIRONMENT = \
+	MAKE="$(MAKE)" \
+	MAKEFLAGS="$(MAKEFLAGS)" \
+	MEMCHECK="$(MEMCHECK)"
 
 # Tests to run
 TESTS = \
@@ -110,7 +103,6 @@ TOP_EXTRA_DIST = \
 	Install-windows.txt \
 	magick.sh.in \
 	Magickshr.opt \
-	Make.com \
 	NEWS.txt \
 	Platforms.txt \
 	README.txt \
@@ -142,7 +134,6 @@ check_PROGRAMS = \
 
 include m4/Makefile.am
 include config/Makefile.am
-include ltdl/Makefile.inc
 include coders/Makefile.am
 include MagickCore/Makefile.am
 include MagickWand/Makefile.am

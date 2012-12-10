@@ -19,7 +19,7 @@
 %                                  2008.05.07                                 %
 %                                     v 0.9                                   %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -576,10 +576,10 @@ static MagickBooleanType WriteIPLImage(const ImageInfo *image_info,Image *image,
   ipl_info.width = (unsigned int) image->columns;
   ipl_info.height = (unsigned int) image->rows;
   
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   
-  if(IssRGBColorspace(image->colorspace) == MagickTrue) { ipl_info.colors = 3; }
+  if(IssRGBCompatibleColorspace(image->colorspace) == MagickTrue) { ipl_info.colors = 3; }
   else{ ipl_info.colors = 1; }
   
   ipl_info.size = (unsigned int) (28 + 

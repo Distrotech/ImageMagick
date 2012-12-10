@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,6 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -138,6 +139,8 @@ static Image *ReadARTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   image->columns=(size_t) ReadBlobLSBShort(image);
   (void) ReadBlobLSBShort(image);
   image->rows=(size_t) ReadBlobLSBShort(image);
+  if ((image->columns == 0) || (image->rows == 0))
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   if (image_info->ping != MagickFalse)
     {
       (void) CloseBlob(image);
@@ -308,7 +311,7 @@ static MagickBooleanType WriteARTImage(const ImageInfo *image_info,Image *image,
     return(status);
   if ((image->columns > 65535UL) || (image->rows > 65535UL))
     ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   (void) SetImageType(image,BilevelType,exception);
   image->endian=MSBEndian;

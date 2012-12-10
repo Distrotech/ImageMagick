@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -131,7 +131,7 @@
 
 typedef struct _PixelChannels
 {
-  MagickRealType
+  double
     channel[CompositePixelChannel];
 } PixelChannels;
 
@@ -161,7 +161,7 @@ static PixelChannels **AcquirePixelThreadSet(const Image *image,
     length,
     number_threads;
 
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   pixels=(PixelChannels **) AcquireQuantumMemory(number_threads,
     sizeof(*pixels));
   if (pixels == (PixelChannels **) NULL)
@@ -207,7 +207,7 @@ static int IntensityCompare(const void *x,const void *y)
     *color_1,
     *color_2;
 
-  MagickRealType
+  double
     distance;
 
   register ssize_t
@@ -217,7 +217,7 @@ static int IntensityCompare(const void *x,const void *y)
   color_2=(const PixelChannels *) y;
   distance=0.0;
   for (i=0; i < MaxPixelChannels; i++)
-    distance+=color_1->channel[i]-(MagickRealType) color_2->channel[i];
+    distance+=color_1->channel[i]-(double) color_2->channel[i];
   return(distance < 0 ? -1 : distance > 0 ? 1 : 0);
 }
 
@@ -232,10 +232,10 @@ static inline double MagickMin(const double x,const double y)
   return(y);
 }
 
-static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
-  Quantum pixel,const MagickEvaluateOperator op,const MagickRealType value)
+static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
+  const MagickEvaluateOperator op,const double value)
 {
-  MagickRealType
+  double
     result;
 
   result=0.0;
@@ -245,12 +245,12 @@ static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
       break;
     case AbsEvaluateOperator:
     {
-      result=(MagickRealType) fabs((double) (pixel+value));
+      result=(double) fabs((double) (pixel+value));
       break;
     }
     case AddEvaluateOperator:
     {
-      result=(MagickRealType) (pixel+value);
+      result=(double) (pixel+value);
       break;
     }
     case AddModulusEvaluateOperator:
@@ -267,12 +267,12 @@ static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
     }
     case AndEvaluateOperator:
     {
-      result=(MagickRealType) ((size_t) pixel & (size_t) (value+0.5));
+      result=(double) ((size_t) pixel & (size_t) (value+0.5));
       break;
     }
     case CosineEvaluateOperator:
     {
-      result=(MagickRealType) (QuantumRange*(0.5*cos((double) (2.0*MagickPI*
+      result=(double) (QuantumRange*(0.5*cos((double) (2.0*MagickPI*
         QuantumScale*pixel*value))+0.5));
       break;
     }
@@ -283,91 +283,90 @@ static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
     }
     case ExponentialEvaluateOperator:
     {
-      result=(MagickRealType) (QuantumRange*exp((double) (value*QuantumScale*
-        pixel)));
+      result=(double) (QuantumRange*exp((double) (value*QuantumScale*pixel)));
       break;
     }
     case GaussianNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
+      result=(double) GenerateDifferentialNoise(random_info,pixel,
         GaussianNoise,value);
       break;
     }
     case ImpulseNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
-        ImpulseNoise,value);
+      result=(double) GenerateDifferentialNoise(random_info,pixel,ImpulseNoise,
+        value);
       break;
     }
     case LaplacianNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
+      result=(double) GenerateDifferentialNoise(random_info,pixel,
         LaplacianNoise,value);
       break;
     }
     case LeftShiftEvaluateOperator:
     {
-      result=(MagickRealType) ((size_t) pixel << (size_t) (value+0.5));
+      result=(double) ((size_t) pixel << (size_t) (value+0.5));
       break;
     }
     case LogEvaluateOperator:
     {
       if ((QuantumScale*pixel) >= MagickEpsilon)
-        result=(MagickRealType) (QuantumRange*log((double) (QuantumScale*value*
-          pixel+1.0))/log((double) (value+1.0)));
+        result=(double) (QuantumRange*log((double) (QuantumScale*value*pixel+
+          1.0))/log((double) (value+1.0)));
       break;
     }
     case MaxEvaluateOperator:
     {
-      result=(MagickRealType) EvaluateMax((double) pixel,value);
+      result=(double) EvaluateMax((double) pixel,value);
       break;
     }
     case MeanEvaluateOperator:
     {
-      result=(MagickRealType) (pixel+value);
+      result=(double) (pixel+value);
       break;
     }
     case MedianEvaluateOperator:
     {
-      result=(MagickRealType) (pixel+value);
+      result=(double) (pixel+value);
       break;
     }
     case MinEvaluateOperator:
     {
-      result=(MagickRealType) MagickMin((double) pixel,value);
+      result=(double) MagickMin((double) pixel,value);
       break;
     }
     case MultiplicativeNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
+      result=(double) GenerateDifferentialNoise(random_info,pixel,
         MultiplicativeGaussianNoise,value);
       break;
     }
     case MultiplyEvaluateOperator:
     {
-      result=(MagickRealType) (value*pixel);
+      result=(double) (value*pixel);
       break;
     }
     case OrEvaluateOperator:
     {
-      result=(MagickRealType) ((size_t) pixel | (size_t) (value+0.5));
+      result=(double) ((size_t) pixel | (size_t) (value+0.5));
       break;
     }
     case PoissonNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
-        PoissonNoise,value);
+      result=(double) GenerateDifferentialNoise(random_info,pixel,PoissonNoise,
+        value);
       break;
     }
     case PowEvaluateOperator:
     {
-      result=(MagickRealType) (QuantumRange*pow((double) (QuantumScale*pixel),
-        (double) value));
+      result=(double) (QuantumRange*pow((double) (QuantumScale*pixel),(double)
+        value));
       break;
     }
     case RightShiftEvaluateOperator:
     {
-      result=(MagickRealType) ((size_t) pixel >> (size_t) (value+0.5));
+      result=(double) ((size_t) pixel >> (size_t) (value+0.5));
       break;
     }
     case SetEvaluateOperator:
@@ -377,46 +376,44 @@ static MagickRealType ApplyEvaluateOperator(RandomInfo *random_info,
     }
     case SineEvaluateOperator:
     {
-      result=(MagickRealType) (QuantumRange*(0.5*sin((double) (2.0*MagickPI*
+      result=(double) (QuantumRange*(0.5*sin((double) (2.0*MagickPI*
         QuantumScale*pixel*value))+0.5));
       break;
     }
     case SubtractEvaluateOperator:
     {
-      result=(MagickRealType) (pixel-value);
+      result=(double) (pixel-value);
       break;
     }
     case SumEvaluateOperator:
     {
-      result=(MagickRealType) (pixel+value);
+      result=(double) (pixel+value);
       break;
     }
     case ThresholdEvaluateOperator:
     {
-      result=(MagickRealType) (((MagickRealType) pixel <= value) ? 0 :
-        QuantumRange);
+      result=(double) (((double) pixel <= value) ? 0 : QuantumRange);
       break;
     }
     case ThresholdBlackEvaluateOperator:
     {
-      result=(MagickRealType) (((MagickRealType) pixel <= value) ? 0 : pixel);
+      result=(double) (((double) pixel <= value) ? 0 : pixel);
       break;
     }
     case ThresholdWhiteEvaluateOperator:
     {
-      result=(MagickRealType) (((MagickRealType) pixel > value) ? QuantumRange :
-        pixel);
+      result=(double) (((double) pixel > value) ? QuantumRange : pixel);
       break;
     }
     case UniformNoiseEvaluateOperator:
     {
-      result=(MagickRealType) GenerateDifferentialNoise(random_info,pixel,
-        UniformNoise,value);
+      result=(double) GenerateDifferentialNoise(random_info,pixel,UniformNoise,
+        value);
       break;
     }
     case XorEvaluateOperator:
     {
-      result=(MagickRealType) ((size_t) pixel ^ (size_t) (value+0.5));
+      result=(double) ((size_t) pixel ^ (size_t) (value+0.5));
       break;
     }
   }
@@ -430,9 +427,6 @@ MagickExport Image *EvaluateImages(const Image *images,
 
   CacheView
     *evaluate_view;
-
-  const Image
-    *next;
 
   Image
     *image;
@@ -455,28 +449,17 @@ MagickExport Image *EvaluateImages(const Image *images,
   ssize_t
     y;
 
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   unsigned long
     key;
+#endif
 
-  /*
-    Ensure the image are the same size.
-  */
   assert(images != (Image *) NULL);
   assert(images->signature == MagickSignature);
   if (images->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  for (next=images; next != (Image *) NULL; next=GetNextImageInList(next))
-    if ((next->columns != images->columns) || (next->rows != images->rows))
-      {
-        (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-          "ImageWidthsOrHeightsDiffer","'%s'",images->filename);
-        return((Image *) NULL);
-      }
-  /*
-    Initialize evaluate next attributes.
-  */
   image=CloneImage(images,images->columns,images->rows,MagickTrue,
     exception);
   if (image == (Image *) NULL)
@@ -501,12 +484,14 @@ MagickExport Image *EvaluateImages(const Image *images,
   status=MagickTrue;
   progress=0;
   random_info=AcquireRandomInfoThreadSet();
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   key=GetRandomSecretKey(random_info[0]);
+#endif
   evaluate_view=AcquireAuthenticCacheView(image,exception);
   if (op == MedianEvaluateOperator)
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
+      #pragma omp parallel for schedule(static,4) shared(progress,status) \
         dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
@@ -531,8 +516,8 @@ MagickExport Image *EvaluateImages(const Image *images,
 
         if (status == MagickFalse)
           continue;
-        q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,
-          image->columns,1,exception);
+        q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,image->columns,1,
+          exception);
         if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
@@ -573,9 +558,9 @@ MagickExport Image *EvaluateImages(const Image *images,
                 evaluate_traits,
                 traits;
 
-              channel=GetPixelChannelMapChannel(image,i);
-              evaluate_traits=GetPixelChannelMapTraits(image,channel);
-              traits=GetPixelChannelMapTraits(next,channel);
+              channel=GetPixelChannelChannel(image,i);
+              evaluate_traits=GetPixelChannelTraits(image,channel);
+              traits=GetPixelChannelTraits(next,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
@@ -614,7 +599,7 @@ MagickExport Image *EvaluateImages(const Image *images,
   else
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
+      #pragma omp parallel for schedule(static,4) shared(progress,status) \
         dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
@@ -643,8 +628,8 @@ MagickExport Image *EvaluateImages(const Image *images,
 
         if (status == MagickFalse)
           continue;
-        q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,
-          image->columns,1,exception);
+        q=QueueCacheViewAuthenticPixels(evaluate_view,0,y,image->columns,1,
+          exception);
         if (q == (Quantum *) NULL)
           {
             status=MagickFalse;
@@ -686,17 +671,17 @@ MagickExport Image *EvaluateImages(const Image *images,
                 evaluate_traits,
                 traits;
 
-              channel=GetPixelChannelMapChannel(image,i);
-              traits=GetPixelChannelMapTraits(next,channel);
-              evaluate_traits=GetPixelChannelMapTraits(image,channel);
+              channel=GetPixelChannelChannel(image,i);
+              traits=GetPixelChannelTraits(next,channel);
+              evaluate_traits=GetPixelChannelTraits(image,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
               if ((traits & UpdatePixelTrait) == 0)
                 continue;
               evaluate_pixel[x].channel[i]=ApplyEvaluateOperator(
-                random_info[id],GetPixelChannel(image,channel,p),j ==
-                0 ? AddEvaluateOperator : op,evaluate_pixel[x].channel[i]);
+                random_info[id],GetPixelChannel(image,channel,p),j == 0 ?
+                AddEvaluateOperator : op,evaluate_pixel[x].channel[i]);
             }
             p+=GetPixelChannels(next);
           }
@@ -713,7 +698,7 @@ MagickExport Image *EvaluateImages(const Image *images,
             case MeanEvaluateOperator:
             {
               for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
-                evaluate_pixel[x].channel[i]/=(MagickRealType) number_images;
+                evaluate_pixel[x].channel[i]/=(double) number_images;
               break;
             }
             case MultiplyEvaluateOperator:
@@ -750,8 +735,8 @@ MagickExport Image *EvaluateImages(const Image *images,
             PixelTrait
               traits;
 
-            channel=GetPixelChannelMapChannel(image,i);
-            traits=GetPixelChannelMapTraits(image,channel);
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             if ((traits & UpdatePixelTrait) == 0)
@@ -803,8 +788,10 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
   ssize_t
     y;
 
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   unsigned long
     key;
+#endif
 
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
@@ -817,7 +804,9 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
   status=MagickTrue;
   progress=0;
   random_info=AcquireRandomInfoThreadSet();
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   key=GetRandomSecretKey(random_info[0]);
+#endif
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
@@ -847,11 +836,6 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelMask(image,q) != 0)
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -860,11 +844,12 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if ((traits & CopyPixelTrait) != 0)
+        if (((traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,q) != 0))
           continue;
         q[i]=ClampToQuantum(ApplyEvaluateOperator(random_info[id],q[i],op,
           value));
@@ -929,7 +914,7 @@ static Quantum ApplyFunction(Quantum pixel,const MagickFunction function,
   const size_t number_parameters,const double *parameters,
   ExceptionInfo *exception)
 {
-  MagickRealType
+  double
     result;
 
   register ssize_t
@@ -953,7 +938,7 @@ static Quantum ApplyFunction(Quantum pixel,const MagickFunction function,
     }
     case SinusoidFunction:
     {
-      MagickRealType
+      double
         amplitude,
         bias,
         frequency,
@@ -966,13 +951,13 @@ static Quantum ApplyFunction(Quantum pixel,const MagickFunction function,
       phase=(number_parameters >= 2) ? parameters[1] : 0.0;
       amplitude=(number_parameters >= 3) ? parameters[2] : 0.5;
       bias=(number_parameters >= 4) ? parameters[3] : 0.5;
-      result=(MagickRealType) (QuantumRange*(amplitude*sin((double) (2.0*
+      result=(double) (QuantumRange*(amplitude*sin((double) (2.0*
         MagickPI*(frequency*QuantumScale*pixel+phase/360.0)))+bias));
       break;
     }
     case ArcsinFunction:
     {
-      MagickRealType
+      double
         bias,
         center,
         range,
@@ -993,13 +978,13 @@ static Quantum ApplyFunction(Quantum pixel,const MagickFunction function,
         if (result >= 1.0)
           result=bias+range/2.0;
         else
-          result=(MagickRealType) (range/MagickPI*asin((double) result)+bias);
+          result=(double) (range/MagickPI*asin((double) result)+bias);
       result*=QuantumRange;
       break;
     }
     case ArctanFunction:
     {
-      MagickRealType
+      double
         center,
         bias,
         range,
@@ -1012,8 +997,8 @@ static Quantum ApplyFunction(Quantum pixel,const MagickFunction function,
       center=(number_parameters >= 2) ? parameters[1] : 0.5;
       range=(number_parameters >= 3) ? parameters[2] : 1.0;
       bias=(number_parameters >= 4) ? parameters[3] : 0.5;
-      result=(MagickRealType) (MagickPI*slope*(QuantumScale*pixel-center));
-      result=(MagickRealType) (QuantumRange*(range/MagickPI*atan((double)
+      result=(double) (MagickPI*slope*(QuantumScale*pixel-center));
+      result=(double) (QuantumRange*(range/MagickPI*atan((double)
         result)+bias));
       break;
     }
@@ -1090,8 +1075,8 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
@@ -1180,8 +1165,8 @@ MagickExport MagickBooleanType GetImageExtrema(const Image *image,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  GetImageMean() returns the mean and standard deviation of one or more
-%  image channels.
+%  GetImageMean() returns the mean and standard deviation of one or more image
+%  channels.
 %
 %  The format of the GetImageMean method is:
 %
@@ -1202,14 +1187,14 @@ MagickExport MagickBooleanType GetImageExtrema(const Image *image,
 MagickExport MagickBooleanType GetImageMean(const Image *image,double *mean,
   double *standard_deviation,ExceptionInfo *exception)
 {
+  double
+    area;
+
   ChannelStatistics
     *channel_statistics;
 
   register ssize_t
     i;
-
-  size_t
-    area;
 
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
@@ -1218,7 +1203,7 @@ MagickExport MagickBooleanType GetImageMean(const Image *image,double *mean,
   channel_statistics=GetImageStatistics(image,exception);
   if (channel_statistics == (ChannelStatistics *) NULL)
     return(MagickFalse);
-  area=0;
+  area=0.0;
   channel_statistics[CompositePixelChannel].mean=0.0;
   channel_statistics[CompositePixelChannel].standard_deviation=0.0;
   for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -1229,8 +1214,8 @@ MagickExport MagickBooleanType GetImageMean(const Image *image,double *mean,
     PixelTrait
       traits;
 
-    channel=GetPixelChannelMapChannel(image,i);
-    traits=GetPixelChannelMapTraits(image,channel);
+    channel=GetPixelChannelChannel(image,i);
+    traits=GetPixelChannelTraits(image,channel);
     if (traits == UndefinedPixelTrait)
       continue;
     if ((traits & UpdatePixelTrait) == 0)
@@ -1317,7 +1302,7 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
   sum_fourth_power=0.0;
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status) \
+  #pragma omp parallel for schedule(static,4) shared(status) \
     dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -1341,11 +1326,6 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelMask(image,p) != 0)
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -1354,11 +1334,12 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if ((traits & UpdatePixelTrait) == 0)
+        if (((traits & UpdatePixelTrait) == 0) ||
+            (GetPixelMask(image,p) != 0))
           continue;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
         #pragma omp critical (MagickCore_GetImageKurtosis)
@@ -1448,7 +1429,7 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
   *minima=0.0;
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) shared(status,initialize) \
+  #pragma omp parallel for schedule(static,4) shared(status,initialize) \
     dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -1485,8 +1466,8 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
@@ -1528,10 +1509,10 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  GetImageStatistics() returns statistics for each channel in the
-%  image.  The statistics include the channel depth, its minima, maxima, mean,
-%  standard deviation, kurtosis and skewness.  You can access the red channel
-%  mean, for example, like this:
+%  GetImageStatistics() returns statistics for each channel in the image.  The
+%  statistics include the channel depth, its minima, maxima, mean, standard
+%  deviation, kurtosis and skewness.  You can access the red channel mean, for
+%  example, like this:
 %
 %      channel_statistics=GetImageStatistics(image,exception);
 %      red_mean=channel_statistics[RedPixelChannel].mean;
@@ -1568,8 +1549,8 @@ static size_t GetImageChannels(const Image *image)
     PixelTrait
       traits;
 
-    channel=GetPixelChannelMapChannel(image,i);
-    traits=GetPixelChannelMapTraits(image,channel);
+    channel=GetPixelChannelChannel(image,i);
+    traits=GetPixelChannelTraits(image,channel);
     if ((traits & UpdatePixelTrait) != 0)
       channels++;
   }
@@ -1582,11 +1563,7 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
   ChannelStatistics
     *channel_statistics;
 
-  double
-    area;
-
   MagickStatusType
-    initialize,
     status;
 
   QuantumAny
@@ -1615,10 +1592,9 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
   for (i=0; i <= (ssize_t) MaxPixelChannels; i++)
   {
     channel_statistics[i].depth=1;
-    channel_statistics[i].maxima=0.0;
-    channel_statistics[i].minima=0.0;
+    channel_statistics[i].maxima=(-MagickHuge);
+    channel_statistics[i].minima=MagickHuge;
   }
-  initialize=MagickTrue;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     register const Quantum
@@ -1648,8 +1624,8 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if (channel_statistics[channel].depth != MAGICKCORE_QUANTUM_DEPTH)
@@ -1665,35 +1641,30 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
                 continue;
               }
           }
-        if (initialize != MagickFalse)
-          {
-            channel_statistics[channel].minima=(double) p[i];
-            channel_statistics[channel].maxima=(double) p[i];
-            initialize=MagickFalse;
-          }
-        else
-          {
-            if ((double) p[i] < channel_statistics[channel].minima)
-              channel_statistics[channel].minima=(double) p[i];
-            if ((double) p[i] > channel_statistics[channel].maxima)
-              channel_statistics[channel].maxima=(double) p[i];
-          }
+        if ((double) p[i] < channel_statistics[channel].minima)
+          channel_statistics[channel].minima=(double) p[i];
+        if ((double) p[i] > channel_statistics[channel].maxima)
+          channel_statistics[channel].maxima=(double) p[i];
         channel_statistics[channel].sum+=p[i];
         channel_statistics[channel].sum_squared+=(double) p[i]*p[i];
         channel_statistics[channel].sum_cubed+=(double) p[i]*p[i]*p[i];
         channel_statistics[channel].sum_fourth_power+=(double) p[i]*p[i]*p[i]*
           p[i];
+        channel_statistics[channel].area++;
       }
       p+=GetPixelChannels(image);
     }
   }
-  area=(double) image->columns*image->rows;
   for (i=0; i < (ssize_t) MaxPixelChannels; i++)
   {
-    channel_statistics[i].sum/=area;
-    channel_statistics[i].sum_squared/=area;
-    channel_statistics[i].sum_cubed/=area;
-    channel_statistics[i].sum_fourth_power/=area;
+    double
+      area;
+
+    area=PerceptibleReciprocal(channel_statistics[i].area);
+    channel_statistics[i].sum*=area;
+    channel_statistics[i].sum_squared*=area;
+    channel_statistics[i].sum_cubed*=area;
+    channel_statistics[i].sum_fourth_power*=area;
     channel_statistics[i].mean=channel_statistics[i].sum;
     channel_statistics[i].variance=channel_statistics[i].sum_squared;
     channel_statistics[i].standard_deviation=sqrt(
@@ -1739,25 +1710,263 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
   channel_statistics[CompositePixelChannel].skewness/=channels;
   for (i=0; i <= (ssize_t) MaxPixelChannels; i++)
   {
-    if (channel_statistics[i].standard_deviation == 0.0)
-      continue;
+    double
+      standard_deviation;
+
+    standard_deviation=PerceptibleReciprocal(
+      channel_statistics[i].standard_deviation);
     channel_statistics[i].skewness=(channel_statistics[i].sum_cubed-3.0*
       channel_statistics[i].mean*channel_statistics[i].sum_squared+2.0*
       channel_statistics[i].mean*channel_statistics[i].mean*
-      channel_statistics[i].mean)/(channel_statistics[i].standard_deviation*
-      channel_statistics[i].standard_deviation*
-      channel_statistics[i].standard_deviation);
+      channel_statistics[i].mean)*(standard_deviation*standard_deviation*
+      standard_deviation);
     channel_statistics[i].kurtosis=(channel_statistics[i].sum_fourth_power-4.0*
       channel_statistics[i].mean*channel_statistics[i].sum_cubed+6.0*
       channel_statistics[i].mean*channel_statistics[i].mean*
       channel_statistics[i].sum_squared-3.0*channel_statistics[i].mean*
       channel_statistics[i].mean*1.0*channel_statistics[i].mean*
-      channel_statistics[i].mean)/(channel_statistics[i].standard_deviation*
-      channel_statistics[i].standard_deviation*
-      channel_statistics[i].standard_deviation*
-      channel_statistics[i].standard_deviation)-3.0;
+      channel_statistics[i].mean)*(standard_deviation*standard_deviation*
+      standard_deviation*standard_deviation)-3.0;
   }
   return(channel_statistics);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%     P o l y n o m i a l I m a g e                                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  PolynomialImage() returns a new image where each pixel is the sum of the
+%  pixels in the image sequence after applying its corresponding terms
+%  (coefficient and degree pairs).
+%
+%  The format of the PolynomialImage method is:
+%
+%      Image *PolynomialImage(const Image *images,const size_t number_terms,
+%        const double *terms,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o images: the image sequence.
+%
+%    o number_terms: the number of terms in the list.  The actual list length
+%      is 2 x number_terms + 1 (the constant).
+%
+%    o terms: the list of polynomial coefficients and degree pairs and a
+%      constant.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+
+MagickExport Image *PolynomialImage(const Image *images,
+  const size_t number_terms,const double *terms,ExceptionInfo *exception)
+{
+#define PolynomialImageTag  "Polynomial/Image"
+
+  CacheView
+    *polynomial_view;
+
+  Image
+    *image;
+
+  MagickBooleanType
+    status;
+
+  MagickOffsetType
+    progress;
+
+  PixelChannels
+    **restrict polynomial_pixels;
+
+  size_t
+    number_images;
+
+  ssize_t
+    y;
+
+  assert(images != (Image *) NULL);
+  assert(images->signature == MagickSignature);
+  if (images->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickSignature);
+  image=CloneImage(images,images->columns,images->rows,MagickTrue,
+    exception);
+  if (image == (Image *) NULL)
+    return((Image *) NULL);
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
+    {
+      image=DestroyImage(image);
+      return((Image *) NULL);
+    }
+  number_images=GetImageListLength(images);
+  polynomial_pixels=AcquirePixelThreadSet(images,number_images);
+  if (polynomial_pixels == (PixelChannels **) NULL)
+    {
+      image=DestroyImage(image);
+      (void) ThrowMagickException(exception,GetMagickModule(),
+        ResourceLimitError,"MemoryAllocationFailed","'%s'",images->filename);
+      return((Image *) NULL);
+    }
+  /*
+    Polynomial image pixels.
+  */
+  status=MagickTrue;
+  progress=0;
+  polynomial_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static,4) shared(progress,status) \
+    dynamic_number_threads(image,image->columns,image->rows,1)
+#endif
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    CacheView
+      *image_view;
+
+    const Image
+      *next;
+
+    const int
+      id = GetOpenMPThreadId();
+
+    register ssize_t
+      i,
+      x;
+
+    register PixelChannels
+      *polynomial_pixel;
+
+    register Quantum
+      *restrict q;
+
+    ssize_t
+      j;
+
+    if (status == MagickFalse)
+      continue;
+    q=QueueCacheViewAuthenticPixels(polynomial_view,0,y,image->columns,1,
+      exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    polynomial_pixel=polynomial_pixels[id];
+    for (j=0; j < (ssize_t) image->columns; j++)
+      for (i=0; i < MaxPixelChannels; i++)
+        polynomial_pixel[j].channel[i]=0.0;
+    next=images;
+    for (j=0; j < (ssize_t) number_images; j++)
+    {
+      register const Quantum
+        *p;
+
+      if (j >= (ssize_t) number_terms)
+        continue;
+      image_view=AcquireVirtualCacheView(next,exception);
+      p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
+      if (p == (const Quantum *) NULL)
+        {
+          image_view=DestroyCacheView(image_view);
+          break;
+        }
+      for (x=0; x < (ssize_t) image->columns; x++)
+      {
+        register ssize_t
+          i;
+
+        if (GetPixelMask(next,p) != 0)
+          {
+            p+=GetPixelChannels(next);
+            continue;
+          }
+        for (i=0; i < (ssize_t) GetPixelChannels(next); i++)
+        {
+          MagickRealType
+            coefficient,
+            degree;
+
+          PixelChannel
+            channel;
+
+          PixelTrait
+            polynomial_traits,
+            traits;
+
+          channel=GetPixelChannelChannel(image,i);
+          traits=GetPixelChannelTraits(next,channel);
+          polynomial_traits=GetPixelChannelTraits(image,channel);
+          if ((traits == UndefinedPixelTrait) ||
+              (polynomial_traits == UndefinedPixelTrait))
+            continue;
+          if ((traits & UpdatePixelTrait) == 0)
+            continue;
+          coefficient=(MagickRealType) terms[2*i];
+          degree=(MagickRealType) terms[(i << 1)+1];
+          polynomial_pixel[x].channel[i]+=coefficient*
+            pow(QuantumScale*GetPixelChannel(image,channel,p),degree);
+        }
+        p+=GetPixelChannels(next);
+      }
+      image_view=DestroyCacheView(image_view);
+      next=GetNextImageInList(next);
+    }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      register ssize_t
+        i;
+
+      if (GetPixelMask(image,q) != 0)
+        {
+          q+=GetPixelChannels(image);
+          continue;
+        }
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel
+          channel;
+
+        PixelTrait
+          traits;
+
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
+        if (traits == UndefinedPixelTrait)
+          continue;
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        q[i]=ClampToQuantum(QuantumRange*polynomial_pixel[x].channel[i]);
+      }
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(polynomial_view,exception) == MagickFalse)
+      status=MagickFalse;
+    if (images->progress_monitor != (MagickProgressMonitor) NULL)
+      {
+        MagickBooleanType
+          proceed;
+
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp critical (MagickCore_PolynomialImages)
+#endif
+        proceed=SetImageProgress(images,PolynomialImageTag,progress++,
+          image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  polynomial_view=DestroyCacheView(polynomial_view);
+  polynomial_pixels=DestroyPixelThreadSet(polynomial_pixels);
+  if (status == MagickFalse)
+    image=DestroyImage(image);
+  return(image);
 }
 
 /*
@@ -1879,7 +2088,7 @@ static PixelList **AcquirePixelListThreadSet(const size_t width,
   size_t
     number_threads;
 
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   pixel_list=(PixelList **) AcquireQuantumMemory(number_threads,
     sizeof(*pixel_list));
   if (pixel_list == (PixelList **) NULL)
@@ -1984,7 +2193,7 @@ static inline void GetMaximumPixelList(PixelList *pixel_list,Quantum *pixel)
 
 static inline void GetMeanPixelList(PixelList *pixel_list,Quantum *pixel)
 {
-  MagickRealType
+  double
     sum;
 
   register SkipList
@@ -2006,7 +2215,7 @@ static inline void GetMeanPixelList(PixelList *pixel_list,Quantum *pixel)
   do
   {
     color=p->nodes[color].next[0];
-    sum+=(MagickRealType) p->nodes[color].count*color;
+    sum+=(double) p->nodes[color].count*color;
     count+=p->nodes[color].count;
   } while (count < (ssize_t) pixel_list->length);
   sum/=pixel_list->length;
@@ -2139,7 +2348,7 @@ static inline void GetNonpeakPixelList(PixelList *pixel_list,Quantum *pixel)
 static inline void GetStandardDeviationPixelList(PixelList *pixel_list,
   Quantum *pixel)
 {
-  MagickRealType
+  double
     sum,
     sum_squared;
 
@@ -2166,9 +2375,9 @@ static inline void GetStandardDeviationPixelList(PixelList *pixel_list,
       i;
 
     color=p->nodes[color].next[0];
-    sum+=(MagickRealType) p->nodes[color].count*color;
+    sum+=(double) p->nodes[color].count*color;
     for (i=0; i < (ssize_t) p->nodes[color].count; i++)
-      sum_squared+=((MagickRealType) color)*((MagickRealType) color);
+      sum_squared+=((double) color)*((double) color);
     count+=p->nodes[color].count;
   } while (count < (ssize_t) pixel_list->length);
   sum/=pixel_list->length;
@@ -2195,7 +2404,7 @@ static inline void InsertPixelList(const Image *image,const Quantum pixel,
   AddNodePixelList(pixel_list,index);
 }
 
-static inline MagickRealType MagickAbsoluteValue(const MagickRealType x)
+static inline double MagickAbsoluteValue(const double x)
 {
   if (x < 0)
     return(-x);
@@ -2324,12 +2533,6 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
       register ssize_t
         i;
 
-      if (GetPixelMask(image,p) != 0)
-        {
-          p+=GetPixelChannels(image);
-          q+=GetPixelChannels(statistic_image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -2351,13 +2554,14 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
         ssize_t
           v;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
-        statistic_traits=GetPixelChannelMapTraits(statistic_image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
+        statistic_traits=GetPixelChannelTraits(statistic_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (statistic_traits == UndefinedPixelTrait))
           continue;
-        if ((statistic_traits & CopyPixelTrait) != 0)
+        if (((statistic_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,p) != 0))
           {
             SetPixelChannel(statistic_image,channel,p[center+i],q);
             continue;
@@ -2377,14 +2581,14 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
         {
           case GradientStatistic:
           {
-            MagickRealType
+            double
               maximum,
               minimum;
 
             GetMinimumPixelList(pixel_list[id],&pixel);
-            minimum=(MagickRealType) pixel;
+            minimum=(double) pixel;
             GetMaximumPixelList(pixel_list[id],&pixel);
-            maximum=(MagickRealType) pixel;
+            maximum=(double) pixel;
             pixel=ClampToQuantum(MagickAbsoluteValue(maximum-minimum));
             break;
           }

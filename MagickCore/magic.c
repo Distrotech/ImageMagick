@@ -17,7 +17,7 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -96,6 +96,7 @@ static const MagicMapInfo
     { "BMP", 0, MagickString("CI") },
     { "BMP", 0, MagickString("CP") },
     { "BMP", 0, MagickString("IC") },
+    { "PICT", 0, MagickString("PICT") },
     { "BMP", 0, MagickString("PI") },
     { "CALS", 21, MagickString("version: MIL-STD-1840") },
     { "CALS", 0, MagickString("srcdocid:") },
@@ -184,6 +185,7 @@ static const MagicMapInfo
     { "TIFF", 0, MagickString("\111\111\052\000") },
     { "TIFF64", 0, MagickString("\115\115\000\053\000\010\000\000") },
     { "TIFF64", 0, MagickString("\111\111\053\000\010\000\000\000") },
+    { "TTF", 0, MagickString("\000\001\000\000\000") },
     { "TXT", 0, MagickString("# ImageMagick pixel enumeration:") },
     { "VICAR", 0, MagickString("LBLSIZE") },
     { "VICAR", 0, MagickString("NJPL1I") },

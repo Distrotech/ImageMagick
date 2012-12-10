@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -141,7 +141,7 @@ static Image *ReadAVSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Read AVS X image.
   */
-  image->matte=MagickTrue;
+  image->alpha_trait=BlendPixelTrait;
   width=ReadBlobMSBLong(image);
   height=ReadBlobMSBLong(image);
   if (EOFBlob(image) != MagickFalse)
@@ -360,7 +360,7 @@ static MagickBooleanType WriteAVSImage(const ImageInfo *image_info,Image *image,
     /*
       Write AVS header.
     */
-    if (IssRGBColorspace(image->colorspace) == MagickFalse)
+    if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
       (void) TransformImageColorspace(image,sRGBColorspace,exception);
     (void) WriteBlobMSBLong(image,(unsigned int) image->columns);
     (void) WriteBlobMSBLong(image,(unsigned int) image->rows);
@@ -382,7 +382,7 @@ static MagickBooleanType WriteAVSImage(const ImageInfo *image_info,Image *image,
       q=pixels;
       for (x=0; x < (ssize_t) image->columns; x++)
       {
-        *q++=ScaleQuantumToChar((Quantum) (image->matte != MagickFalse ?
+        *q++=ScaleQuantumToChar((Quantum) (image->alpha_trait == BlendPixelTrait ?
           GetPixelAlpha(image,p) : OpaqueAlpha));
         *q++=ScaleQuantumToChar(GetPixelRed(image,p));
         *q++=ScaleQuantumToChar(GetPixelGreen(image,p));

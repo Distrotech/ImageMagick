@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -376,7 +376,7 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (LocaleCompare(target,"none") == 0)
       {
         image->storage_class=DirectClass;
-        image->matte=MagickTrue;
+        image->alpha_trait=BlendPixelTrait;
       }
     status=QueryColorCompliance(target,AllCompliance,&image->colormap[j],
       exception);
@@ -631,7 +631,7 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   SetGeometry(image,&geometry);
   (void) ParseMetaGeometry(PiconGeometry,&geometry.x,&geometry.y,
@@ -657,7 +657,7 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
   if (picon->storage_class == PseudoClass)
     {
       (void) CompressImageColormap(picon,exception);
-      if (picon->matte != MagickFalse)
+      if (picon->alpha_trait == BlendPixelTrait)
         transparent=MagickTrue;
     }
   else
@@ -665,7 +665,7 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
       /*
         Convert DirectClass to PseudoClass picon.
       */
-      if (picon->matte != MagickFalse)
+      if (picon->alpha_trait == BlendPixelTrait)
         {
           /*
             Map all the transparent pixels.
@@ -740,7 +740,7 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
     pixel=picon->colormap[i];
     pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
-    pixel.alpha=(MagickRealType) OpaqueAlpha;
+    pixel.alpha=(double) OpaqueAlpha;
     (void) QueryColorname(image,&pixel,XPMCompliance,name,exception);
     if (transparent != MagickFalse)
       {
@@ -878,17 +878,17 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (IssRGBColorspace(image->colorspace) == MagickFalse)
+  if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   opacity=(-1);
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     {
       if ((image->storage_class == DirectClass) || (image->colors > 256))
         (void) SetImageType(image,PaletteType,exception);
     }
   else
     {
-      MagickRealType
+      double
         alpha,
         beta;
 
@@ -905,9 +905,9 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
                 opacity=i;
                 continue;
               }
-            alpha=(MagickRealType) TransparentAlpha-(MagickRealType)
+            alpha=(double) TransparentAlpha-(double)
               image->colormap[i].alpha;
-            beta=(MagickRealType) TransparentAlpha-(MagickRealType)
+            beta=(double) TransparentAlpha-(double)
               image->colormap[opacity].alpha;
             if (alpha < beta)
               opacity=i;
@@ -923,9 +923,9 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
                     opacity=i;
                     continue;
                   }
-                alpha=(Quantum) TransparentAlpha-(MagickRealType)
+                alpha=(Quantum) TransparentAlpha-(double)
                   image->colormap[i].alpha;
-                beta=(Quantum) TransparentAlpha-(MagickRealType)
+                beta=(Quantum) TransparentAlpha-(double)
                   image->colormap[opacity].alpha;
                 if (alpha < beta)
                   opacity=i;
@@ -976,7 +976,7 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
     pixel=image->colormap[i];
     pixel.colorspace=sRGBColorspace;
     pixel.depth=8;
-    pixel.alpha=(MagickRealType) OpaqueAlpha;
+    pixel.alpha=(double) OpaqueAlpha;
     (void) QueryColorname(image,&pixel,XPMCompliance,name,exception);
     if (i == opacity)
       (void) CopyMagickString(name,"None",MaxTextExtent);

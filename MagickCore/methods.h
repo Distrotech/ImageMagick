@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 
   MagickCore API methods prefix.
 
-  nm .libs/libMagickCore.a | grep ' T ' | \
-    awk '{ printf("#define %s  PrependMagickMethod(%s)\n", $3, $3); }' | \
-    sort
+  nm -p magick/.libs/libMagickCore.a | grep ' T ' | egrep -vi '(Magick)|(lt_)' | \
+     egrep -v '(MagickError)|(MagickFatalError)|(MagickWarning)|(ThrowException)' | \
+    awk '{ printf("#define %s  PrependMagickMethod(%s)\n", $3, $3); }' | sort
 */
 #ifndef _MAGICKCORE_METHOD_H
 #define _MAGICKCORE_METHOD_H

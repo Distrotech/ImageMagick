@@ -16,7 +16,7 @@
 %                               January 2006                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -104,7 +104,7 @@ static void ClearBounds(Image *image,RectangleInfo *bounds,
 
   if (bounds->x < 0)
     return;
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   for (y=0; y < (ssize_t) bounds->height; y++)
   {
@@ -270,7 +270,7 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
   if (coalesce_image == (Image *) NULL)
     return((Image *) NULL);
   (void) SetImageBackgroundColor(coalesce_image,exception);
-  coalesce_image->matte=next->matte;
+  coalesce_image->alpha_trait=next->alpha_trait;
   coalesce_image->page=bounds;
   coalesce_image->dispose=NoneDispose;
   /*
@@ -328,7 +328,7 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     coalesce_image->next->previous=coalesce_image;
     previous=coalesce_image;
     coalesce_image=GetNextImageInList(coalesce_image);
-    (void) CompositeImage(coalesce_image,next,next->matte != MagickFalse ?
+    (void) CompositeImage(coalesce_image,next,next->alpha_trait == BlendPixelTrait ?
       OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     (void) CloneImageProfiles(coalesce_image,next);
@@ -423,7 +423,7 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
         dispose_image=DestroyImage(dispose_image);
         return((Image *) NULL);
       }
-    (void) CompositeImage(current_image,next,next->matte != MagickFalse ?
+    (void) CompositeImage(current_image,next,next->alpha_trait == BlendPixelTrait ?
       OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     /*
@@ -507,7 +507,7 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
 %
 %  The format of the ComparePixels method is:
 %
-%      MagickBooleanType *ComparePixels(const ImageLayerMethod method,
+%      MagickBooleanType *ComparePixels(const LayerMethod method,
 %        const PixelInfo *p,const PixelInfo *q)
 %
 %  A description of each parameter follows:
@@ -519,10 +519,10 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
 %
 */
 
-static MagickBooleanType ComparePixels(const ImageLayerMethod method,
+static MagickBooleanType ComparePixels(const LayerMethod method,
   const PixelInfo *p,const PixelInfo *q)
 {
-  MagickRealType
+  double
     o1,
     o2;
 
@@ -532,22 +532,22 @@ static MagickBooleanType ComparePixels(const ImageLayerMethod method,
   if (method == CompareAnyLayer)
     return((MagickBooleanType)(IsFuzzyEquivalencePixelInfo(p,q) == MagickFalse));
 
-  o1 = (p->matte != MagickFalse) ? p->alpha : OpaqueAlpha;
-  o2 = (q->matte != MagickFalse) ? q->alpha : OpaqueAlpha;
+  o1 = (p->alpha_trait == BlendPixelTrait) ? p->alpha : OpaqueAlpha;
+  o2 = (q->alpha_trait == BlendPixelTrait) ? q->alpha : OpaqueAlpha;
 
   /*
     Pixel goes from opaque to transprency
   */
   if (method == CompareClearLayer)
-    return((MagickBooleanType) ( (o1 <= ((MagickRealType) QuantumRange/2.0)) &&
-      (o2 > ((MagickRealType) QuantumRange/2.0)) ) );
+    return((MagickBooleanType) ( (o1 <= ((double) QuantumRange/2.0)) &&
+      (o2 > ((double) QuantumRange/2.0)) ) );
 
   /*
     overlay would change first pixel by second
   */
   if (method == CompareOverlayLayer)
     {
-      if (o2 > ((MagickRealType) QuantumRange/2.0))
+      if (o2 > ((double) QuantumRange/2.0))
         return MagickFalse;
       return((MagickBooleanType) (IsFuzzyEquivalencePixelInfo(p,q) == MagickFalse));
     }
@@ -575,7 +575,7 @@ static MagickBooleanType ComparePixels(const ImageLayerMethod method,
 %
 %  The format of the CompareImagesBounds method is:
 %
-%      RectangleInfo *CompareImagesBounds(const ImageLayerMethod method,
+%      RectangleInfo *CompareImagesBounds(const LayerMethod method,
 %        const Image *image1, const Image *image2, ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
@@ -590,7 +590,7 @@ static MagickBooleanType ComparePixels(const ImageLayerMethod method,
 */
 
 static RectangleInfo CompareImagesBounds(const Image *image1,const Image *image2,
-  const ImageLayerMethod method,ExceptionInfo *exception)
+  const LayerMethod method,ExceptionInfo *exception)
 {
   RectangleInfo
     bounds;
@@ -721,7 +721,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,const Image *image2
 %
 %  CompareImagesLayers() compares each image with the next in a sequence and
 %  returns the minimum bounding region of all the pixel differences (of the
-%  ImageLayerMethod specified) it discovers.
+%  LayerMethod specified) it discovers.
 %
 %  Images do NOT have to be the same size, though it is best that all the
 %  images are 'coalesced' (images are all the same size, on a flattened
@@ -733,7 +733,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,const Image *image2
 %  The format of the CompareImagesLayers method is:
 %
 %      Image *CompareImagesLayers(const Image *images,
-%        const ImageLayerMethod method,ExceptionInfo *exception)
+%        const LayerMethod method,ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -747,7 +747,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,const Image *image2
 */
 
 MagickExport Image *CompareImagesLayers(const Image *image,
-  const ImageLayerMethod method, ExceptionInfo *exception)
+  const LayerMethod method, ExceptionInfo *exception)
 {
   Image
     *image_a,
@@ -878,7 +878,7 @@ MagickExport Image *CompareImagesLayers(const Image *image,
 %  The format of the OptimizeLayerFrames method is:
 %
 %      Image *OptimizeLayerFrames(const Image *image,
-%        const ImageLayerMethod method, ExceptionInfo *exception)
+%        const LayerMethod method, ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -907,7 +907,7 @@ MagickExport Image *CompareImagesLayers(const Image *image,
 #define DEBUG_OPT_FRAME 0
 
 static Image *OptimizeLayerFrames(const Image *image,
-  const ImageLayerMethod method, ExceptionInfo *exception)
+  const LayerMethod method, ExceptionInfo *exception)
 {
   ExceptionInfo
     *sans_exception;
@@ -1499,7 +1499,7 @@ MagickExport void OptimizeImageTransparency(const Image *image,
         dispose_image=DestroyImage(dispose_image);
         return;
       }
-    (void) CompositeImage(current_image,next,next->matte != MagickFalse ?
+    (void) CompositeImage(current_image,next,next->alpha_trait == BlendPixelTrait ?
       OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
       exception);
     /*
@@ -1852,7 +1852,7 @@ MagickExport void CompositeLayers(Image *destination,
 %  MergeImageLayers() composes all the image layers from the current given
 %  image onward to produce a single image of the merged layers.
 %
-%  The inital canvas's size depends on the given ImageLayerMethod, and is
+%  The inital canvas's size depends on the given LayerMethod, and is
 %  initialized using the first images background color.  The images
 %  are then compositied onto that image in sequence using the given
 %  composition that has been assigned to each individual image.
@@ -1860,7 +1860,7 @@ MagickExport void CompositeLayers(Image *destination,
 %  The format of the MergeImageLayers is:
 %
 %      Image *MergeImageLayers(const Image *image,
-%        const ImageLayerMethod method, ExceptionInfo *exception)
+%        const LayerMethod method, ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -1891,7 +1891,7 @@ MagickExport void CompositeLayers(Image *destination,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *MergeImageLayers(Image *image,const ImageLayerMethod method,
+MagickExport Image *MergeImageLayers(Image *image,const LayerMethod method,
   ExceptionInfo *exception)
 {
 #define MergeLayersTag  "Merge/Layers"

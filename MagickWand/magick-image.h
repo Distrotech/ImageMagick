@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -196,6 +196,7 @@ extern WandExport MagickBooleanType
   MagickOilPaintImage(MagickWand *,const double,const double),
   MagickOpaquePaintImage(MagickWand *,const PixelWand *,const PixelWand *,
     const double,const MagickBooleanType),
+  MagickOptimizeImageTransparency(MagickWand *),
   MagickOrderedPosterizeImage(MagickWand *,const char *),
   MagickTransparentPaintImage(MagickWand *,const PixelWand *,
     const double,const double,const MagickBooleanType invert),
@@ -204,7 +205,7 @@ extern WandExport MagickBooleanType
   MagickPingImageFile(MagickWand *,FILE *),
   MagickPolaroidImage(MagickWand *,const DrawingWand *,const char *,
     const double,const PixelInterpolateMethod),
-  MagickPosterizeImage(MagickWand *,const size_t,const MagickBooleanType),
+  MagickPosterizeImage(MagickWand *,const size_t,const DitherMethod),
   MagickPreviousImage(MagickWand *),
   MagickQuantizeImage(MagickWand *,const size_t,const ColorspaceType,
     const size_t,const DitherMethod,const MagickBooleanType),
@@ -233,7 +234,7 @@ extern WandExport MagickBooleanType
   MagickSeparateImage(MagickWand *,const ChannelType),
   MagickSepiaToneImage(MagickWand *,const double),
   MagickSetImage(MagickWand *,const MagickWand *),
-  MagickSetImageAlphaChannel(MagickWand *,const AlphaChannelType),
+  MagickSetImageAlphaChannel(MagickWand *,const AlphaChannelOption),
   MagickSetImageBackgroundColor(MagickWand *,const PixelWand *),
   MagickSetImageBluePrimary(MagickWand *,const double,const double),
   MagickSetImageBorderColor(MagickWand *,const PixelWand *),
@@ -257,7 +258,8 @@ extern WandExport MagickBooleanType
   MagickSetImageGravity(MagickWand *,const GravityType),
   MagickSetImageGreenPrimary(MagickWand *,const double,const double),
   MagickSetImageInterlaceScheme(MagickWand *,const InterlaceType),
-  MagickSetImagePixelInterpolateMethod(MagickWand *,const PixelInterpolateMethod),
+  MagickSetImagePixelInterpolateMethod(MagickWand *,
+    const PixelInterpolateMethod),
   MagickSetImageIterations(MagickWand *,const size_t),
   MagickSetImageMatte(MagickWand *,const MagickBooleanType),
   MagickSetImageMatteColor(MagickWand *,const PixelWand *),
@@ -322,10 +324,10 @@ extern WandExport MagickWand
   *MagickAppendImages(MagickWand *,const MagickBooleanType),
   *MagickChannelFxImage(MagickWand *,const char *),
   *MagickCoalesceImages(MagickWand *),
-  *MagickCombineImages(MagickWand *),
+  *MagickCombineImages(MagickWand *,const ColorspaceType),
   *MagickCompareImages(MagickWand *,const MagickWand *,const MetricType,
     double *),
-  *MagickCompareImagesLayers(MagickWand *,const ImageLayerMethod),
+  *MagickCompareImagesLayers(MagickWand *,const LayerMethod),
   *MagickDeconstructImages(MagickWand *),
   *MagickEvaluateImages(MagickWand *,const MagickEvaluateOperator),
   *MagickFxImage(MagickWand *,const char *),
@@ -333,7 +335,7 @@ extern WandExport MagickWand
   *MagickGetImageClipMask(MagickWand *),
   *MagickGetImageRegion(MagickWand *,const size_t,const size_t,const ssize_t,
     const ssize_t),
-  *MagickMergeImageLayers(MagickWand *,const ImageLayerMethod),
+  *MagickMergeImageLayers(MagickWand *,const LayerMethod),
   *MagickMorphImages(MagickWand *,const size_t),
   *MagickMontageImage(MagickWand *,const DrawingWand *,const char *,
     const char *,const MontageMode,const char *),

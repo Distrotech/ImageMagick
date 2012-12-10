@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -42,6 +42,7 @@
 #include "MagickCore/studio.h"
 #include "MagickCore/animate.h"
 #include "MagickCore/animate-private.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/client.h"
 #include "MagickCore/color.h"
 #include "MagickCore/color-private.h"
@@ -882,7 +883,7 @@ MagickExport void XAnimateBackgroundImage(Display *display,
         */
         for (next=images; next != (Image *) NULL; )
         {
-          next->matte=MagickFalse;
+          next->alpha_trait=UndefinedPixelTrait;
           if ((next->storage_class == DirectClass) ||
               (next->colors != images->colors) ||
               (next->colors > (size_t) visual_info->colormap_size))
@@ -921,16 +922,16 @@ MagickExport void XAnimateBackgroundImage(Display *display,
     if ((resource_info->map_type != (char *) NULL) ||
         (visual_info->klass == TrueColor) ||
         (visual_info->klass == DirectColor))
-      (void) SetImageType(image_list[scene],image_list[scene]->matte ==
-        MagickFalse ? TrueColorType : TrueColorMatteType,exception);
+      (void) SetImageType(image_list[scene],image_list[scene]->alpha_trait ==
+        BlendPixelTrait ? TrueColorType : TrueColorMatteType,exception);
     if ((display_image->columns < image_list[scene]->columns) &&
         (display_image->rows < image_list[scene]->rows))
       display_image=image_list[scene];
   }
   if ((resource_info->map_type != (char *) NULL) ||
       (visual_info->klass == TrueColor) || (visual_info->klass == DirectColor))
-    (void) SetImageType(display_image,display_image->matte == MagickFalse ?
-      TrueColorType : TrueColorMatteType,exception);
+    (void) SetImageType(display_image,display_image->alpha_trait !=
+      BlendPixelTrait ? TrueColorType : TrueColorMatteType,exception);
   XMakeStandardColormap(display,visual_info,&resources,display_image,map_info,
     &pixel,exception);
   /*
@@ -1132,7 +1133,7 @@ MagickExport void XAnimateBackgroundImage(Display *display,
     (void) XClearWindow(display,window_info.id);
     window_info.pixmaps[scene]=window_info.pixmap;
     window_info.matte_pixmaps[scene]=window_info.matte_pixmap;
-    if (image_list[scene]->matte)
+    if (image_list[scene]->alpha_trait)
       (void) XClearWindow(display,window_info.id);
     delay=1000*image_list[scene]->delay/MagickMax(
       image_list[scene]->ticks_per_second,1L);
@@ -1504,7 +1505,7 @@ MagickExport Image *XAnimateImages(Display *display,
         */
         for (next=images; next != (Image *) NULL; )
         {
-          next->matte=MagickFalse;
+          next->alpha_trait=UndefinedPixelTrait;
           if ((next->storage_class == DirectClass) ||
               (next->colors != images->colors) ||
               (next->colors > (size_t) visual_info->colormap_size))
@@ -1543,8 +1544,8 @@ MagickExport Image *XAnimateImages(Display *display,
     if ((resource_info->map_type != (char *) NULL) ||
         (visual_info->klass == TrueColor) ||
         (visual_info->klass == DirectColor))
-      (void) SetImageType(image_list[scene],image_list[scene]->matte ==
-        MagickFalse ? TrueColorType : TrueColorMatteType,exception);
+      (void) SetImageType(image_list[scene],image_list[scene]->alpha_trait ==
+        BlendPixelTrait ? TrueColorType : TrueColorMatteType,exception);
     if ((display_image->columns < image_list[scene]->columns) &&
         (display_image->rows < image_list[scene]->rows))
       display_image=image_list[scene];
@@ -1929,9 +1930,6 @@ MagickExport Image *XAnimateImages(Display *display,
     /*
       Create X image.
     */
-    if (IssRGBColorspace(image_list[scene]->colorspace) == MagickFalse)
-      (void) TransformImageColorspace(image_list[scene],sRGBColorspace,
-        exception);
     windows->image.pixmap=(Pixmap) NULL;
     windows->image.matte_pixmap=(Pixmap) NULL;
     if ((resource_info->map_type != (char *) NULL) ||

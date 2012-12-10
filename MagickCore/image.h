@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -23,9 +23,10 @@ extern "C" {
 #endif
 
 #include <MagickCore/color.h>
+#include <MagickCore/pixel.h>
 
 #define OpaqueAlpha  ((Quantum) QuantumRange)
-#define TransparentAlpha  ((Quantum) 0UL)
+#define TransparentAlpha  ((Quantum) 0)
 
 typedef enum
 {
@@ -40,7 +41,7 @@ typedef enum
   SetAlphaChannel,
   ShapeAlphaChannel,
   TransparentAlphaChannel
-} AlphaChannelType;
+} AlphaChannelOption;
 
 typedef enum
 {
@@ -163,8 +164,7 @@ struct _Image
     orientation;        /* photo orientation of image */
 
   MagickBooleanType
-    taint,              /* has image been modified since reading */
-    matte;              /* is transparency channel defined and active */
+    taint;              /* has image been modified since reading */
 
   size_t
     columns,            /* physical size of image */
@@ -239,7 +239,7 @@ struct _Image
     ticks_per_second;  /* units for delay time, default 100 for GIF */
 
   size_t
-    iterations,        /* ??? */
+    iterations,        /* number of interations for GIF animations */
     total_colors;
 
   ssize_t
@@ -253,10 +253,6 @@ struct _Image
 
   RectangleInfo
     tile_offset;
-
-  void
-    *properties,       /* per image properities */
-    *artifacts;        /* per image sequence image artifacts */
 
   ImageType
     type;
@@ -272,6 +268,9 @@ struct _Image
 
   MagickBooleanType
     mask;
+
+  PixelTrait
+    alpha_trait;       /* is transparency channel defined and active */
 
   size_t
     number_channels,
@@ -326,15 +325,32 @@ struct _Image
   SemaphoreInfo
     *semaphore;
 
+  void
+    *properties,       /* general settings, to save with iamge */
+    *artifacts;        /* general operational/coder settings, not saved */
+
+  const struct _ImageInfo
+    *image_info;       /* (Optional) Image belongs to this ImageInfo 'list'
+                        * For access to 'global options' when no per-image
+                        * attribute, properity, or artifact has been set.
+                        * It may be set or unset as needed, but never freed.
+                        */
+
   struct _Image
-    *previous,         /* Image sequence list links */
-    *list,
+    *list,             /* Undo/Redo image processing list (for display) */
+    *previous,         /* Image list links */
     *next;
 
   size_t
     signature;
 };
 
+/* ImageInfo structure
+ * Stores an image list, as well as all global settings used by
+ * all images held, -- unless overridden for that specific image.
+ * See SyncImagesettings() which maps any global setting that always
+ * overrides specific image settings.
+ */
 struct _ImageInfo
 {
   CompressionType
@@ -421,7 +437,7 @@ struct _ImageInfo
     channel;
 
   void
-    *options;                /* splay tree of use options */
+    *options;                /* splay tree of global options */
 
   void
     *profile;
@@ -460,6 +476,9 @@ struct _ImageInfo
   size_t
     signature;
 };
+
+extern MagickExport ChannelType
+  SetImageChannelMask(Image *,const ChannelType);
 
 extern MagickExport const char
   DefaultTileGeometry[],
@@ -510,14 +529,13 @@ extern MagickExport MagickBooleanType
   ModifyImage(Image **,ExceptionInfo *),
   ResetImagePage(Image *,const char *),
   SetImageAlpha(Image *,const Quantum,ExceptionInfo *),
-  SetImageAlphaChannel(Image *,const AlphaChannelType,ExceptionInfo *),
+  SetImageAlphaChannel(Image *,const AlphaChannelOption,ExceptionInfo *),
   SetImageBackgroundColor(Image *,ExceptionInfo *),
   SetImageColor(Image *,const PixelInfo *,ExceptionInfo *),
   SetImageExtent(Image *,const size_t,const size_t,ExceptionInfo *),
   SetImageInfo(ImageInfo *,const unsigned int,ExceptionInfo *),
   SetImageMask(Image *,const Image *,ExceptionInfo *),
   SetImageStorageClass(Image *,const ClassType,ExceptionInfo *),
-  SetImageType(Image *,const ImageType,ExceptionInfo *),
   StripImage(Image *,ExceptionInfo *),
   SyncImage(Image *,ExceptionInfo *),
   SyncImageSettings(const ImageInfo *,Image *,ExceptionInfo *),

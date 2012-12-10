@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -81,10 +81,13 @@ typedef enum
   RedPixelChannel = 0,
   CyanPixelChannel = 0,
   GrayPixelChannel = 0,
+  LPixelChannel = 0,
   YPixelChannel = 0,
+  aPixelChannel = 1,
   GreenPixelChannel = 1,
   MagentaPixelChannel = 1,
   CbPixelChannel = 1,
+  bPixelChannel = 2,
   BluePixelChannel = 2,
   YellowPixelChannel = 2,
   CrPixelChannel = 2,
@@ -126,8 +129,8 @@ typedef struct _PixelInfo
   ColorspaceType
     colorspace;
 
-  MagickBooleanType
-    matte;
+  PixelTrait
+    alpha_trait;
 
   double
     fuzz;
@@ -138,7 +141,7 @@ typedef struct _PixelInfo
   MagickSizeType
     count;
 
-  double
+  MagickRealType
     red,
     green,
     blue,
@@ -172,11 +175,8 @@ typedef enum
 typedef struct _CacheView
   CacheView_;
 
-extern MagickExport ChannelType
-  SetPixelChannelMask(Image *,const ChannelType);
-
 extern MagickExport MagickBooleanType
-  ExportImagePixels(const Image *,const ssize_t,const ssize_t,const size_t,
+  ExportImagePixels(Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,const char *,const StorageType,void *,ExceptionInfo *),
   ImportImagePixels(Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,const char *,const StorageType,const void *,ExceptionInfo *),
@@ -205,7 +205,7 @@ extern MagickExport PixelInfo
 extern MagickExport void
   InitializePixelChannelMap(Image *),
   GetPixelInfo(const Image *,PixelInfo *),
-  SetPixelChannelMapMask(Image *,const ChannelType);
+  SetPixelChannelMask(Image *,const ChannelType);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

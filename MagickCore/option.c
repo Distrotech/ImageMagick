@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -90,7 +90,7 @@ static const OptionInfo
     { "Start", LeftAlign, UndefinedOptionFlag, MagickFalse },
     { (char *) NULL, UndefinedAlign, UndefinedOptionFlag, MagickFalse }
   },
-  AlphaOptions[] =
+  AlphaChannelOptions[] =
   {
     { "Undefined", UndefinedAlphaChannel, UndefinedOptionFlag, MagickTrue },
     { "Activate", ActivateAlphaChannel, UndefinedOptionFlag, MagickFalse },
@@ -283,8 +283,8 @@ static const OptionInfo
     { "-colors", 1L, SimpleOperatorFlag, MagickFalse },
     { "+colorspace", 0L, ImageInfoOptionFlag | SimpleOperatorFlag, MagickFalse },
     { "-colorspace", 1L, ImageInfoOptionFlag | SimpleOperatorFlag, MagickFalse },
-    { "+combine", 0L, DeprecateOptionFlag | FireOptionFlag, MagickTrue },
-    { "-combine", 0L, ListOperatorFlag | FireOptionFlag, MagickFalse },
+    { "+combine", 1L, DeprecateOptionFlag | FireOptionFlag, MagickTrue },
+    { "-combine", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "+comment", 0L, ImageInfoOptionFlag | NeverInterpretArgsFlag, MagickFalse },
     { "-comment", 1L, ImageInfoOptionFlag | NeverInterpretArgsFlag, MagickFalse },
     { "+compose", 0L, ImageInfoOptionFlag, MagickFalse },
@@ -311,8 +311,8 @@ static const OptionInfo
     { "-decipher", 1L, SimpleOperatorFlag | NeverInterpretArgsFlag, MagickFalse },
     { "+deconstruct", 0L, DeprecateOptionFlag, MagickTrue },
     { "-deconstruct", 0L, ReplacedOptionFlag | ListOperatorFlag | FireOptionFlag, MagickTrue },
-    { "+define", 1L, ImageInfoOptionFlag, MagickFalse },
-    { "-define", 1L, ImageInfoOptionFlag, MagickFalse },
+    { "+define", 1L, ImageInfoOptionFlag | FireOptionFlag, MagickFalse },
+    { "-define", 1L, ImageInfoOptionFlag | FireOptionFlag, MagickFalse },
     { "+delay", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-delay", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+delete", 0L, ListOperatorFlag | FireOptionFlag, MagickFalse },
@@ -404,7 +404,7 @@ static const OptionInfo
     { "-fuzz", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+fx", 1L, DeprecateOptionFlag | FireOptionFlag, MagickTrue },
     { "-fx", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
-    { "+gamma", 0L, SimpleOperatorFlag, MagickFalse },
+    { "+gamma", 1L, SimpleOperatorFlag, MagickFalse },
     { "-gamma", 1L, SimpleOperatorFlag, MagickFalse },
     { "+gaussian", 1L, DeprecateOptionFlag, MagickTrue },
     { "-gaussian", 1L, ReplacedOptionFlag | SimpleOperatorFlag, MagickTrue },
@@ -535,6 +535,8 @@ static const OptionInfo
     { "-pointsize", 1L, ImageInfoOptionFlag | DrawInfoOptionFlag, MagickFalse },
     { "+polaroid", 0L, SimpleOperatorFlag, MagickFalse },
     { "-polaroid", 1L, SimpleOperatorFlag, MagickFalse },
+    { "+poly", 1L, DeprecateOptionFlag | FireOptionFlag, MagickTrue },
+    { "-poly", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "+posterize", 1L, DeprecateOptionFlag, MagickTrue },
     { "-posterize", 1L, SimpleOperatorFlag, MagickFalse },
     { "+precision", 0L, ImageInfoOptionFlag, MagickFalse },
@@ -596,6 +598,8 @@ static const OptionInfo
     { "-sans", 1L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue },
     { "+sans0", 0L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue }, /* equivelent to 'noop' */
     { "-sans0", 0L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue },
+    { "+sans1", 1L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue },
+    { "-sans1", 1L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue }, /* equivelent to 'sans' */
     { "+sans2", 2L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue },
     { "-sans2", 2L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickTrue },
     { "+scale", 1L, DeprecateOptionFlag, MagickTrue },
@@ -617,8 +621,8 @@ static const OptionInfo
     { "-separate", 0L, SimpleOperatorFlag | FireOptionFlag, MagickFalse },
     { "+sepia-tone", 1L, DeprecateOptionFlag, MagickTrue },
     { "-sepia-tone", 1L, SimpleOperatorFlag, MagickFalse },
-    { "+set", 1L, SimpleOperatorFlag | NeverInterpretArgsFlag, MagickFalse },
-    { "-set", 2L, SimpleOperatorFlag | NeverInterpretArgsFlag, MagickFalse },
+    { "+set", 1L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickFalse },
+    { "-set", 2L, NoImageOperatorFlag | NeverInterpretArgsFlag, MagickFalse },
     { "+shade", 0L, DeprecateOptionFlag, MagickTrue },
     { "-shade", 1L, SimpleOperatorFlag, MagickFalse },
     { "+shadow", 1L, DeprecateOptionFlag, MagickTrue },
@@ -861,14 +865,19 @@ static const OptionInfo
   ColorspaceOptions[] =
   {
     { "Undefined", UndefinedColorspace, UndefinedOptionFlag, MagickTrue },
+    { "CIELab", LabColorspace, UndefinedOptionFlag, MagickFalse },
     { "CMY", CMYColorspace, UndefinedOptionFlag, MagickFalse },
     { "CMYK", CMYKColorspace, UndefinedOptionFlag, MagickFalse },
     { "Gray", GRAYColorspace, UndefinedOptionFlag, MagickFalse },
+    { "HCL", HCLColorspace, UndefinedOptionFlag, MagickFalse },
     { "HSB", HSBColorspace, UndefinedOptionFlag, MagickFalse },
     { "HSL", HSLColorspace, UndefinedOptionFlag, MagickFalse },
     { "HWB", HWBColorspace, UndefinedOptionFlag, MagickFalse },
     { "Lab", LabColorspace, UndefinedOptionFlag, MagickFalse },
+    { "LCH", LCHColorspace, UndefinedOptionFlag, MagickFalse },
+    { "LMS", LMSColorspace, UndefinedOptionFlag, MagickFalse },
     { "Log", LogColorspace, UndefinedOptionFlag, MagickFalse },
+    { "Luv", LuvColorspace, UndefinedOptionFlag, MagickFalse },
     { "OHTA", OHTAColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec601Luma", Rec601LumaColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec601YCbCr", Rec601YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
@@ -1019,15 +1028,17 @@ static const OptionInfo
     { "Cubic", CubicFilter, UndefinedOptionFlag, MagickFalse },
     { "Gaussian", GaussianFilter, UndefinedOptionFlag, MagickFalse },
     { "Hamming", HammingFilter, UndefinedOptionFlag, MagickFalse },
-    { "Hanning", HanningFilter, UndefinedOptionFlag, MagickFalse },
+    { "Hann", HannFilter, UndefinedOptionFlag, MagickFalse },
+    { "Hanning", HannFilter, UndefinedOptionFlag, MagickTrue }, /*misspell*/
     { "Hermite", HermiteFilter, UndefinedOptionFlag, MagickFalse },
     { "Jinc", JincFilter, UndefinedOptionFlag, MagickFalse },
     { "Kaiser", KaiserFilter, UndefinedOptionFlag, MagickFalse },
     { "Lagrange", LagrangeFilter, UndefinedOptionFlag, MagickFalse },
     { "Lanczos", LanczosFilter, UndefinedOptionFlag, MagickFalse },
-    { "LanczosSharp", LanczosSharpFilter, UndefinedOptionFlag, MagickFalse },
     { "Lanczos2", Lanczos2Filter, UndefinedOptionFlag, MagickFalse },
     { "Lanczos2Sharp", Lanczos2SharpFilter, UndefinedOptionFlag, MagickFalse },
+    { "LanczosRadius", LanczosRadiusFilter, UndefinedOptionFlag, MagickFalse },
+    { "LanczosSharp", LanczosSharpFilter, UndefinedOptionFlag, MagickFalse },
     { "Mitchell", MitchellFilter, UndefinedOptionFlag, MagickFalse },
     { "Parzen", ParzenFilter, UndefinedOptionFlag, MagickFalse },
     { "Point", PointFilter, UndefinedOptionFlag, MagickFalse },
@@ -1038,7 +1049,8 @@ static const OptionInfo
     { "SincFast", SincFastFilter, UndefinedOptionFlag, MagickFalse },
     { "Spline", SplineFilter, UndefinedOptionFlag, MagickFalse },
     { "Triangle", TriangleFilter, UndefinedOptionFlag, MagickFalse },
-    { "Welsh", WelshFilter, UndefinedOptionFlag, MagickFalse },
+    { "Welch", WelchFilter, UndefinedOptionFlag, MagickFalse },
+    { "Welsh", WelchFilter, UndefinedOptionFlag, MagickTrue }, /*misspell*/
     { (char *) NULL, UndefinedFilter, UndefinedOptionFlag, MagickFalse }
   },
   FunctionOptions[] =
@@ -1115,6 +1127,7 @@ static const OptionInfo
     { "LoG", LoGKernel, UndefinedOptionFlag, MagickFalse },
     { "Blur", BlurKernel, UndefinedOptionFlag, MagickFalse },
     { "Comet", CometKernel, UndefinedOptionFlag, MagickFalse },
+    { "Binomial", BinomialKernel, UndefinedOptionFlag, MagickFalse },
     { "Laplacian", LaplacianKernel, UndefinedOptionFlag, MagickFalse },
     { "Sobel", SobelKernel, UndefinedOptionFlag, MagickFalse },
     { "FreiChen", FreiChenKernel, UndefinedOptionFlag, MagickFalse },
@@ -1187,7 +1200,7 @@ static const OptionInfo
   ListOptions[] =
   {
     { "Align", MagickAlignOptions, UndefinedOptionFlag, MagickFalse },
-    { "Alpha", MagickAlphaOptions, UndefinedOptionFlag, MagickFalse },
+    { "Alpha", MagickAlphaChannelOptions, UndefinedOptionFlag, MagickFalse },
     { "Boolean", MagickBooleanOptions, UndefinedOptionFlag, MagickFalse },
     { "Channel", MagickChannelOptions, UndefinedOptionFlag, MagickFalse },
     { "Class", MagickClassOptions, UndefinedOptionFlag, MagickFalse },
@@ -1621,6 +1634,7 @@ static const OptionInfo
     { "HorizontalTile", HorizontalTileVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
     { "HorizontalTileEdge", HorizontalTileEdgeVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
     { "Mirror", MirrorVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
+    { "None", TransparentVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
     { "Random", RandomVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
     { "Tile", TileVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
     { "Transparent", TransparentVirtualPixelMethod, UndefinedOptionFlag, MagickFalse },
@@ -1635,7 +1649,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
   switch (option)
   {
     case MagickAlignOptions: return(AlignOptions);
-    case MagickAlphaOptions: return(AlphaOptions);
+    case MagickAlphaChannelOptions: return(AlphaChannelOptions);
     case MagickBooleanOptions: return(BooleanOptions);
     case MagickChannelOptions: return(ChannelOptions);
     case MagickClassOptions: return(ClassOptions);
@@ -1706,7 +1720,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  CloneImageOptions() clones one or more image options.
+%  CloneImageOptions() clones all global image options, to another image_info
 %
 %  The format of the CloneImageOptions method is:
 %
@@ -1715,9 +1729,9 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
 %
 %  A description of each parameter follows:
 %
-%    o image_info: the image info.
+%    o image_info: the image info to recieve the cloned options.
 %
-%    o clone_info: the clone image info.
+%    o clone_info: the source image info for options to clone.
 %
 */
 MagickExport MagickBooleanType CloneImageOptions(ImageInfo *image_info,
@@ -1748,7 +1762,8 @@ MagickExport MagickBooleanType CloneImageOptions(ImageInfo *image_info,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  DefineImageOption() associates an assignment string of the form
-%  "key=value" with an image option. It is equivelent to SetImageOption().
+%  "key=value" with a global image option. It is equivelent to
+%  SetImageOption().
 %
 %  The format of the DefineImageOption method is:
 %
@@ -1796,7 +1811,7 @@ MagickExport MagickBooleanType DefineImageOption(ImageInfo *image_info,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  DeleteImageOption() deletes an key from the image map.
+%  DeleteImageOption() deletes an key from the global image options.
 %
 %  Returns MagickTrue is the option is found and deleted from the Options.
 %
@@ -1836,7 +1851,8 @@ MagickExport MagickBooleanType DeleteImageOption(ImageInfo *image_info,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  DestroyImageOptions() releases memory associated with image option values.
+%  DestroyImageOptions() destroys all global options and associated memory
+%  attached to the given image_info image list.
 %
 %  The format of the DestroyDefines method is:
 %
@@ -1869,7 +1885,10 @@ MagickExport void DestroyImageOptions(ImageInfo *image_info)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  GetImageOption() gets a value associated with an image option.
+%  GetImageOption() gets a value associated with the global image options.
+%
+%  The returned string is a constant string in the tree and should NOT be
+%  freed by the caller.
 %
 %  The format of the GetImageOption method is:
 %
@@ -2029,7 +2048,7 @@ MagickExport ssize_t GetCommandOptionFlags(const CommandOption option,
 %  to speed up the lookup for that very large table, and returns both the
 %  type (arg count) and flags (arg type).
 %
-%  This search reduces linear search of over 500 options (250 tests of
+%  This search reduces linear search of over 500 options (250 tests on
 %  average) to about 10 lookups!
 %
 %  The format of the GetCommandOptionInfo method is:
@@ -2148,7 +2167,7 @@ MagickExport char **GetCommandOptions(const CommandOption value)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  GetNextImageOption() gets the next image option value.
+%  GetNextImageOption() gets the next global option value.
 %
 %  The format of the GetNextImageOption method is:
 %
@@ -2592,6 +2611,9 @@ MagickExport ssize_t ParsePixelChannelOption(const char *channels)
 %
 %  RemoveImageOption() removes an option from the image and returns its value.
 %
+%  In this case the ConstantString() value returned should be freed by the
+%  caller when finished.
+%
 %  The format of the RemoveImageOption method is:
 %
 %      char *RemoveImageOption(ImageInfo *image_info,const char *option)
@@ -2632,7 +2654,7 @@ MagickExport char *RemoveImageOption(ImageInfo *image_info,const char *option)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  ResetImageOptions() resets the image_info option.  That is, it deletes
-%  all options associated with the image_info structure.
+%  all global options associated with the image_info structure.
 %
 %  The format of the ResetImageOptions method is:
 %
@@ -2727,7 +2749,7 @@ MagickExport MagickBooleanType SetImageOption(ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
 
-  /* FUTURE: This should not be here! - but others might */
+  /* Specific global option settings */
   if (LocaleCompare(option,"size") == 0)
     (void) CloneString(&image_info->size,value);
 
@@ -2736,7 +2758,7 @@ MagickExport MagickBooleanType SetImageOption(ImageInfo *image_info,
     image_info->options=NewSplayTree(CompareSplayTreeString,
       RelinquishMagickMemory,RelinquishMagickMemory);
 
-  /* Delete Option if NULL */
+  /* Delete Option if NULL --  empty string values are valid! */
   if (value == (const char *) NULL)
     return(DeleteImageOption(image_info,option));
 

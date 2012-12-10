@@ -18,7 +18,7 @@
 %                                August 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -499,7 +499,7 @@ MagickExport MagickBooleanType ResamplePixelColor(
                  color and the current background color */
 
               /* image's average pixel color */
-              weight = QuantumScale*((MagickRealType)
+              weight = QuantumScale*((double)
                 resample_filter->average_pixel.alpha);
               resample_filter->average_pixel.red *= weight;
               resample_filter->average_pixel.green *= weight;
@@ -507,7 +507,7 @@ MagickExport MagickBooleanType ResamplePixelColor(
               divisor_c = weight;
 
               /* background color */
-              weight = QuantumScale*((MagickRealType)
+              weight = QuantumScale*((double)
                 resample_filter->image->background_color.alpha);
               resample_filter->average_pixel.red +=
                       weight*resample_filter->image->background_color.red;
@@ -542,7 +542,7 @@ MagickExport MagickBooleanType ResamplePixelColor(
   pixel->red = pixel->green = pixel->blue = 0.0;
   if (pixel->colorspace == CMYKColorspace)
     pixel->black = 0.0;
-  if (pixel->matte != MagickFalse)
+  if (pixel->alpha_trait == BlendPixelTrait)
     pixel->alpha = 0.0;
 
   /*
@@ -607,8 +607,8 @@ MagickExport MagickBooleanType ResamplePixelColor(
         pixel->alpha  += weight*GetPixelAlpha(resample_filter->image,pixels);
         divisor_m += weight;
 
-        if (pixel->matte != MagickFalse)
-          weight *= QuantumScale*((MagickRealType) GetPixelAlpha(resample_filter->image,pixels));
+        if (pixel->alpha_trait == BlendPixelTrait)
+          weight *= QuantumScale*((double) GetPixelAlpha(resample_filter->image,pixels));
         pixel->red   += weight*GetPixelRed(resample_filter->image,pixels);
         pixel->green += weight*GetPixelGreen(resample_filter->image,pixels);
         pixel->blue  += weight*GetPixelBlue(resample_filter->image,pixels);
@@ -663,13 +663,13 @@ MagickExport MagickBooleanType ResamplePixelColor(
     Finialize results of resampling
   */
   divisor_m = 1.0/divisor_m;
-  pixel->alpha = (MagickRealType) ClampToQuantum(divisor_m*pixel->alpha);
+  pixel->alpha = (double) ClampToQuantum(divisor_m*pixel->alpha);
   divisor_c = 1.0/divisor_c;
-  pixel->red   = (MagickRealType) ClampToQuantum(divisor_c*pixel->red);
-  pixel->green = (MagickRealType) ClampToQuantum(divisor_c*pixel->green);
-  pixel->blue  = (MagickRealType) ClampToQuantum(divisor_c*pixel->blue);
+  pixel->red   = (double) ClampToQuantum(divisor_c*pixel->red);
+  pixel->green = (double) ClampToQuantum(divisor_c*pixel->green);
+  pixel->blue  = (double) ClampToQuantum(divisor_c*pixel->blue);
   if (pixel->colorspace == CMYKColorspace)
-    pixel->black = (MagickRealType) ClampToQuantum(divisor_c*pixel->black);
+    pixel->black = (double) ClampToQuantum(divisor_c*pixel->black);
   return(MagickTrue);
 }
 
@@ -703,16 +703,10 @@ MagickExport MagickBooleanType ResamplePixelColor(
 %
 % Reference: http://en.wikipedia.org/wiki/Ellipse#Canonical_form
 */
-static inline void ClampUpAxes(const double dux,
-			       const double dvx,
-			       const double duy,
-			       const double dvy,
-			       double *major_mag,
-			       double *minor_mag,
-			       double *major_unit_x,
-			       double *major_unit_y,
-			       double *minor_unit_x,
-			       double *minor_unit_y)
+static inline void ClampUpAxes(const double dux,const double dvx,
+  const double duy,const double dvy,double *major_mag,double *minor_mag,
+  double *major_unit_x,double *major_unit_y,double *minor_unit_x,
+  double *minor_unit_y)
 {
   /*
    * ClampUpAxes takes an input 2x2 matrix

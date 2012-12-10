@@ -17,7 +17,7 @@
 %                                 April 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -199,7 +199,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   ImfHeaderDisplayWindow(hdr_info,&min_x,&min_y,&max_x,&max_y);
   image->columns=max_x-min_x+1UL;
   image->rows=max_y-min_y+1UL;
-  image->matte=MagickTrue;
+  image->alpha_trait=BlendPixelTrait;
   SetImageColorspace(image,RGBColorspace,exception);
   image->gamma=1.0;
   if (image_info->ping != MagickFalse)
@@ -227,13 +227,13 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ImfInputReadPixels(file,min_y+y,min_y+y);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      SetPixelRed(image,ClampToQuantum((MagickRealType) QuantumRange*
+      SetPixelRed(image,ClampToQuantum(QuantumRange*
         ImfHalfToFloat(scanline[x].r)),q);
-      SetPixelGreen(image,ClampToQuantum((MagickRealType) QuantumRange*
+      SetPixelGreen(image,ClampToQuantum(QuantumRange*
         ImfHalfToFloat(scanline[x].g)),q);
-      SetPixelBlue(image,ClampToQuantum((MagickRealType) QuantumRange*
+      SetPixelBlue(image,ClampToQuantum(QuantumRange*
         ImfHalfToFloat(scanline[x].b)),q);
-      SetPixelAlpha(image,ClampToQuantum((MagickRealType) QuantumRange*
+      SetPixelAlpha(image,ClampToQuantum(QuantumRange*
         ImfHalfToFloat(scanline[x].a)),q);
       q+=GetPixelChannels(image);
     }
@@ -447,7 +447,7 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image,
       scanline[x].g=half_quantum;
       ImfFloatToHalf(QuantumScale*GetPixelBlue(image,p),&half_quantum);
       scanline[x].b=half_quantum;
-      if (image->matte == MagickFalse)
+      if (image->alpha_trait != BlendPixelTrait)
         ImfFloatToHalf(1.0,&half_quantum);
       else
         ImfFloatToHalf(QuantumScale*GetPixelAlpha(image,p),&half_quantum);

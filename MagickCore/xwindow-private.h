@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ extern "C" {
 #include <X11/Xutil.h>
 #include "MagickCore/exception.h"
 #include "MagickCore/geometry.h"
+#include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantize.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -595,13 +596,17 @@ extern MagickExport void
 extern MagickExport XrmDatabase
   XGetResourceDatabase(Display *,const char *);
 
-static inline MagickRealType XPixelIntensity(const XColor *pixel)
+static inline double XPixelIntensity(const XColor *pixel)
 {
-  MagickRealType
-    intensity;
+  double
+    blue,
+    green,
+    red;
 
-  intensity=0.299*pixel->red+0.587*pixel->green+0.114*pixel->blue;
-  return(intensity);
+  red=DecodesRGBGamma((MagickRealType) pixel->red);
+  green=DecodesRGBGamma((MagickRealType) pixel->green);
+  blue=DecodesRGBGamma((MagickRealType) pixel->blue);
+  return(0.298839f*red+0.586811f*green+0.114350f*blue);
 }
 
 #endif

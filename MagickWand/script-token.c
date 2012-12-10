@@ -15,7 +15,7 @@
 %                               January 2012                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -129,9 +129,9 @@
 %
 %  DOS script launcher...
 %
-%  Similarly for DOS, any '@' at the start of the line (outside of quotes)
-%  will also be treated as comment. This allow you to create a DOS script
-%  launcher, to turn ".bat" DOS scripts into "magick" scripts.
+%  Similarly any '@' at the start of the line (outside of quotes) will also be
+%  treated as comment. This allow you to create a DOS script launcher, to
+%  allow a ".bat" DOS scripts to run as "magick" scripts instead.
 %
 %    @echo This line is DOS executed but ignored by Magick
 %    @magick -script %~dpnx0 %*

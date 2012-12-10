@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,10 +40,12 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/color.h"
 #include "MagickCore/color-private.h"
+#include "MagickCore/colorspace-private.h"
 #include "MagickCore/draw.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
@@ -98,6 +100,7 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
     *image;
 
   MagickBooleanType
+    icc_color,
     status;
 
   PixelInfo
@@ -121,6 +124,13 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   (void) CopyMagickString(image->filename,image_info->filename,MaxTextExtent);
   (void) CopyMagickString(colorname,image_info->filename,MaxTextExtent);
   (void) sscanf(image_info->filename,"%[^-]",colorname);
+  icc_color=MagickFalse;
+  if (LocaleCompare(colorname,"icc") == 0)
+    {
+      (void) ConcatenateMagickString(colorname,"-",MaxTextExtent);
+      (void) sscanf(image_info->filename,"%*[^-]-%[^-]",colorname+4);
+      icc_color=MagickTrue;
+    }
   status=QueryColorCompliance(colorname,AllCompliance,&start_color,exception);
   if (status == MagickFalse)
     {
@@ -130,16 +140,26 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   (void) CopyMagickString(colorname,"white",MaxTextExtent);
   if (GetPixelInfoIntensity(&start_color) > (Quantum) (QuantumRange/2))
     (void) CopyMagickString(colorname,"black",MaxTextExtent);
-  (void) sscanf(image_info->filename,"%*[^-]-%s",colorname);
+  if (icc_color == MagickFalse)
+    (void) sscanf(image_info->filename,"%*[^-]-%s",colorname);
+  else
+    (void) sscanf(image_info->filename,"%*[^-]-%*[^-]-%s",colorname);
   status=QueryColorCompliance(colorname,AllCompliance,&stop_color,exception);
   if (status == MagickFalse)
     {
       image=DestroyImage(image);
       return((Image *) NULL);
     }
-  (void) GradientImage(image,LocaleCompare(image_info->magick,"GRADIENT") == 0 ?
+  status=GradientImage(image,LocaleCompare(image_info->magick,"GRADIENT") == 0 ?
     LinearGradient : RadialGradient,PadSpread,&start_color,&stop_color,
     exception);
+  if (status == MagickFalse)
+    {
+      image=DestroyImageList(image);
+      return((Image *) NULL);
+    }
+  if ((start_color.alpha_trait != BlendPixelTrait) && (stop_color.alpha_trait != BlendPixelTrait))
+    (void) SetImageAlphaChannel(image,DeactivateAlphaChannel,exception);
   return(GetFirstImageInList(image));
 }
 

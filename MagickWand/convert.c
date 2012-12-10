@@ -17,7 +17,7 @@
 %                                April 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -178,7 +178,7 @@ static MagickBooleanType ConvertUsage(void)
       "-cdl filename        color correct with a color decision list",
       "-charcoal radius     simulate a charcoal drawing",
       "-chop geometry       remove pixels from the image interior",
-      "-clamp               restrict pixel range from 0 to the quantum depth",
+      "-clamp               keep pixel values in range (0-QuantumRange)",
       "-clip                clip along the first path from the 8BIM profile",
       "-clip-mask filename  associate a clip mask with the image",
       "-clip-path id        clip along a named path from the 8BIM profile",
@@ -232,7 +232,8 @@ static MagickBooleanType ConvertUsage(void)
       "-liquid-rescale geometry",
       "                     rescale image with seam-carving",
       "-median geometry     apply a median filter to the image",
-      "-mode geometry       make each pixel the 'predominant color' of the neighborhood",
+      "-mode geometry       make each pixel the 'predominant color' of the",
+      "                     neighborhood",
       "-modulate value      vary the brightness, saturation, and hue",
       "-monochrome          transform image to black and white",
       "-morphology method kernel",
@@ -247,6 +248,9 @@ static MagickBooleanType ConvertUsage(void)
       "                     add a noise pattern to the image with specific",
       "                     amplitudes",
       "-paint radius        simulate an oil painting",
+      "-perceptible epsilon",
+      "                     pixel value less than |epsilon| become epsilon or",
+      "                     -epsilon",
       "-polaroid angle      simulate a Polaroid picture",
       "-posterize levels    reduce the image to a limited number of color levels",
       "-profile filename    add, delete, or apply an image profile",
@@ -276,7 +280,8 @@ static MagickBooleanType ConvertUsage(void)
       "-shave geometry      shave pixels from the image edges",
       "-shear geometry      slide one edge of the image along the X or Y axis",
       "-sigmoidal-contrast geometry",
-      "                     increase the contrast without saturating highlights or shadows",
+      "                     increase the contrast without saturating highlights or",
+      "                     shadows",
       "-sketch geometry     simulate a pencil sketch",
       "-solarize threshold  negate all pixels above the threshold level",
       "-sparse-color method args",
@@ -284,7 +289,8 @@ static MagickBooleanType ConvertUsage(void)
       "-splice geometry     splice the background color into the image",
       "-spread radius       displace image pixels by a random amount",
       "-statistic type geometry",
-      "                     replace each pixel with corresponding statistic from the neighborhood",
+      "                     replace each pixel with corresponding statistic from the",
+      "                     neighborhood",
       "-strip               strip image of all profiles and comments",
       "-swirl degrees       swirl image pixels about the center",
       "-threshold value     threshold the image",
@@ -321,6 +327,8 @@ static MagickBooleanType ConvertUsage(void)
       "-hald-clut           apply a Hald color lookup table to the image",
       "-morph value         morph an image sequence",
       "-mosaic              create a mosaic from an image sequence",
+      "-poly terms          build a polynomial from the image sequence and the corresponding",
+      "                     terms (coefficients and degree pairs).",
       "-print string        interpret string and print to console",
       "-process arguments   process the image with a custom image filter",
       "-smush geometry      smush an image sequence together",
@@ -361,6 +369,7 @@ static MagickBooleanType ConvertUsage(void)
       "-encoding type       text encoding type",
       "-endian type         endianness (MSB or LSB) of the image",
       "-family name         render text with this font family",
+      "-features distance   analyze image features (e.g. contrast, correlation)",
       "-fill color          color to use when filling a graphic primitive",
       "-filter type         use this filter when resizing an image",
       "-font name           render text with this font",
@@ -653,6 +662,8 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) (argc-1))
               ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
         if (LocaleCompare("alpha",option+1) == 0)
@@ -665,9 +676,9 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowConvertException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,argv[i]);
             if (type < 0)
-              ThrowConvertException(OptionError,"UnrecognizedAlphaChannelType",
+              ThrowConvertException(OptionError,"UnrecognizedAlphaChannelOption",
                 argv[i]);
             break;
           }
@@ -1475,6 +1486,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertException(OptionError,"MissingArgument",option);
             break;
           }
+        if (LocaleCompare("features",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("fft",option+1) == 0)
           break;
         if (LocaleCompare("fill",option+1) == 0)
@@ -2139,6 +2161,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
+        if (LocaleCompare("perceptible",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("ping",option+1) == 0)
           break;
         if (LocaleCompare("pointsize",option+1) == 0)
@@ -2153,6 +2186,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("polaroid",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("poly",option+1) == 0)
           {
             if (*option == '+')
               break;

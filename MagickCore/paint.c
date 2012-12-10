@@ -17,7 +17,7 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -173,8 +173,8 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace,exception);
-  if ((image->matte == MagickFalse) && (draw_info->fill.matte != MagickFalse))
+    (void) TransformImageColorspace(image,RGBColorspace,exception);
+  if ((image->alpha_trait != BlendPixelTrait) && (draw_info->fill.alpha_trait == BlendPixelTrait))
     (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
     Set floodfill state.
@@ -183,7 +183,7 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
     exception);
   if (floodplane_image == (Image *) NULL)
     return(MagickFalse);
-  floodplane_image->matte=MagickFalse;
+  floodplane_image->alpha_trait=UndefinedPixelTrait;
   floodplane_image->colorspace=GRAYColorspace;
   (void) QueryColorCompliance("#000",AllCompliance,
     &floodplane_image->background_color,exception);
@@ -455,13 +455,9 @@ MagickExport MagickBooleanType GradientImage(Image *image,
   /*
     Draw a gradient on the image.
   */
+  (void) SetImageColorspace(image,start_color->colorspace,exception);
   status=DrawGradientImage(image,draw_info,exception);
   draw_info=DestroyDrawInfo(draw_info);
-  if ((start_color->matte == MagickFalse) && (stop_color->matte == MagickFalse))
-    image->matte=MagickFalse;
-  if ((IsPixelInfoGray(start_color) != MagickFalse) &&
-      (IsPixelInfoGray(stop_color) != MagickFalse))
-    image->type=GrayscaleType;
   return(status);
 }
 
@@ -519,7 +515,7 @@ static size_t **AcquireHistogramThreadSet(const size_t count)
     **histogram,
     number_threads;
 
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   histogram=(size_t **) AcquireQuantumMemory(number_threads,sizeof(*histogram));
   if (histogram == (size_t **) NULL)
     return((size_t **) NULL);
@@ -649,8 +645,8 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
       {
         for (u=0; u < (ssize_t) width; u++)
         {
-          n=(ssize_t) ScaleQuantumToChar(GetPixelIntensity(image,p+
-            GetPixelChannels(image)*(u+k)));
+          n=(ssize_t) ScaleQuantumToChar(ClampToQuantum(GetPixelIntensity(image,
+            p+GetPixelChannels(image)*(u+k))));
           histogram[n]++;
           if (histogram[n] > count)
             {
@@ -660,12 +656,6 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
         }
         k+=(ssize_t) (image->columns+width);
       }
-      if (GetPixelMask(image,p) != 0)
-        {
-          p+=GetPixelChannels(image);
-          q+=GetPixelChannels(paint_image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel
@@ -675,13 +665,14 @@ MagickExport Image *OilPaintImage(const Image *image,const double radius,
           paint_traits,
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
-        paint_traits=GetPixelChannelMapTraits(paint_image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
+        paint_traits=GetPixelChannelTraits(paint_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (paint_traits == UndefinedPixelTrait))
           continue;
-        if ((paint_traits & CopyPixelTrait) != 0)
+        if (((paint_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,p) != 0))
           {
             SetPixelChannel(paint_image,channel,p[center+i],q);
             continue;
@@ -783,9 +774,9 @@ MagickExport MagickBooleanType OpaquePaintImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
-      (IsPixelInfoGray(fill) != MagickFalse))
-    (void) TransformImageColorspace(image,sRGBColorspace,exception);
-  if ((fill->matte != MagickFalse) && (image->matte == MagickFalse))
+      (IsPixelInfoGray(fill) == MagickFalse))
+    (void) TransformImageColorspace(image,RGBColorspace,exception);
+  if ((fill->alpha_trait == BlendPixelTrait) && (image->alpha_trait != BlendPixelTrait))
     (void) SetImageAlpha(image,OpaqueAlpha,exception);
   /*
     Make image color opaque.
@@ -912,7 +903,7 @@ MagickExport MagickBooleanType TransparentPaintImage(Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   /*
     Make image color transparent.
@@ -1040,7 +1031,7 @@ MagickExport MagickBooleanType TransparentPaintImageChroma(Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
   /*
     Make image color transparent.

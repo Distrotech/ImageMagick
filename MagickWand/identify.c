@@ -17,7 +17,7 @@
 %                            September 1994                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -124,14 +124,16 @@ static MagickBooleanType IdentifyUsage(void)
       "                     define one or more image format options",
       "-density geometry    horizontal and vertical density of the image",
       "-depth value         image depth",
+      "-endian type         endianness (MSB or LSB) of the image",
       "-extract geometry    extract area from image",
-      "-features distance   display image features (e.g. contrast, correlation)",
+      "-features distance   analyze image features (e.g. contrast, correlation)",
       "-format \"string\"     output formatted image characteristics",
       "-fuzz distance       colors within this distance are considered equal",
       "-gamma value         of gamma correction",
       "-interlace type      type of image interlacing scheme",
       "-interpolate method  pixel color interpolation method",
       "-limit type value    pixel cache resource limit",
+      "-mask filename       associate a mask with the image",
       "-monitor             monitor progress",
       "-ping                efficiently determine image attributes",
       "-quiet               suppress all warning messages",
@@ -366,10 +368,11 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowIdentifyException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,
+              argv[i]);
             if (type < 0)
-              ThrowIdentifyException(OptionError,"UnrecognizedAlphaChannelType",
-                argv[i]);
+              ThrowIdentifyException(OptionError,
+                "UnrecognizedAlphaChannelOption",argv[i]);
             break;
           }
         if (LocaleCompare("antialias",option+1) == 0)
@@ -514,6 +517,27 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
               ThrowIdentifyException(OptionError,"MissingArgument",option);
             if (IsGeometry(argv[i]) == MagickFalse)
               ThrowIdentifyInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        ThrowIdentifyException(OptionError,"UnrecognizedOption",option)
+      }
+      case '3':
+      {
+        if (LocaleCompare("endian",option+1) == 0)
+          {
+            ssize_t
+              endian;
+
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowIdentifyException(OptionError,"MissingArgument",option);
+            endian=ParseCommandOption(MagickEndianOptions,MagickFalse,
+              argv[i]);
+            if (endian < 0)
+              ThrowIdentifyException(OptionError,"UnrecognizedEndianType",
+                argv[i]);
             break;
           }
         ThrowIdentifyException(OptionError,"UnrecognizedOption",option)
@@ -678,6 +702,15 @@ WandExport MagickBooleanType IdentifyImageCommand(ImageInfo *image_info,
       }
       case 'm':
       {
+        if (LocaleCompare("mask",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowIdentifyException(OptionError,"MissingArgument",option);
+            break;
+          }
         if (LocaleCompare("matte",option+1) == 0)
           break;
         if (LocaleCompare("monitor",option+1) == 0)

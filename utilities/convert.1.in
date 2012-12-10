@@ -42,6 +42,7 @@ Image Settings:
   \-encoding type       text encoding type
   \-endian type         endianness (MSB or LSB) of the image
   \-family name         render text with this font family
+  \-features distance   analyze image features (e.g. contrast, correlation)
   \-fill color          color to use when filling a graphic primitive
   \-filter type         use this filter when resizing an image
   \-flatten             flatten a sequence of images
@@ -116,6 +117,7 @@ Image Operators:
   \-border geometry     surround image with a border of color
   \-charcoal radius     simulate a charcoal drawing
   \-chop geometry       remove pixels from the image interior
+  \-clamp               keep pixel values in range (0-QuantumRange)
   \-clip                clip along the first path from the 8BIM profile
   \-clip-mask filename  associate a clip mask with the image
   \-clip-path id        clip along a named path from the 8BIM profile
@@ -171,6 +173,8 @@ Image Operators:
   \-ordered-dither NxN
                        add a noise pattern to the image with specific amplitudes
   \-paint radius        simulate an oil painting
+  \-perceptible epsilon
+                       pixel value less than |epsilon| become epsilon or -epsilon
   \-polaroid angle      simulate a Polaroid picture
   \-posterize levels    reduce the image to a limited number of color levels
   \-print string        interpret string and print to console
@@ -249,7 +253,8 @@ Image Sequence Operators:
   \-fx expression       apply mathematical expression to an image channel(s)
   \-hald-clut           apply a Hald color lookup table to the image
   \-morph value         morph an image sequence
-  \-mosaic              create a mosaic from an image sequence
+  \- osaic              create a mosaic from an image sequence
+  \-poly terms          build a polynomial from the image sequence and the corresponding terms (coefficients and degree pairs)
   \-process arguments   process the image with a custom image filter
   \-separate            separate an image channel into a grayscale image
   \-smush geometry      smush an image sequence together
@@ -277,4 +282,4 @@ By default, the image format of `file' is determined by its magic number.  To sp
 ImageMagick(1)
 
 .SH COPYRIGHT
-\fBCopyright (C) 1999-2012 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2013 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP

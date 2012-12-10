@@ -19,7 +19,7 @@
 %                               December 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -44,6 +44,7 @@
 #include "MagickCore/studio.h"
 #include "MagickCore/annotate.h"
 #include "MagickCore/artifact.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/cache.h"
@@ -744,10 +745,10 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 }
               }
             }
-          channel_mask=SetPixelChannelMask(msl_info->image[n],channel);
+          channel_mask=SetImageChannelMask(msl_info->image[n],channel);
           noise_image=AddNoiseImage(msl_info->image[n],noise,1.0,
             msl_info->exception);
-          (void) SetPixelChannelMapMask(msl_info->image[n],channel_mask);
+          (void) SetPixelChannelMask(msl_info->image[n],channel_mask);
           if (noise_image == (Image *) NULL)
             break;
           msl_info->image[n]=DestroyImage(msl_info->image[n]);
@@ -1239,10 +1240,10 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 }
               }
             }
-          channel_mask=SetPixelChannelMask(msl_info->image[n],channel);
+          channel_mask=SetImageChannelMask(msl_info->image[n],channel);
           blur_image=BlurImage(msl_info->image[n],geometry_info.rho,
             geometry_info.sigma,msl_info->exception);
-          (void) SetPixelChannelMapMask(msl_info->image[n],channel_mask);
+          (void) SetPixelChannelMask(msl_info->image[n],channel_mask);
           if (blur_image == (Image *) NULL)
             break;
           msl_info->image[n]=DestroyImage(msl_info->image[n]);
@@ -1951,7 +1952,7 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                         }
                       (void) SetImageArtifact(msl_info->image[n],
                                             "compose:args",value);
-                      if (composite_image->matte != MagickTrue)
+                      if (composite_image->alpha_trait == UndefinedPixelTrait)
                         (void) SetImageAlpha(composite_image,OpaqueAlpha,
                           &exception);
                       composite_view=AcquireAuthenticCacheView(composite_image,
@@ -2071,7 +2072,7 @@ static void MSLStartElement(void *context,const xmlChar *tag,
             geometry.y);
           flags=ParseGravityGeometry(image,composite_geometry,&geometry,
             &exception);
-          channel_mask=SetPixelChannelMask(image,channel);
+          channel_mask=SetImageChannelMask(image,channel);
           if (rotate_image == (Image *) NULL)
             CompositeImage(image,composite_image,compose,MagickTrue,geometry.x,
               geometry.y,&exception);
@@ -2088,7 +2089,7 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 geometry.y,&exception);
               rotate_image=DestroyImage(rotate_image);
             }
-          (void) SetPixelChannelMask(image,channel_mask);
+          (void) SetImageChannelMask(image,channel_mask);
           composite_image=DestroyImage(composite_image);
           break;
         }
@@ -3783,11 +3784,11 @@ static void MSLStartElement(void *context,const xmlChar *tag,
           draw_info=CloneDrawInfo(msl_info->image_info[n],
             msl_info->draw_info[n]);
           draw_info->fill.alpha=ClampToQuantum(opacity);
-          channel_mask=SetPixelChannelMask(msl_info->image[n],AlphaChannel);
+          channel_mask=SetImageChannelMask(msl_info->image[n],AlphaChannel);
           (void) FloodfillPaintImage(msl_info->image[n],draw_info,&target,
             geometry.x,geometry.y,paint_method == FloodfillMethod ?
             MagickFalse : MagickTrue,msl_info->exception);
-          (void) SetPixelChannelMapMask(msl_info->image[n],channel_mask);
+          (void) SetPixelChannelMask(msl_info->image[n],channel_mask);
           draw_info=DestroyDrawInfo(draw_info);
           break;
         }
@@ -4088,10 +4089,10 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 }
               }
             }
-          channel_mask=SetPixelChannelMask(msl_info->image[n],channel);
+          channel_mask=SetImageChannelMask(msl_info->image[n],channel);
           (void) NegateImage(msl_info->image[n],gray,
             msl_info->exception);
-          (void) SetPixelChannelMapMask(msl_info->image[n],channel_mask);
+          (void) SetPixelChannelMask(msl_info->image[n],channel_mask);
           break;
         }
       if (LocaleCompare((const char *) tag,"normalize") == 0)
@@ -4287,10 +4288,10 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 }
               }
             }
-          channel_mask=SetPixelChannelMask(msl_info->image[n],channel);
+          channel_mask=SetImageChannelMask(msl_info->image[n],channel);
           (void) OpaquePaintImage(msl_info->image[n],&target,&fill_color,
             MagickFalse,msl_info->exception);
-          (void) SetPixelChannelMapMask(msl_info->image[n],channel_mask);
+          (void) SetPixelChannelMask(msl_info->image[n],channel_mask);
           break;
         }
       ThrowMSLException(OptionError,"UnrecognizedElement",(const char *) tag);
@@ -4360,7 +4361,7 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                 msl_info->attributes[n],(const char *) attributes[i],
                 &exception);
               CloneString(&value,attribute);
-              if (*keyword == '+')
+              if (*keyword == '!')
                 {
                   /*
                     Remove a profile from the image.
@@ -6875,6 +6876,30 @@ static void MSLStartElement(void *context,const xmlChar *tag,
         } else
           ThrowMSLException(OptionError,"Missing stereo image",keyword);
       }
+      if (LocaleCompare((const char *) tag,"strip") == 0)
+        {
+          /*
+            Strip image.
+          */
+          if (msl_info->image[n] == (Image *) NULL)
+            {
+              ThrowMSLException(OptionError,"NoImagesDefined",
+                (const char *) tag);
+              break;
+            }
+          if (attributes != (const xmlChar **) NULL)
+            for (i=0; (attributes[i] != (const xmlChar *) NULL); i++)
+            {
+              keyword=(const char *) attributes[i++];
+              attribute=InterpretImageProperties(msl_info->image_info[n],
+                msl_info->attributes[n],(const char *) attributes[i],
+                &exception);
+              CloneString(&value,attribute);
+              ThrowMSLException(OptionError,"UnrecognizedAttribute",keyword);
+            }
+          (void) StripImage(msl_info->image[n],msl_info->exception);
+          break;
+        }
       if (LocaleCompare((const char *) tag,"swap") == 0)
         {
           Image
@@ -7646,8 +7671,8 @@ static void MSLExternalSubset(void *context,const xmlChar *name,
 }
 #endif
 
-static MagickBooleanType ProcessMSLScript(const ImageInfo *image_info,Image **image,
-  ExceptionInfo *exception)
+static MagickBooleanType ProcessMSLScript(const ImageInfo *image_info,
+  Image **image,ExceptionInfo *exception)
 {
   char
     message[MaxTextExtent];
@@ -7924,11 +7949,11 @@ static MagickBooleanType SetMSLAttributes(MSLInfo *msl_info,const char *keyword,
           ssize_t
             alpha;
 
-          alpha=ParseCommandOption(MagickAlphaOptions,MagickFalse,value);
+          alpha=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,value);
           if (alpha < 0)
             ThrowMSLException(OptionError,"UnrecognizedType",value);
           if (image != (Image *) NULL)
-            (void) SetImageAlphaChannel(image,(AlphaChannelType) alpha,
+            (void) SetImageAlphaChannel(image,(AlphaChannelOption) alpha,
               exception);
           break;
         }

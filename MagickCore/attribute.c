@@ -17,7 +17,7 @@
 %                                October 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,6 +41,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/artifact.h"
 #include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
@@ -73,6 +74,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
+#include "MagickCore/option.h"
 #include "MagickCore/paint.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/pixel-accessor.h"
@@ -291,7 +293,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   current_depth=(size_t *) AcquireQuantumMemory(number_threads,
     sizeof(*current_depth));
   if (current_depth == (size_t *) NULL)
@@ -299,13 +301,13 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
   status=MagickTrue;
   for (id=0; id < (ssize_t) number_threads; id++)
     current_depth[id]=1;
-  if ((image->storage_class == PseudoClass) && (image->matte == MagickFalse))
+  if ((image->storage_class == PseudoClass) && (image->alpha_trait != BlendPixelTrait))
     {
       register ssize_t
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(status) \
+      #pragma omp parallel for schedule(static,4) shared(status) \
         if ((image->colors) > 256) \
           num_threads(GetMagickResourceLimit(ThreadResource))
 #endif
@@ -424,8 +426,8 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
             PixelTrait
               traits;
 
-            channel=GetPixelChannelMapChannel(image,i);
-            traits=GetPixelChannelMapTraits(image,channel);
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (channel == IndexPixelChannel) || (channel == MaskPixelChannel))
               continue;
@@ -488,8 +490,8 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits == UndefinedPixelTrait) || (channel == IndexPixelChannel) ||
             (channel == MaskPixelChannel))
           continue;
@@ -616,7 +618,7 @@ MagickExport ImageType GetImageType(const Image *image,ExceptionInfo *exception)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (image->colorspace == CMYKColorspace)
     {
-      if (image->matte == MagickFalse)
+      if (image->alpha_trait != BlendPixelTrait)
         return(ColorSeparationType);
       return(ColorSeparationMatteType);
     }
@@ -624,17 +626,17 @@ MagickExport ImageType GetImageType(const Image *image,ExceptionInfo *exception)
     return(BilevelType);
   if (IsImageGray(image,exception) != MagickFalse)
     {
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         return(GrayscaleMatteType);
       return(GrayscaleType);
     }
   if (IsPaletteImage(image,exception) != MagickFalse)
     {
-      if (image->matte != MagickFalse)
+      if (image->alpha_trait == BlendPixelTrait)
         return(PaletteMatteType);
       return(PaletteType);
     }
-  if (image->matte != MagickFalse)
+  if (image->alpha_trait == BlendPixelTrait)
     return(TrueColorMatteType);
   return(TrueColorType);
 }
@@ -719,7 +721,7 @@ MagickExport MagickBooleanType IsImageGray(const Image *image,
   if (type == UndefinedType)
     return(MagickFalse);
   ((Image *) image)->type=type;
-  if ((type == GrayscaleType) && (image->matte != MagickFalse))
+  if ((type == GrayscaleType) && (image->alpha_trait == BlendPixelTrait))
     ((Image *) image)->type=GrayscaleMatteType;
   return(MagickTrue);
 }
@@ -854,7 +856,7 @@ MagickExport MagickBooleanType IsImageOpaque(const Image *image,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if (image->matte == MagickFalse)
+  if (image->alpha_trait != BlendPixelTrait)
     return(MagickTrue);
   image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -925,7 +927,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
   assert(image->signature == MagickSignature);
   if (depth >= MAGICKCORE_QUANTUM_DEPTH)
     {
-      image->depth=MAGICKCORE_QUANTUM_DEPTH;
+      image->depth=depth;
       return(MagickTrue);
     }
   range=GetQuantumRange(depth);
@@ -935,7 +937,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(status) \
+      #pragma omp parallel for schedule(static,4) shared(status) \
         dynamic_number_threads(image,image->columns,1,1)
 #endif
       for (i=0; i < (ssize_t) image->colors; i++)
@@ -1013,8 +1015,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
             PixelTrait
               traits;
 
-            channel=GetPixelChannelMapChannel(image,i);
-            traits=GetPixelChannelMapTraits(image,channel);
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (channel == IndexPixelChannel) || (channel == MaskPixelChannel))
               continue;
@@ -1076,8 +1078,8 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
         PixelTrait
           traits;
 
-        channel=GetPixelChannelMapChannel(image,i);
-        traits=GetPixelChannelMapTraits(image,channel);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if ((traits == UndefinedPixelTrait) || (channel == IndexPixelChannel) ||
             (channel == MaskPixelChannel))
           continue;
@@ -1094,5 +1096,190 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
   image_view=DestroyCacheView(image_view);
   if (status != MagickFalse)
     image->depth=depth;
+  return(status);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   S e t I m a g e T y p e                                                   %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  SetImageType() sets the type of image.  Choose from these types:
+%
+%        Bilevel        Grayscale       GrayscaleMatte
+%        Palette        PaletteMatte    TrueColor
+%        TrueColorMatte ColorSeparation ColorSeparationMatte
+%        OptimizeType
+%
+%  The format of the SetImageType method is:
+%
+%      MagickBooleanType SetImageType(Image *image,const ImageType type,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o type: Image type.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType SetImageType(Image *image,const ImageType type,
+  ExceptionInfo *exception)
+{
+  const char
+    *artifact;
+
+  ImageInfo
+    *image_info;
+
+  MagickBooleanType
+    status;
+
+  QuantizeInfo
+    *quantize_info;
+
+  assert(image != (Image *) NULL);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
+  assert(image->signature == MagickSignature);
+  status=MagickTrue;
+  image_info=AcquireImageInfo();
+  image_info->dither=image->dither;
+  artifact=GetImageArtifact(image,"dither");
+  if (artifact != (const char *) NULL)
+    (void) SetImageOption(image_info,"dither",artifact);
+  switch (type)
+  {
+    case BilevelType:
+    {
+      if (IsImageMonochrome(image,exception) == MagickFalse)
+        {
+          quantize_info=AcquireQuantizeInfo(image_info);
+          quantize_info->number_colors=2;
+          quantize_info->colorspace=GRAYColorspace;
+          status=QuantizeImage(quantize_info,image,exception);
+          quantize_info=DestroyQuantizeInfo(quantize_info);
+        }
+      image->alpha_trait=UndefinedPixelTrait;
+      break;
+    }
+    case GrayscaleType:
+    {
+      if (IsImageGray(image,exception) == MagickFalse)
+        status=TransformImageColorspace(image,GRAYColorspace,exception);
+      image->alpha_trait=UndefinedPixelTrait;
+      break;
+    }
+    case GrayscaleMatteType:
+    {
+      if (IsImageGray(image,exception) == MagickFalse)
+        status=TransformImageColorspace(image,GRAYColorspace,exception);
+      if (image->alpha_trait != BlendPixelTrait)
+        (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      break;
+    }
+    case PaletteType:
+    {
+      if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+        status=TransformImageColorspace(image,sRGBColorspace,exception);
+      if ((image->storage_class == DirectClass) || (image->colors > 256))
+        {
+          quantize_info=AcquireQuantizeInfo(image_info);
+          quantize_info->number_colors=256;
+          status=QuantizeImage(quantize_info,image,exception);
+          quantize_info=DestroyQuantizeInfo(quantize_info);
+        }
+      image->alpha_trait=UndefinedPixelTrait;
+      break;
+    }
+    case PaletteBilevelMatteType:
+    {
+      ChannelType
+        channel_mask;
+
+      if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+        status=TransformImageColorspace(image,sRGBColorspace,exception);
+      if (image->alpha_trait != BlendPixelTrait)
+        (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      channel_mask=SetImageChannelMask(image,AlphaChannel);
+      (void) BilevelImage(image,(double) QuantumRange/2.0,exception);
+      (void) SetImageChannelMask(image,channel_mask);
+      quantize_info=AcquireQuantizeInfo(image_info);
+      status=QuantizeImage(quantize_info,image,exception);
+      quantize_info=DestroyQuantizeInfo(quantize_info);
+      break;
+    }
+    case PaletteMatteType:
+    {
+      if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+        status=TransformImageColorspace(image,sRGBColorspace,exception);
+      if (image->alpha_trait != BlendPixelTrait)
+        (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      quantize_info=AcquireQuantizeInfo(image_info);
+      quantize_info->colorspace=TransparentColorspace;
+      status=QuantizeImage(quantize_info,image,exception);
+      quantize_info=DestroyQuantizeInfo(quantize_info);
+      break;
+    }
+    case TrueColorType:
+    {
+      if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+        status=TransformImageColorspace(image,sRGBColorspace,exception);
+      if (image->storage_class != DirectClass)
+        status=SetImageStorageClass(image,DirectClass,exception);
+      image->alpha_trait=UndefinedPixelTrait;
+      break;
+    }
+    case TrueColorMatteType:
+    {
+      if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+        status=TransformImageColorspace(image,sRGBColorspace,exception);
+      if (image->storage_class != DirectClass)
+        status=SetImageStorageClass(image,DirectClass,exception);
+      if (image->alpha_trait != BlendPixelTrait)
+        (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      break;
+    }
+    case ColorSeparationType:
+    {
+      if (image->colorspace != CMYKColorspace)
+        {
+          if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+            status=TransformImageColorspace(image,sRGBColorspace,exception);
+          status=TransformImageColorspace(image,CMYKColorspace,exception);
+        }
+      if (image->storage_class != DirectClass)
+        status=SetImageStorageClass(image,DirectClass,exception);
+      image->alpha_trait=UndefinedPixelTrait;
+      break;
+    }
+    case ColorSeparationMatteType:
+    {
+      if (image->colorspace != CMYKColorspace)
+        {
+          if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
+            status=TransformImageColorspace(image,sRGBColorspace,exception);
+          status=TransformImageColorspace(image,CMYKColorspace,exception);
+        }
+      if (image->storage_class != DirectClass)
+        status=SetImageStorageClass(image,DirectClass,exception);
+      if (image->alpha_trait != BlendPixelTrait)
+        status=SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
+      break;
+    }
+    case OptimizeType:
+    case UndefinedType:
+      break;
+  }
+  image->type=type;
+  image_info=DestroyImageInfo(image_info);
   return(status);
 }

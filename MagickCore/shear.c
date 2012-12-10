@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -95,8 +95,8 @@
 %  The format of the CropToFitImage method is:
 %
 %      MagickBooleanType CropToFitImage(Image **image,
-%        const MagickRealType x_shear,const MagickRealType x_shear,
-%        const MagickRealType width,const MagickRealType height,
+%        const double x_shear,const double x_shear,
+%        const double width,const double height,
 %        const MagickBooleanType rotate,ExceptionInfo *exception)
 %
 %  A description of each parameter follows.
@@ -109,8 +109,8 @@
 %
 */
 static MagickBooleanType CropToFitImage(Image **image,
-  const MagickRealType x_shear,const MagickRealType y_shear,
-  const MagickRealType width,const MagickRealType height,
+  const double x_shear,const double y_shear,
+  const double width,const double height,
   const MagickBooleanType rotate,ExceptionInfo *exception)
 {
   Image
@@ -683,7 +683,7 @@ static MagickBooleanType RadonTransform(const Image *image,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       byte<<=1;
-      if ((double) GetPixelIntensity(image,p) < threshold)
+      if (GetPixelIntensity(image,p) < threshold)
         byte|=0x01;
       bit++;
       if (bit == 8)
@@ -733,7 +733,7 @@ static MagickBooleanType RadonTransform(const Image *image,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       byte<<=1;
-      if ((double) GetPixelIntensity(image,p) < threshold)
+      if (GetPixelIntensity(image,p) < threshold)
         byte|=0x01;
       bit++;
       if (bit == 8)
@@ -766,7 +766,7 @@ static void GetImageBackgroundColor(Image *image,const ssize_t offset,
   PixelInfo
     background;
 
-  MagickRealType
+  double
     count;
 
   ssize_t
@@ -807,15 +807,15 @@ static void GetImageBackgroundColor(Image *image,const ssize_t offset,
     }
   }
   image_view=DestroyCacheView(image_view);
-  image->background_color.red=(double) ClampToQuantum((MagickRealType)
-    QuantumRange*background.red/count);
-  image->background_color.green=(double) ClampToQuantum((MagickRealType)
-    QuantumRange*background.green/count);
-  image->background_color.blue=(double) ClampToQuantum((MagickRealType)
-    QuantumRange*background.blue/count);
+  image->background_color.red=(double) ClampToQuantum(QuantumRange*
+    background.red/count);
+  image->background_color.green=(double) ClampToQuantum(QuantumRange*
+    background.green/count);
+  image->background_color.blue=(double) ClampToQuantum(QuantumRange*
+    background.blue/count);
   if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
-    image->background_color.alpha=(double) ClampToQuantum((MagickRealType)
-      QuantumRange*background.alpha/count);
+    image->background_color.alpha=(double) ClampToQuantum(QuantumRange*
+      background.alpha/count);
 }
 
 MagickExport Image *DeskewImage(const Image *image,const double threshold,
@@ -1025,7 +1025,8 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
         Rotate 90 degrees.
       */
       GetPixelCacheTileSize(image,&tile_width,&tile_height);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
+      tile_width=image->columns;
+#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
       #pragma omp parallel for schedule(static,4) shared(progress,status) \
         dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
@@ -1107,9 +1108,9 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
                   rotate_traits,
                   traits;
 
-                channel=GetPixelChannelMapChannel(image,i);
-                traits=GetPixelChannelMapTraits(image,channel);
-                rotate_traits=GetPixelChannelMapTraits(rotate_image,channel);
+                channel=GetPixelChannelChannel(image,i);
+                traits=GetPixelChannelTraits(image,channel);
+                rotate_traits=GetPixelChannelTraits(rotate_image,channel);
                 if ((traits == UndefinedPixelTrait) ||
                     (rotate_traits == UndefinedPixelTrait))
                   continue;
@@ -1128,7 +1129,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
+#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
             #pragma omp critical (MagickCore_IntegralRotateImage)
 #endif
             proceed=SetImageProgress(image,RotateImageTag,progress+=tile_height,
@@ -1150,10 +1151,6 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
       /*
         Rotate 180 degrees.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-      #pragma omp parallel for schedule(static) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
         MagickBooleanType
@@ -1199,9 +1196,9 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
               rotate_traits,
               traits;
 
-            channel=GetPixelChannelMapChannel(image,i);
-            traits=GetPixelChannelMapTraits(image,channel);
-            rotate_traits=GetPixelChannelMapTraits(rotate_image,channel);
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
+            rotate_traits=GetPixelChannelTraits(rotate_image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (rotate_traits == UndefinedPixelTrait))
               continue;
@@ -1217,9 +1214,6 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_IntegralRotateImage)
-#endif
             proceed=SetImageProgress(image,RotateImageTag,progress++,
               image->rows);
             if (proceed == MagickFalse)
@@ -1247,7 +1241,8 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
         Rotate 270 degrees.
       */
       GetPixelCacheTileSize(image,&tile_width,&tile_height);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
+      tile_width=image->columns;
+#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
       #pragma omp parallel for schedule(static,4) shared(progress,status) \
         dynamic_number_threads(image,image->columns,image->rows,1)
 #endif
@@ -1328,9 +1323,9 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
                   rotate_traits,
                   traits;
 
-                channel=GetPixelChannelMapChannel(image,i);
-                traits=GetPixelChannelMapTraits(image,channel);
-                rotate_traits=GetPixelChannelMapTraits(rotate_image,channel);
+                channel=GetPixelChannelChannel(image,i);
+                traits=GetPixelChannelTraits(image,channel);
+                rotate_traits=GetPixelChannelTraits(rotate_image,channel);
                 if ((traits == UndefinedPixelTrait) ||
                     (rotate_traits == UndefinedPixelTrait))
                   continue;
@@ -1339,6 +1334,9 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
               tile_pixels+=width*GetPixelChannels(image);
               q+=GetPixelChannels(rotate_image);
             }
+#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
+            #pragma omp critical (MagickCore_IntegralRotateImage)
+#endif
             sync=SyncCacheViewAuthenticPixels(rotate_view,exception);
             if (sync == MagickFalse)
               status=MagickFalse;
@@ -1349,9 +1347,6 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_IntegralRotateImage)
-#endif
             proceed=SetImageProgress(image,RotateImageTag,progress+=tile_height,
               image->rows);
             if (proceed == MagickFalse)
@@ -1395,7 +1390,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
 %
 %  The format of the XShearImage method is:
 %
-%      MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
+%      MagickBooleanType XShearImage(Image *image,const double degrees,
 %        const size_t width,const size_t height,
 %        const ssize_t x_offset,const ssize_t y_offset,ExceptionInfo *exception)
 %
@@ -1403,7 +1398,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
 %
 %    o image: the image.
 %
-%    o degrees: A MagickRealType representing the shearing angle along the X
+%    o degrees: A double representing the shearing angle along the X
 %      axis.
 %
 %    o width, height, x_offset, y_offset: Defines a region of the image
@@ -1412,7 +1407,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
+static MagickBooleanType XShearImage(Image *image,const double degrees,
   const size_t width,const size_t height,const ssize_t x_offset,
   const ssize_t y_offset,ExceptionInfo *exception)
 {
@@ -1461,7 +1456,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
       source,
       destination;
 
-    MagickRealType
+    double
       area,
       displacement;
 
@@ -1488,7 +1483,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
         continue;
       }
     p+=x_offset*GetPixelChannels(image);
-    displacement=degrees*(MagickRealType) (y-height/2.0);
+    displacement=degrees*(double) (y-height/2.0);
     if (displacement == 0.0)
       continue;
     if (displacement > 0.0)
@@ -1499,7 +1494,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
         direction=LEFT;
       }
     step=(ssize_t) floor((double) displacement);
-    area=(MagickRealType) (displacement-step);
+    area=(double) (displacement-step);
     step++;
     pixel=background;
     GetPixelInfo(image,&source);
@@ -1524,15 +1519,15 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
               continue;
             }
           GetPixelInfoPixel(image,p,&source);
-          CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-            &source,(MagickRealType) GetPixelAlpha(image,p),area,&destination);
+          CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+            &source,(double) GetPixelAlpha(image,p),area,&destination);
           SetPixelInfoPixel(image,&destination,q);
           GetPixelInfoPixel(image,p,&pixel);
           p+=GetPixelChannels(image);
           q+=GetPixelChannels(image);
         }
-        CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-          &background,(MagickRealType) background.alpha,area,&destination);
+        CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+          &background,(double) background.alpha,area,&destination);
         SetPixelInfoPixel(image,&destination,q);
         q+=GetPixelChannels(image);
         for (i=0; i < (step-1); i++)
@@ -1556,13 +1551,13 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
           if ((size_t) (x_offset+width+step-i) >= image->columns)
             continue;
           GetPixelInfoPixel(image,p,&source);
-          CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-            &source,(MagickRealType) GetPixelAlpha(image,p),area,&destination);
+          CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+            &source,(double) GetPixelAlpha(image,p),area,&destination);
           SetPixelInfoPixel(image,&destination,q);
           GetPixelInfoPixel(image,p,&pixel);
         }
-        CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-          &background,(MagickRealType) background.alpha,area,&destination);
+        CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+          &background,(double) background.alpha,area,&destination);
         q-=GetPixelChannels(image);
         SetPixelInfoPixel(image,&destination,q);
         for (i=0; i < (step-1); i++)
@@ -1611,7 +1606,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
 %
 %  The format of the YShearImage method is:
 %
-%      MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
+%      MagickBooleanType YShearImage(Image *image,const double degrees,
 %        const size_t width,const size_t height,
 %        const ssize_t x_offset,const ssize_t y_offset,ExceptionInfo *exception)
 %
@@ -1619,7 +1614,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
 %
 %    o image: the image.
 %
-%    o degrees: A MagickRealType representing the shearing angle along the Y
+%    o degrees: A double representing the shearing angle along the Y
 %      axis.
 %
 %    o width, height, x_offset, y_offset: Defines a region of the image
@@ -1628,7 +1623,7 @@ static MagickBooleanType XShearImage(Image *image,const MagickRealType degrees,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
+static MagickBooleanType YShearImage(Image *image,const double degrees,
   const size_t width,const size_t height,const ssize_t x_offset,
   const ssize_t y_offset,ExceptionInfo *exception)
 {
@@ -1675,7 +1670,7 @@ static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
     ssize_t
       step;
 
-    MagickRealType
+    double
       area,
       displacement;
 
@@ -1704,7 +1699,7 @@ static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
         continue;
       }
     p+=y_offset*GetPixelChannels(image);
-    displacement=degrees*(MagickRealType) (x-width/2.0);
+    displacement=degrees*(double) (x-width/2.0);
     if (displacement == 0.0)
       continue;
     if (displacement > 0.0)
@@ -1715,7 +1710,7 @@ static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
         direction=UP;
       }
     step=(ssize_t) floor((double) displacement);
-    area=(MagickRealType) (displacement-step);
+    area=(double) (displacement-step);
     step++;
     pixel=background;
     GetPixelInfo(image,&source);
@@ -1740,16 +1735,16 @@ static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
               continue;
             }
           GetPixelInfoPixel(image,p,&source);
-          CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-            &source,(MagickRealType) GetPixelAlpha(image,p),area,
+          CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+            &source,(double) GetPixelAlpha(image,p),area,
             &destination);
           SetPixelInfoPixel(image,&destination,q);
           GetPixelInfoPixel(image,p,&pixel);
           p+=GetPixelChannels(image);
           q+=GetPixelChannels(image);
         }
-        CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-          &background,(MagickRealType) background.alpha,area,&destination);
+        CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+          &background,(double) background.alpha,area,&destination);
         SetPixelInfoPixel(image,&destination,q);
         q+=GetPixelChannels(image);
         for (i=0; i < (step-1); i++)
@@ -1773,14 +1768,14 @@ static MagickBooleanType YShearImage(Image *image,const MagickRealType degrees,
           if ((size_t) (y_offset+height+step-i) >= image->rows)
             continue;
           GetPixelInfoPixel(image,p,&source);
-          CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-            &source,(MagickRealType) GetPixelAlpha(image,p),area,
+          CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+            &source,(double) GetPixelAlpha(image,p),area,
             &destination);
           SetPixelInfoPixel(image,&destination,q);
           GetPixelInfoPixel(image,p,&pixel);
         }
-        CompositePixelInfoAreaBlend(&pixel,(MagickRealType) pixel.alpha,
-          &background,(MagickRealType) background.alpha,area,&destination);
+        CompositePixelInfoAreaBlend(&pixel,(double) pixel.alpha,
+          &background,(double) background.alpha,area,&destination);
         q-=GetPixelChannels(image);
         SetPixelInfoPixel(image,&destination,q);
         for (i=0; i < (step-1); i++)
@@ -1897,7 +1892,7 @@ MagickExport Image *ShearImage(const Image *image,const double x_shear,
       integral_image=DestroyImage(integral_image);
       return(integral_image);
     }
-  if (integral_image->matte == MagickFalse)
+  if (integral_image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(integral_image,OpaqueAlphaChannel,exception);
   /*
     Compute image size.
@@ -1921,7 +1916,7 @@ MagickExport Image *ShearImage(const Image *image,const double x_shear,
   /*
     Shear the image.
   */
-  if (shear_image->matte == MagickFalse)
+  if (shear_image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(shear_image,OpaqueAlphaChannel,exception);
   status=XShearImage(shear_image,shear.x,image->columns,image->rows,x_offset,
     (ssize_t) (shear_image->rows-image->rows)/2,exception);
@@ -1937,8 +1932,8 @@ MagickExport Image *ShearImage(const Image *image,const double x_shear,
       shear_image=DestroyImage(shear_image);
       return((Image *) NULL);
     }
-  status=CropToFitImage(&shear_image,shear.x,shear.y,(MagickRealType)
-    image->columns,(MagickRealType) image->rows,MagickFalse,exception);
+  status=CropToFitImage(&shear_image,shear.x,shear.y,(double)
+    image->columns,(double) image->rows,MagickFalse,exception);
   if (status == MagickFalse)
     {
       shear_image=DestroyImage(shear_image);
@@ -1999,7 +1994,7 @@ MagickExport Image *ShearRotateImage(const Image *image,const double degrees,
   MagickBooleanType
     status;
 
-  MagickRealType
+  double
     angle;
 
   PointInfo
@@ -2048,7 +2043,7 @@ MagickExport Image *ShearRotateImage(const Image *image,const double degrees,
       integral_image=DestroyImage(integral_image);
       return(integral_image);
     }
-  if (integral_image->matte == MagickFalse)
+  if (integral_image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(integral_image,OpaqueAlphaChannel,exception);
   /*
     Compute image size.
@@ -2101,8 +2096,8 @@ MagickExport Image *ShearRotateImage(const Image *image,const double degrees,
       rotate_image=DestroyImage(rotate_image);
       return((Image *) NULL);
     }
-  status=CropToFitImage(&rotate_image,shear.x,shear.y,(MagickRealType) width,
-    (MagickRealType) height,MagickTrue,exception);
+  status=CropToFitImage(&rotate_image,shear.x,shear.y,(double) width,
+    (double) height,MagickTrue,exception);
   if (status == MagickFalse)
     {
       rotate_image=DestroyImage(rotate_image);

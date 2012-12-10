@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
@@ -24,13 +24,13 @@ extern "C" {
 
 extern MagickExport Image
   *ChannelFxImage(const Image *,const char *,ExceptionInfo *),
-  *CombineImages(const Image *,ExceptionInfo *),
+  *CombineImages(const Image *,const ColorspaceType,ExceptionInfo *),
   *SeparateImage(const Image *,const ChannelType,ExceptionInfo *),
   *SeparateImages(const Image *,ExceptionInfo *);
 
 extern MagickExport MagickBooleanType
   GetImageAlphaChannel(const Image *),
-  SetImageAlphaChannel(Image *,const AlphaChannelType,ExceptionInfo *);
+  SetImageAlphaChannel(Image *,const AlphaChannelOption,ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

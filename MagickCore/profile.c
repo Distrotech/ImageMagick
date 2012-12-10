@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -377,7 +377,7 @@ static unsigned short **AcquirePixelThreadSet(const size_t columns,
   size_t
     number_threads;
 
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   pixels=(unsigned short **) AcquireQuantumMemory(number_threads,
     sizeof(*pixels));
   if (pixels == (unsigned short **) NULL)
@@ -420,7 +420,7 @@ static cmsHTRANSFORM *AcquireTransformThreadSet(Image *image,
   size_t
     number_threads;
 
-  number_threads=GetOpenMPMaximumThreads();
+  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
   transform=(cmsHTRANSFORM *) AcquireQuantumMemory(number_threads,
     sizeof(*transform));
   if (transform == (cmsHTRANSFORM *) NULL)
@@ -806,11 +806,10 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               ThrowProfileException(ImageError,"ColorspaceColorProfileMismatch",
                 name);
              if ((source_colorspace != CMYKColorspace) &&
-                 (source_colorspace != GRAYColorspace) &&
                  (source_colorspace != LabColorspace) &&
                  (source_colorspace != XYZColorspace) &&
                  (source_colorspace != YCbCrColorspace) &&
-                 (IssRGBColorspace(image->colorspace) == MagickFalse))
+                 (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse))
               ThrowProfileException(ImageError,"ColorspaceColorProfileMismatch",
                 name);
             switch (image->rendering_intent)
@@ -950,19 +949,19 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
             {
               case cmsSigRgbData:
               {
-                image->type=image->matte == MagickFalse ? TrueColorType :
+                image->type=image->alpha_trait != BlendPixelTrait ? TrueColorType :
                   TrueColorMatteType;
                 break;
               }
               case cmsSigCmykData:
               {
-                image->type=image->matte == MagickFalse ? ColorSeparationType :
+                image->type=image->alpha_trait != BlendPixelTrait ? ColorSeparationType :
                   ColorSeparationMatteType;
                 break;
               }
               case cmsSigGrayData:
               {
-                image->type=image->matte == MagickFalse ? GrayscaleType :
+                image->type=image->alpha_trait != BlendPixelTrait ? GrayscaleType :
                   GrayscaleMatteType;
                 break;
               }
@@ -1331,13 +1330,13 @@ static inline unsigned short ReadProfileShort(const EndianType endian,
   unsigned short
     value;
 
-  if (endian == MSBEndian)
+  if (endian == LSBEndian)
     {
-      value=(unsigned short) ((((unsigned char *) buffer)[0] << 8) |
-        ((unsigned char *) buffer)[1]);
+      value=(unsigned short) ((buffer[1] << 8) | buffer[0]);
       return((unsigned short) (value & 0xffff));
     }
-  value=(unsigned short) ((buffer[1] << 8) | buffer[0]);
+  value=(unsigned short) ((((unsigned char *) buffer)[0] << 8) |
+    ((unsigned char *) buffer)[1]);
   return((unsigned short) (value & 0xffff));
 }
 
@@ -1347,14 +1346,14 @@ static inline size_t ReadProfileLong(const EndianType endian,
   size_t
     value;
 
-  if (endian == MSBEndian)
+  if (endian == LSBEndian)
     {
-      value=(size_t) ((buffer[0] << 24) | (buffer[1] << 16) |
-        (buffer[2] << 8) | buffer[3]);
+      value=(size_t) ((buffer[3] << 24) | (buffer[2] << 16) |
+        (buffer[1] << 8 ) | (buffer[0]));
       return((size_t) (value & 0xffffffff));
     }
-  value=(size_t) ((buffer[3] << 24) | (buffer[2] << 16) |
-    (buffer[1] << 8 ) | (buffer[0]));
+  value=(size_t) ((buffer[0] << 24) | (buffer[1] << 16) |
+    (buffer[2] << 8) | buffer[3]);
   return((size_t) (value & 0xffffffff));
 }
 
@@ -1364,19 +1363,19 @@ static inline void WriteProfileLong(const EndianType endian,
   unsigned char
     buffer[4];
 
-  if (endian == MSBEndian)
+  if (endian == LSBEndian)
     {
-      buffer[0]=(unsigned char) (value >> 24);
-      buffer[1]=(unsigned char) (value >> 16);
-      buffer[2]=(unsigned char) (value >> 8);
-      buffer[3]=(unsigned char) value;
+      buffer[0]=(unsigned char) value;
+      buffer[1]=(unsigned char) (value >> 8);
+      buffer[2]=(unsigned char) (value >> 16);
+      buffer[3]=(unsigned char) (value >> 24);
       (void) CopyMagickMemory(p,buffer,4);
       return;
     }
-  buffer[0]=(unsigned char) value;
-  buffer[1]=(unsigned char) (value >> 8);
-  buffer[2]=(unsigned char) (value >> 16);
-  buffer[3]=(unsigned char) (value >> 24);
+  buffer[0]=(unsigned char) (value >> 24);
+  buffer[1]=(unsigned char) (value >> 16);
+  buffer[2]=(unsigned char) (value >> 8);
+  buffer[3]=(unsigned char) value;
   (void) CopyMagickMemory(p,buffer,4);
 }
 
@@ -1386,15 +1385,15 @@ static void WriteProfileShort(const EndianType endian,
   unsigned char
     buffer[2];
 
-  if (endian == MSBEndian)
+  if (endian == LSBEndian)
     {
-      buffer[0]=(unsigned char) (value >> 8);
-      buffer[1]=(unsigned char) value;
+      buffer[0]=(unsigned char) value;
+      buffer[1]=(unsigned char) (value >> 8);
       (void) CopyMagickMemory(p,buffer,2);
       return;
     }
-  buffer[0]=(unsigned char) value;
-  buffer[1]=(unsigned char) (value >> 8);
+  buffer[0]=(unsigned char) (value >> 8);
+  buffer[1]=(unsigned char) value;
   (void) CopyMagickMemory(p,buffer,2);
 }
 

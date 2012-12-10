@@ -17,7 +17,7 @@
 %                              May  1993                                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,6 +41,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/attribute.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/color-private.h"
@@ -58,15 +59,6 @@
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/string_.h"
-#if defined(MAGICKCORE_TIFF_DELEGATE)
-#if defined(MAGICKCORE_HAVE_TIFFCONF_H)
-#include "tiffconf.h"
-#endif
-#include "tiffio.h"
-#define CCITTParam  "-1"
-#else
-#define CCITTParam  "0"
-#endif
 #if defined(MAGICKCORE_ZLIB_DELEGATE)
 #include "zlib.h"
 #endif
@@ -805,7 +797,7 @@ MagickExport MagickBooleanType HuffmanEncodeImage(const ImageInfo *image_info,
     for (x=0; x < (ssize_t) huffman_image->columns; x++)
     {
       *q++=(unsigned char) (GetPixelIntensity(huffman_image,p) >=
-        ((MagickRealType) QuantumRange/2.0) ? 0 : 1);
+        ((double) QuantumRange/2.0) ? 0 : 1);
       p+=GetPixelChannels(huffman_image);
     }
     /*

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -841,7 +841,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
       }
     else
       if ((image->storage_class == DirectClass) || (image->colors > 256) ||
-          (compression == JPEGCompression) || (image->matte != MagickFalse))
+          (compression == JPEGCompression) || (image->alpha_trait == BlendPixelTrait))
         {
           (void) FormatLocaleString(buffer,MaxTextExtent,"%.20g %.20g\n0\n%d\n",
             (double) image->columns,(double) image->rows,(int)
@@ -888,12 +888,12 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
-                  if ((image->matte != MagickFalse) &&
+                  if ((image->alpha_trait == BlendPixelTrait) &&
                       (GetPixelAlpha(image,p) == (Quantum) TransparentAlpha))
                     {
-                      *q++=ScaleQuantumToChar((Quantum) QuantumRange);
-                      *q++=ScaleQuantumToChar((Quantum) QuantumRange);
-                      *q++=ScaleQuantumToChar((Quantum) QuantumRange);
+                      *q++=ScaleQuantumToChar(QuantumRange);
+                      *q++=ScaleQuantumToChar(QuantumRange);
+                      *q++=ScaleQuantumToChar(QuantumRange);
                     }
                   else
                     if (image->colorspace != CMYKColorspace)
@@ -942,7 +942,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
-                  if ((image->matte != MagickFalse) &&
+                  if ((image->alpha_trait == BlendPixelTrait) &&
                       (GetPixelAlpha(image,p) == (Quantum) TransparentAlpha))
                     {
                       Ascii85Encode(image,ScaleQuantumToChar((Quantum)

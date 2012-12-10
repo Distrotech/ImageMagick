@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2012 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -56,6 +56,7 @@
 #include "MagickCore/constitute.h"
 #include "MagickCore/draw.h"
 #include "MagickCore/draw-private.h"
+#include "MagickCore/enhance.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/gem.h"
@@ -292,7 +293,7 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace,exception);
+    (void) TransformImageColorspace(image,RGBColorspace,exception);
   status=MagickTrue;
   for (i=0; textlist[i] != (char *) NULL; i++)
   {
@@ -586,7 +587,7 @@ MagickExport ssize_t FormatMagickCaption(Image *image,DrawInfo *draw_info,
     status=GetTypeMetrics(image,draw_info,metrics,exception);
     if (status == MagickFalse)
       break;
-    width=(size_t) floor(metrics->width+0.5);
+    width=(size_t) floor(metrics->width+metrics->max_advance/2.0+0.5);
     if ((width <= image->columns) || (strcmp(text,draw_info->text) == 0))
       continue;
     (void) strcpy(text,draw_info->text);
@@ -1284,7 +1285,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
     {
       if (image->storage_class != DirectClass)
         (void) SetImageStorageClass(image,DirectClass,exception);
-      if (image->matte == MagickFalse)
+      if (image->alpha_trait != BlendPixelTrait)
         (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
     }
   direction=1.0;
@@ -1393,7 +1394,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
             active,
             sync;
 
-          MagickRealType
+          double
             fill_opacity;
 
           PixelInfo
@@ -1436,7 +1437,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
                 continue;
               }
             if (bitmap->bitmap.pixel_mode != ft_pixel_mode_mono)
-              fill_opacity=(MagickRealType) (p[n])/(bitmap->bitmap.num_grays-1);
+              fill_opacity=(double) (p[n])/(bitmap->bitmap.num_grays-1);
             else
               fill_opacity=((p[(x >> 3)+y*bitmap->bitmap.pitch] &
                 (1 << (~x & 0x07)))) == 0 ? 0.0 : 1.0;
@@ -1531,6 +1532,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
       FT_Done_Glyph(glyph.image);
     }
   metrics->width-=metrics->bounds.x1/64.0;
+  metrics->width+=annotate_info->stroke_width;
   metrics->bounds.x1/=64.0;
   metrics->bounds.y1/=64.0;
   metrics->bounds.x2/=64.0;
@@ -1748,6 +1750,7 @@ static MagickBooleanType RenderPostscript(Image *image,
   (void) RelinquishUniqueFileResource(filename);
   if (annotate_image == (Image *) NULL)
     return(MagickFalse);
+  (void) NegateImage(annotate_image,MagickFalse,exception);
   resolution.x=DefaultResolution;
   resolution.y=DefaultResolution;
   if (draw_info->density != (char *) NULL)
@@ -1815,9 +1818,9 @@ static MagickBooleanType RenderPostscript(Image *image,
       /*
         Render fill color.
       */
-      if (image->matte == MagickFalse)
+      if (image->alpha_trait != BlendPixelTrait)
         (void) SetImageAlphaChannel(image,OpaqueAlphaChannel,exception);
-      if (annotate_image->matte == MagickFalse)
+      if (annotate_image->alpha_trait != BlendPixelTrait)
         (void) SetImageAlphaChannel(annotate_image,OpaqueAlphaChannel,
           exception);
       fill_color=draw_info->fill;
@@ -1837,9 +1840,8 @@ static MagickBooleanType RenderPostscript(Image *image,
         for (x=0; x < (ssize_t) annotate_image->columns; x++)
         {
           (void) GetFillColor(draw_info,x,y,&fill_color,exception);
-          SetPixelAlpha(annotate_image,ClampToQuantum((((MagickRealType)
-            GetPixelIntensity(annotate_image,q)*fill_color.alpha)/
-            QuantumRange)),q);
+          SetPixelAlpha(annotate_image,ClampToQuantum((((double) QuantumScale*
+            GetPixelIntensity(annotate_image,q)*fill_color.alpha))),q);
           SetPixelRed(annotate_image,fill_color.red,q);
           SetPixelGreen(annotate_image,fill_color.green,q);
           SetPixelBlue(annotate_image,fill_color.blue,q);
