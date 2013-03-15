@@ -241,7 +241,7 @@ MagickPrivate int Exit(int status)
   return(0);
 }
 
-#if !defined(__MINGW32__)
+#if !defined(__MINGW32__) && !defined(__MINGW64__)
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -2122,12 +2122,12 @@ MagickPrivate ssize_t NTSystemConfiguration(int name)
             status;
 
           GlobalMemoryStatus(&status);
-          return((ssize_t) status.dwTotalPhys/system_info.dwPageSize);
+          return((ssize_t) status.dwTotalPhys/system_info.dwPageSize/4);
         }
       status.dwLength=sizeof(status);
       if (module(&status) == 0)
         return(0L);
-      return((ssize_t) status.ullTotalPhys/system_info.dwPageSize);
+      return((ssize_t) status.ullTotalPhys/system_info.dwPageSize/4);
     }
     case _SC_OPEN_MAX:
       return(2048);

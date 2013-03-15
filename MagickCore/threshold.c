@@ -111,6 +111,28 @@ struct _ThresholdMap
 };
 
 /*
+  Static declarations.
+*/
+static const char
+  *MinimalThresholdMap =
+    "<?xml version=\"1.0\"?>"
+    "<thresholds>"
+    "  <threshold map=\"threshold\" alias=\"1x1\">"
+    "    <description>Threshold 1x1 (non-dither)</description>"
+    "    <levels width=\"1\" height=\"1\" divisor=\"2\">"
+    "        1"
+    "    </levels>"
+    "  </threshold>"
+    "  <threshold map=\"checks\" alias=\"2x1\">"
+    "    <description>Checkerboard 2x1 (dither)</description>"
+    "    <levels width=\"2\" height=\"2\" divisor=\"3\">"
+    "       1 2"
+    "       2 1"
+    "    </levels>"
+    "  </threshold>"
+    "</thresholds>";
+
+/*
   Forward declarations.
 */
 static ThresholdMap
@@ -184,8 +206,6 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  if ((width % 2) == 0)
-    ThrowImageException(OptionError,"KernelWidthMustBeAnOddNumber");
   threshold_image=CloneImage(image,image->columns,image->rows,MagickTrue,
     exception);
   if (threshold_image == (Image *) NULL)
@@ -206,20 +226,13 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
   threshold_view=AcquireAuthenticCacheView(threshold_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,threshold_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     double
       channel_bias[MaxPixelChannels],
       channel_sum[MaxPixelChannels];
-
-    PixelChannel
-      channel;
-
-    PixelTrait
-      threshold_traits,
-      traits;
 
     register const Quantum
       *restrict p,
@@ -252,9 +265,10 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
       GetPixelChannels(image)*(width/2);
     for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
     {
-      channel=GetPixelChannelChannel(image,i);
-      traits=GetPixelChannelTraits(image,channel);
-      threshold_traits=GetPixelChannelTraits(threshold_image,channel);
+      PixelChannel channel=GetPixelChannelChannel(image,i);
+      PixelTrait traits=GetPixelChannelTraits(image,channel);
+      PixelTrait threshold_traits=GetPixelChannelTraits(threshold_image,
+        channel);
       if ((traits == UndefinedPixelTrait) ||
           (threshold_traits == UndefinedPixelTrait))
         continue;
@@ -276,7 +290,7 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
           channel_sum[channel]+=pixels[i];
           pixels+=GetPixelChannels(image);
         }
-        pixels+=image->columns*GetPixelChannels(image);
+        pixels+=(image->columns-1)*GetPixelChannels(image);
       }
     }
     for (x=0; x < (ssize_t) image->columns; x++)
@@ -286,9 +300,10 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
         double
           mean;
 
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        threshold_traits=GetPixelChannelTraits(threshold_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait threshold_traits=GetPixelChannelTraits(threshold_image,
+          channel);
         if ((traits == UndefinedPixelTrait) ||
             (threshold_traits == UndefinedPixelTrait))
           continue;
@@ -306,7 +321,7 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
           channel_bias[channel]+=pixels[i];
           pixels+=(width-1)*GetPixelChannels(image);
           channel_sum[channel]+=pixels[i];
-          pixels+=(image->columns+1)*GetPixelChannels(image);
+          pixels+=(image->columns-1)*GetPixelChannels(image);
         }
         mean=(double) (channel_sum[channel]/number_pixels+bias);
         SetPixelChannel(threshold_image,channel,(Quantum) ((double)
@@ -403,6 +418,8 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
     Bilevel threshold image.
   */
@@ -411,7 +428,7 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -445,14 +462,8 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         if (image->channel_mask != DefaultChannels)
@@ -545,7 +556,7 @@ MagickExport MagickBooleanType BlackThresholdImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace,exception);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   GetPixelInfo(image,&threshold);
   flags=ParseGeometry(thresholds,&geometry_info);
   threshold.red=geometry_info.rho;
@@ -582,7 +593,7 @@ MagickExport MagickBooleanType BlackThresholdImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -616,14 +627,8 @@ MagickExport MagickBooleanType BlackThresholdImage(Image *image,
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         if (image->channel_mask != DefaultChannels)
@@ -740,7 +745,7 @@ MagickExport MagickBooleanType ClampImage(Image *image,ExceptionInfo *exception)
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -770,14 +775,8 @@ MagickExport MagickBooleanType ClampImage(Image *image,ExceptionInfo *exception)
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         q[i]=ClampPixel(q[i]);
@@ -876,14 +875,21 @@ MagickExport ThresholdMap *GetThresholdMap(const char *map_id,
   ThresholdMap
     *map;
 
-  map=(ThresholdMap *)NULL;
+  map=GetThresholdMapFile(MinimalThresholdMap,"built-in",map_id,exception);
+  if (map != (ThresholdMap *) NULL)
+    return(map);
   options=GetConfigureOptions(ThresholdsFilename,exception);
-  while ((option=(const StringInfo *) GetNextValueInLinkedList(options)) !=
-         (const StringInfo *) NULL && (map == (ThresholdMap *) NULL))
+  option=(const StringInfo *) GetNextValueInLinkedList(options);
+  while (option != (const StringInfo *) NULL)
+  {
     map=GetThresholdMapFile((const char *) GetStringInfoDatum(option),
       GetStringInfoPath(option),map_id,exception);
+    if (map != (ThresholdMap *) NULL)
+      return(map);
+    option=(const StringInfo *) GetNextValueInLinkedList(options);
+  }
   options=DestroyConfigureOptions(options);
-  return(map);
+  return((ThresholdMap *) NULL);
 }
 
 /*
@@ -916,8 +922,8 @@ MagickExport ThresholdMap *GetThresholdMap(const char *map_id,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-static ThresholdMap *GetThresholdMapFile(const char *xml,
-  const char *filename,const char *map_id,ExceptionInfo *exception)
+static ThresholdMap *GetThresholdMapFile(const char *xml,const char *filename,
+  const char *map_id,ExceptionInfo *exception)
 {
   char
     *p;
@@ -1223,12 +1229,13 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
   options=GetConfigureOptions(ThresholdsFilename,exception);
   (void) FormatLocaleFile(file,
     "\n   Threshold Maps for Ordered Dither Operations\n");
-  while ((option=(const StringInfo *) GetNextValueInLinkedList(options)) !=
-         (const StringInfo *) NULL)
+  option=(const StringInfo *) GetNextValueInLinkedList(options);
+  while (option != (const StringInfo *) NULL)
   {
-    (void) FormatLocaleFile(file,"\nPATH: %s\n\n",GetStringInfoPath(option));
+    (void) FormatLocaleFile(file,"\nPath: %s\n\n",GetStringInfoPath(option));
     status|=ListThresholdMapFile(file,(const char *) GetStringInfoDatum(option),
       GetStringInfoPath(option),exception);
+    option=(const StringInfo *) GetNextValueInLinkedList(options);
   }
   options=DestroyConfigureOptions(options);
   return(status != 0 ? MagickTrue : MagickFalse);
@@ -1295,14 +1302,14 @@ MagickExport MagickBooleanType OrderedPosterizeImage(Image *image,
   const char
     *p;
 
+  double
+    levels[CompositePixelChannel];
+
   MagickBooleanType
     status;
 
   MagickOffsetType
     progress;
-
-  double
-    levels[CompositePixelChannel];
 
   register ssize_t
     i;
@@ -1363,7 +1370,7 @@ MagickExport MagickBooleanType OrderedPosterizeImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1397,18 +1404,12 @@ MagickExport MagickBooleanType OrderedPosterizeImage(Image *image,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
         ssize_t
           level,
           threshold;
 
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         if (fabs(levels[n++]) < MagickEpsilon)
@@ -1454,8 +1455,8 @@ MagickExport MagickBooleanType OrderedPosterizeImage(Image *image,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  PerceptibleImage() set each pixel whose value is less than |epsilon| to 
-%  epsilon or -epsilon (whichever is closer) otherwise the pixel value remains 
+%  PerceptibleImage() set each pixel whose value is less than |epsilon| to
+%  epsilon or -epsilon (whichever is closer) otherwise the pixel value remains
 %  unchanged.
 %
 %  The format of the PerceptibleImage method is:
@@ -1537,7 +1538,7 @@ MagickExport MagickBooleanType PerceptibleImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1567,14 +1568,8 @@ MagickExport MagickBooleanType PerceptibleImage(Image *image,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         q[i]=PerceptibleThreshold(q[i],epsilon);
@@ -1639,6 +1634,10 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
   CacheView
     *image_view;
 
+  double
+    min_threshold,
+    max_threshold;
+
   GeometryInfo
     geometry_info;
 
@@ -1653,10 +1652,6 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
 
   PixelInfo
     threshold;
-
-  double
-    min_threshold,
-    max_threshold;
 
   RandomInfo
     **restrict random_info;
@@ -1704,7 +1699,7 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+    magick_threads(image,image,image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1740,14 +1735,8 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
         double
           threshold;
 
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         if ((double) q[i] < min_threshold)
@@ -1884,7 +1873,7 @@ MagickExport MagickBooleanType WhiteThresholdImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1918,14 +1907,8 @@ MagickExport MagickBooleanType WhiteThresholdImage(Image *image,
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits & UpdatePixelTrait) == 0)
           continue;
         if (image->channel_mask != DefaultChannels)

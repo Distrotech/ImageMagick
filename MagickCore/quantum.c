@@ -16,7 +16,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2008 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -128,9 +128,9 @@ MagickExport QuantumInfo *AcquireQuantumInfo(const ImageInfo *image_info,
   if (image == (const Image *) NULL)
     return(quantum_info);
   status=SetQuantumDepth(image,quantum_info,image->depth);
+  quantum_info->endian=image->endian;
   if (status == MagickFalse)
     quantum_info=DestroyQuantumInfo(quantum_info);
-  quantum_info->endian=image->endian;
   return(quantum_info);
 }
 
@@ -678,8 +678,8 @@ MagickExport MagickBooleanType SetQuantumDepth(const Image *image,
     }
   if (quantum_info->pixels != (unsigned char **) NULL)
     DestroyQuantumPixels(quantum_info);
-  status=AcquireQuantumPixels(quantum_info,(6+quantum_info->pad)*image->columns*
-    ((quantum_info->depth+7)/8));  /* allow for CMYKA + RLE byte + pad */
+  status=AcquireQuantumPixels(quantum_info,(MaxPixelChannels+quantum_info->pad)*
+    image->columns*((quantum_info->depth+7)/8));
   return(status);
 }
 

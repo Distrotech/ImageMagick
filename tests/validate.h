@@ -24,9 +24,7 @@
 static const char
   *compare_options[] =
   {
-    "",
-    "-compose Src",
-    "-highlight-color SeaGreen",
+    "-metric RMSE -fuzz 5%",
     "-metric AE -fuzz 5%",
     (const char *) NULL
   };
@@ -270,6 +268,7 @@ static const struct ReferenceFormats
     { "INLINE", UndefinedCompression, 0.0 },
     { "JBG", UndefinedCompression, 0.0 },
     { "JNG", UndefinedCompression, 0.003 },
+    { "JNG", JPEGCompression, 0.003 },
     { "JP2", UndefinedCompression, 0.003 },
     { "JPC", UndefinedCompression, 0.003 },
     { "JPEG", UndefinedCompression, 0.003 },
@@ -304,8 +303,12 @@ static const struct ReferenceFormats
     { "PJPEG", UndefinedCompression, 0.003 },
     { "PLASMA", UndefinedCompression, 0.0 },
     { "PNG", UndefinedCompression, 0.0 },
+    { "PNG8", UndefinedCompression, 0.0 },
     { "PNG24", UndefinedCompression, 0.0 },
     { "PNG32", UndefinedCompression, 0.0 },
+    { "PNG48", UndefinedCompression, 0.0 },
+    { "PNG64", UndefinedCompression, 0.0 },
+    { "PNG00", UndefinedCompression, 0.0 },
     { "PNM", UndefinedCompression, 0.0 },
     { "PPM", UndefinedCompression, 0.0 },
     { "PREVIEW", UndefinedCompression, 0.0 },
@@ -347,7 +350,7 @@ static const struct ReferenceFormats
     { "X3F", UndefinedCompression, 0.0 },
     { "XBM", UndefinedCompression, 0.0 },
     { "XCF", UndefinedCompression, 0.0 },
-    { "XPM", UndefinedCompression, 0.0 },
+    { "XPM", UndefinedCompression, 0.003 },
     { "XPS", UndefinedCompression, 0.0 },
     { "XV", UndefinedCompression, 0.0 },
 #if !defined(MAGICKCORE_WINDOWS_SUPPORT)

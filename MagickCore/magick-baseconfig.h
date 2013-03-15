@@ -37,23 +37,21 @@
 
 /* Directory where architecture-dependent configuration files live. */
 #ifndef MAGICKCORE_CONFIGURE_PATH
-#define MAGICKCORE_CONFIGURE_PATH "/usr/local/etc/ImageMagick/"
+#define MAGICKCORE_CONFIGURE_PATH "/usr/local/etc/ImageMagick-7/"
 #endif
 
 /* Subdirectory of lib where architecture-dependent configuration files live.
    */
 #ifndef MAGICKCORE_CONFIGURE_RELATIVE_PATH
-#define MAGICKCORE_CONFIGURE_RELATIVE_PATH "ImageMagick"
+#define MAGICKCORE_CONFIGURE_RELATIVE_PATH "ImageMagick-7"
 #endif
 
 /* Define if you have DJVU library */
-#ifndef MAGICKCORE_DJVU_DELEGATE
-#define MAGICKCORE_DJVU_DELEGATE 1
-#endif
+/* #undef DJVU_DELEGATE */
 
 /* Directory where ImageMagick documents live. */
 #ifndef MAGICKCORE_DOCUMENTATION_PATH
-#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick-7.0.0/"
+#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick-7/"
 #endif
 
 /* Define if you have Display Postscript */
@@ -68,9 +66,7 @@
 #endif
 
 /* Define if you have FFTW library */
-#ifndef MAGICKCORE_FFTW_DELEGATE
-#define MAGICKCORE_FFTW_DELEGATE 1
-#endif
+/* #undef FFTW_DELEGATE */
 
 /* filter subdirectory. */
 #ifndef MAGICKCORE_FILTER_DIRNAME
@@ -85,7 +81,7 @@
 /* Define if you have FlashPIX library */
 /* #undef FPX_DELEGATE */
 
-/* Define if you have FreeType (TrueType font) library */
+/* Define if you have FREETYPE library */
 #ifndef MAGICKCORE_FREETYPE_DELEGATE
 #define MAGICKCORE_FREETYPE_DELEGATE 1
 #endif
@@ -103,6 +99,11 @@
 
 /* Define to 1 if you have the <arm/limits.h> header file. */
 /* #undef HAVE_ARM_LIMITS_H */
+
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#ifndef MAGICKCORE_HAVE_ARPA_INET_H
+#define MAGICKCORE_HAVE_ARPA_INET_H 1
+#endif
 
 /* Define to 1 if you have the `asinh' function. */
 #ifndef MAGICKCORE_HAVE_ASINH
@@ -273,11 +274,6 @@
 #define MAGICKCORE_HAVE_FSEEKO 1
 #endif
 
-/* Define to 1 if you have the <ft2build.h> header file. */
-#ifndef MAGICKCORE_HAVE_FT2BUILD_H
-#define MAGICKCORE_HAVE_FT2BUILD_H 1
-#endif
-
 /* Define to 1 if you have the `ftime' function. */
 #ifndef MAGICKCORE_HAVE_FTIME
 #define MAGICKCORE_HAVE_FTIME 1
@@ -367,15 +363,15 @@
 #endif
 
 /* Define if you have the <lcms2.h> header file. */
-#ifndef MAGICKCORE_HAVE_LCMS2_H
-#define MAGICKCORE_HAVE_LCMS2_H 1
-#endif
+/* #undef HAVE_LCMS2_H */
 
 /* Define if you have the <lcms2/lcms2.h> header file. */
 /* #undef HAVE_LCMS2_LCMS2_H */
 
 /* Define if you have the <lcms.h> header file. */
-/* #undef HAVE_LCMS_H */
+#ifndef MAGICKCORE_HAVE_LCMS_H
+#define MAGICKCORE_HAVE_LCMS_H 1
+#endif
 
 /* Define if you have the <lcms/lcms.h> header file. */
 /* #undef HAVE_LCMS_LCMS_H */
@@ -490,6 +486,11 @@
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 /* #undef HAVE_NDIR_H */
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#ifndef MAGICKCORE_HAVE_NETINET_IN_H
+#define MAGICKCORE_HAVE_NETINET_IN_H 1
+#endif
 
 /* Define to 1 if you have the `newlocale' function. */
 #ifndef MAGICKCORE_HAVE_NEWLOCALE
@@ -638,6 +639,11 @@
 /* Define to 1 if you have the `sigemptyset' function. */
 #ifndef MAGICKCORE_HAVE_SIGEMPTYSET
 #define MAGICKCORE_HAVE_SIGEMPTYSET 1
+#endif
+
+/* Define to 1 if you have the `socket' function. */
+#ifndef MAGICKCORE_HAVE_SOCKET
+#define MAGICKCORE_HAVE_SOCKET 1
 #endif
 
 /* Define to 1 if you have the `spawnvp' function. */
@@ -1066,17 +1072,22 @@
 #define MAGICKCORE_HAVE___ATTRIBUTE__ 1
 #endif
 
-/* accurately represent the wide range of intensity levels in real scenes */
-#ifndef MAGICKCORE_HDRI_SUPPORT
-#define MAGICKCORE_HDRI_SUPPORT 1
+/* Whether hdri is enabled or not */
+#ifndef MAGICKCORE_HDRI_ENABLE_OBSOLETE_IN_H
+#define MAGICKCORE_HDRI_ENABLE_OBSOLETE_IN_H 1
 #endif
 
 /* Define if you have umem memory allocation library */
 /* #undef HasUMEM */
 
+/* Directory where ImageMagick architecture headers live. */
+#ifndef MAGICKCORE_INCLUDEARCH_PATH
+#define MAGICKCORE_INCLUDEARCH_PATH "/usr/local/include/ImageMagick-7/"
+#endif
+
 /* Directory where ImageMagick headers live. */
 #ifndef MAGICKCORE_INCLUDE_PATH
-#define MAGICKCORE_INCLUDE_PATH "/usr/local/include/ImageMagick/"
+#define MAGICKCORE_INCLUDE_PATH "/usr/local/include/ImageMagick-7/"
 #endif
 
 /* ImageMagick is formally installed under prefix */
@@ -1111,6 +1122,12 @@
    installed. */
 #ifndef MAGICKCORE_LIBRARY_RELATIVE_PATH
 #define MAGICKCORE_LIBRARY_RELATIVE_PATH "ImageMagick-7.0.0"
+#endif
+
+/* Binaries in libraries path base name (will be during install linked to bin)
+   */
+#ifndef MAGICKCORE_LIB_BIN_BASEDIRNAME
+#define MAGICKCORE_LIB_BIN_BASEDIRNAME "bin"
 #endif
 
 /* Define if you have LQR library */
@@ -1166,9 +1183,7 @@
 /* #undef NO_MINUS_C_MINUS_O */
 
 /* Define if you have OPENEXR library */
-#ifndef MAGICKCORE_OPENEXR_DELEGATE
-#define MAGICKCORE_OPENEXR_DELEGATE 1
-#endif
+/* #undef OPENEXR_DELEGATE */
 
 /* Name of package */
 #ifndef MAGICKCORE_PACKAGE
@@ -1228,8 +1243,8 @@
 /* #undef PixelCacheThreshold */
 
 /* Number of bits in a pixel Quantum (8/16/32/64) */
-#ifndef MAGICKCORE_QUANTUM_DEPTH
-#define MAGICKCORE_QUANTUM_DEPTH 16
+#ifndef MAGICKCORE_QUANTUM_DEPTH_OBSOLETE_IN_H
+#define MAGICKCORE_QUANTUM_DEPTH_OBSOLETE_IN_H 16
 #endif
 
 /* Define as the return type of signal handlers (`int' or `void'). */
@@ -1255,23 +1270,23 @@
 #define MAGICKCORE_SELECT_TYPE_ARG5 (struct timeval *)
 #endif
 
-/* Configure directory name without ABI part. */
+/* Sharearch directory name without ABI part. */
 #ifndef MAGICKCORE_SHAREARCH_BASEDIRNAME
 #define MAGICKCORE_SHAREARCH_BASEDIRNAME "config"
 #endif
 
-/* Configure directory dirname */
+/* Sharearch directory dirname */
 /* #undef SHAREARCH_DIRNAME */
 
 /* Directory where architecture-independent configuration files live. */
 #ifndef MAGICKCORE_SHARE_PATH
-#define MAGICKCORE_SHARE_PATH "/usr/local/share/ImageMagick-7.0.0/"
+#define MAGICKCORE_SHARE_PATH "/usr/local/share/ImageMagick-7/"
 #endif
 
 /* Subdirectory of lib where architecture-independent configuration files
    live. */
 #ifndef MAGICKCORE_SHARE_RELATIVE_PATH
-#define MAGICKCORE_SHARE_RELATIVE_PATH "ImageMagick-7.0.0"
+#define MAGICKCORE_SHARE_RELATIVE_PATH "ImageMagick-7"
 #endif
 
 /* The size of `double', as computed by sizeof. */
@@ -1522,6 +1537,9 @@
 
 /* Define to appropriate substitue if compiler does not have __func__ */
 /* #undef __func__ */
+
+/* Define to empty if `const' does not conform to ANSI C. */
+/* #undef const */
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 /* #undef gid_t */

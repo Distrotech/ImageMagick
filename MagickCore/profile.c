@@ -457,14 +457,14 @@ static void CMSExceptionHandler(cmsContext context,cmsUInt32Number severity,
   if (image == (Image *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
-        "UnableToTransformColorspace","'%s'","unknown context");
+        "UnableToTransformColorspace","`%s'","unknown context");
       return;
     }
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TransformEvent,GetMagickModule(),"lcms: #%u, %s",
       severity,message != (char *) NULL ? message : "no message");
   (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
-    "UnableToTransformColorspace","'%s'",image->filename);
+    "UnableToTransformColorspace","`%s'",image->filename);
 }
 #else
 static int CMSExceptionHandler(int severity,const char *message)
@@ -860,7 +860,7 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
             image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
             #pragma omp parallel for schedule(static,4) shared(status) \
-              dynamic_number_threads(image,image->columns,image->rows,1)
+              magick_threads(image,image,image->rows,1)
 #endif
             for (y=0; y < (ssize_t) image->rows; y++)
             {
@@ -949,20 +949,20 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
             {
               case cmsSigRgbData:
               {
-                image->type=image->alpha_trait != BlendPixelTrait ? TrueColorType :
-                  TrueColorMatteType;
+                image->type=image->alpha_trait != BlendPixelTrait ?
+                  TrueColorType : TrueColorMatteType;
                 break;
               }
               case cmsSigCmykData:
               {
-                image->type=image->alpha_trait != BlendPixelTrait ? ColorSeparationType :
-                  ColorSeparationMatteType;
+                image->type=image->alpha_trait != BlendPixelTrait ?
+                  ColorSeparationType : ColorSeparationMatteType;
                 break;
               }
               case cmsSigGrayData:
               {
-                image->type=image->alpha_trait != BlendPixelTrait ? GrayscaleType :
-                  GrayscaleMatteType;
+                image->type=image->alpha_trait != BlendPixelTrait ?
+                  GrayscaleType : GrayscaleMatteType;
                 break;
               }
               default:

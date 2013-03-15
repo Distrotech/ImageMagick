@@ -191,8 +191,7 @@ static double Cosine(const double x,
   return((double)cos((double) (MagickPI2*x)));
 }
 
-static double CubicBC(const double x,
-  const ResizeFilter *resize_filter)
+static double CubicBC(const double x,const ResizeFilter *resize_filter)
 {
   /*
     Cubic Filters using B,C determined values:
@@ -232,8 +231,7 @@ static double CubicBC(const double x,
   return(0.0);
 }
 
-static double Gaussian(const double x,
-  const ResizeFilter *resize_filter)
+static double Gaussian(const double x,const ResizeFilter *resize_filter)
 {
   /*
     Gaussian with a sigma = 1/2 (or as user specified)
@@ -306,8 +304,7 @@ static double Jinc(const double x,
   return(BesselOrderOne(MagickPI*x)/x);
 }
 
-static double Kaiser(const double x,
-  const ResizeFilter *resize_filter)
+static double Kaiser(const double x,const ResizeFilter *resize_filter)
 {
   /*
     Kaiser Windowing Function (bessel windowing)
@@ -321,12 +318,11 @@ static double Kaiser(const double x,
     but without it the filters has a large value at x=0 making it
     difficult to compare the function with other windowing functions.
   */
-  return(resize_filter->coefficient[1]*
-           I0(resize_filter->coefficient[0]*sqrt((double) (1.0-x*x))));
+  return(resize_filter->coefficient[1]*I0(resize_filter->coefficient[0]*
+    sqrt((double) (1.0-x*x))));
 }
 
-static double Lagrange(const double x,
-  const ResizeFilter *resize_filter)
+static double Lagrange(const double x,const ResizeFilter *resize_filter)
 {
   double
     value;
@@ -1631,7 +1627,7 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
   scale.y=(double) image->rows/resize_image->rows;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,resize_image,resize_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
   {
@@ -1644,7 +1640,7 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
     register ssize_t
       x;
 
-    if( IfMagickFalse(status) )
+    if (status == MagickFalse)
       continue;
     q=QueueCacheViewAuthenticPixels(resize_view,0,y,resize_image->columns,1,
       exception);
@@ -1700,7 +1696,7 @@ MagickExport Image *InterpolativeResizeImage(const Image *image,
   }
   resize_view=DestroyCacheView(resize_view);
   image_view=DestroyCacheView(image_view);
-  if( IfMagickFalse(status) )
+  if (status == MagickFalse)
     resize_image=DestroyImage(resize_image);
   return(resize_image);
 }
@@ -1828,7 +1824,7 @@ MagickExport Image *LiquidRescaleImage(const Image *image,const size_t columns,
     register ssize_t
       x;
 
-    if( IfMagickFalse(status) )
+    if (status == MagickFalse)
       continue;
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
     if (p == (const Quantum *) NULL)
@@ -2231,7 +2227,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   if (contributions == (ContributionInfo **) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(MagickFalse);
     }
   status=MagickTrue;
@@ -2240,7 +2236,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,resize_image,resize_image->columns,1)
 #endif
   for (x=0; x < (ssize_t) resize_image->columns; x++)
   {
@@ -2265,7 +2261,7 @@ static MagickBooleanType HorizontalFilter(const ResizeFilter *resize_filter,
       start,
       stop;
 
-    if( IfMagickFalse(status) )
+    if (status == MagickFalse)
       continue;
     bisect=(double) (x+0.5)/x_factor+MagickEpsilon;
     start=(ssize_t) MagickMax(bisect-support+0.5,0.0);
@@ -2444,7 +2440,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   if (contributions == (ContributionInfo **) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(MagickFalse);
     }
   status=MagickTrue;
@@ -2454,7 +2450,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
   resize_view=AcquireAuthenticCacheView(resize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,resize_image,resize_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) resize_image->rows; y++)
   {
@@ -2479,7 +2475,7 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
       start,
       stop;
 
-    if( IfMagickFalse(status) )
+    if (status == MagickFalse)
       continue;
     bisect=(double) (y+0.5)/y_factor+MagickEpsilon;
     start=(ssize_t) MagickMax(bisect-support+0.5,0.0);
@@ -2612,8 +2608,6 @@ static MagickBooleanType VerticalFilter(const ResizeFilter *resize_filter,
 MagickExport Image *ResizeImage(const Image *image,const size_t columns,
   const size_t rows,const FilterTypes filter,ExceptionInfo *exception)
 {
-#define WorkLoadFactor  0.265
-
   FilterTypes
     filter_type;
 
@@ -2659,7 +2653,7 @@ MagickExport Image *ResizeImage(const Image *image,const size_t columns,
   */
   x_factor=(double) columns/(double) image->columns;
   y_factor=(double) rows/(double) image->rows;
-  if ((x_factor*y_factor) > WorkLoadFactor)
+  if (x_factor > y_factor)
     filter_image=CloneImage(image,columns,image->rows,MagickTrue,exception);
   else
     filter_image=CloneImage(image,image->columns,rows,MagickTrue,exception);
@@ -2673,7 +2667,7 @@ MagickExport Image *ResizeImage(const Image *image,const size_t columns,
       filter_type=PointFilter;
     else
       if ((image->storage_class == PseudoClass) ||
-          image->alpha_trait == BlendPixelTrait ||
+          (image->alpha_trait == BlendPixelTrait) ||
           ((x_factor*y_factor) > 1.0))
         filter_type=MitchellFilter;
   resize_filter=AcquireResizeFilter(image,filter_type,MagickFalse,exception);
@@ -2681,7 +2675,7 @@ MagickExport Image *ResizeImage(const Image *image,const size_t columns,
     Resize image.
   */
   offset=0;
-  if ((x_factor*y_factor) > WorkLoadFactor)
+  if (x_factor > y_factor)
     {
       span=(MagickSizeType) (filter_image->columns+rows);
       status=HorizontalFilter(resize_filter,image,filter_image,x_factor,span,
@@ -2702,7 +2696,7 @@ MagickExport Image *ResizeImage(const Image *image,const size_t columns,
   */
   filter_image=DestroyImage(filter_image);
   resize_filter=DestroyResizeFilter(resize_filter);
-  if( IfMagickFalse(status) )
+  if (status == MagickFalse)
     {
       resize_image=DestroyImage(resize_image);
       return((Image *) NULL);
@@ -2794,8 +2788,8 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
   for (x=0; x < (ssize_t) sample_image->columns; x++)
-    x_offset[x]=(ssize_t) (((double) x+0.5)*image->columns/
-      sample_image->columns);
+    x_offset[x]=(ssize_t) (((double) x*image->columns)/sample_image->columns+
+      0.5);
   /*
     Sample each row.
   */
@@ -2804,8 +2798,8 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
   image_view=AcquireVirtualCacheView(image,exception);
   sample_view=AcquireAuthenticCacheView(sample_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+  #pragma omp parallel for schedule(static,4) shared(status) \
+    magick_threads(image,sample_image,1,1)
 #endif
   for (y=0; y < (ssize_t) sample_image->rows; y++)
   {
@@ -2821,10 +2815,9 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
     ssize_t
       y_offset;
 
-    if( IfMagickFalse(status) )
+    if (status == MagickFalse)
       continue;
-    y_offset=(ssize_t) (((double) y+0.5)*image->rows/
-      sample_image->rows);
+    y_offset=(ssize_t) (((double) y*image->rows)/sample_image->rows+0.5);
     p=GetCacheViewVirtualPixels(image_view,0,y_offset,image->columns,1,
       exception);
     q=QueueCacheViewAuthenticPixels(sample_view,0,y,sample_image->columns,1,
@@ -2886,6 +2879,8 @@ MagickExport Image *SampleImage(const Image *image,const size_t columns,
   sample_view=DestroyCacheView(sample_view);
   x_offset=(ssize_t *) RelinquishMagickMemory(x_offset);
   sample_image->type=image->type;
+  if (status == MagickFalse)
+    sample_image=DestroyImage(sample_image);
   return(sample_image);
 }
 
@@ -2927,14 +2922,6 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     *image_view,
     *scale_view;
 
-  Image
-    *scale_image;
-
-  MagickBooleanType
-    next_column,
-    next_row,
-    proceed;
-
   double
     alpha,
     gamma,
@@ -2943,6 +2930,15 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     *scanline,
     *x_vector,
     *y_vector;
+
+  Image
+    *scale_image;
+
+  MagickBooleanType
+    next_column,
+    next_row,
+    proceed,
+    status;
 
   PixelChannel
     channel;
@@ -3015,6 +3011,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
   for (i=0; i < (ssize_t) (GetPixelChannels(image)*image->columns); i++)
     y_vector[i]=0.0;
   n=0;
+  status=MagickTrue;
   image_view=AcquireVirtualCacheView(image,exception);
   scale_view=AcquireAuthenticCacheView(scale_image,exception);
   for (y=0; y < (ssize_t) scale_image->rows; y++)
@@ -3028,10 +3025,15 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     register ssize_t
       x;
 
+    if (status == MagickFalse)
+      break;
     q=QueueCacheViewAuthenticPixels(scale_view,0,y,scale_image->columns,1,
       exception);
     if (q == (Quantum *) NULL)
-      break;
+      {
+        status=MagickFalse;
+        break;
+      }
     alpha=1.0;
     if (scale_image->rows == image->rows)
       {
@@ -3041,7 +3043,10 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
         p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
           exception);
         if (p == (const Quantum *) NULL)
-          break;
+          {
+            status=MagickFalse;
+            break;
+          }
         for (x=0; x < (ssize_t) image->columns; x++)
         {
           if (GetPixelMask(image,p) != 0)
@@ -3085,7 +3090,10 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
               p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
                 exception);
               if (p == (const Quantum *) NULL)
-                break;
+                {
+                  status=MagickFalse;
+                  break;
+                }
               for (x=0; x < (ssize_t) image->columns; x++)
               {
                 if (GetPixelMask(image,p) != 0)
@@ -3132,7 +3140,10 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
             p=GetCacheViewVirtualPixels(image_view,0,n++,image->columns,1,
               exception);
             if (p == (const Quantum *) NULL)
-              break;
+              {
+                status=MagickFalse;
+                break;
+              }
             for (x=0; x < (ssize_t) image->columns; x++)
             {
               if (GetPixelMask(image,p) != 0)
@@ -3320,11 +3331,17 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
       }
     }
     if( IfMagickFalse(SyncCacheViewAuthenticPixels(scale_view,exception)) )
-      break;
+      {
+        status=MagickFalse;
+        break;
+      }
     proceed=SetImageProgress(image,ScaleImageTag,(MagickOffsetType) y,
       image->rows);
     if( IfMagickFalse(proceed) )
-      break;
+      {
+        status=MagickFalse;
+        break;
+      }
   }
   scale_view=DestroyCacheView(scale_view);
   image_view=DestroyCacheView(image_view);
@@ -3337,6 +3354,8 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
     scanline=(double *) RelinquishMagickMemory(scanline);
   x_vector=(double *) RelinquishMagickMemory(x_vector);
   scale_image->type=image->type;
+  if (status == MagickFalse)
+    scale_image=DestroyImage(scale_image);
   return(scale_image);
 }
 
@@ -3424,7 +3443,7 @@ MagickExport Image *ThumbnailImage(const Image *image,const size_t columns,
   if (thumbnail_image == (Image *) NULL)
     return(thumbnail_image);
   (void) ParseAbsoluteGeometry("0x0+0+0",&thumbnail_image->page);
-  if( IfMagickFalse(thumbnail_image->alpha_trait) )
+  if(thumbnail_image->alpha_trait != BlendPixelTrait)
     (void) SetImageAlphaChannel(thumbnail_image,OpaqueAlphaChannel,exception);
   thumbnail_image->depth=8;
   thumbnail_image->interlace=NoInterlace;

@@ -44,12 +44,15 @@ sub AutodetectWin32gcc {
       my (@l,@b,@i) = ( (),(),() );
 
       # try to detect 'lib' dir
+      push @l, catfile($dirpath,'lib');
       push @l, catfile($dirpath,'..','lib');
       push @l, catfile($dirpath,'..','..','lib');
       push @l, catfile($dirpath,'..','..','..','lib');
       foreach (@l) { push @libdir, $_ if (-d $_) };
 
       # try to detect 'bin' dir
+      push @b, catfile($dirpath);
+      push @b, catfile($dirpath,'bin');
       push @b, catfile($dirpath,'..');
       push @b, catfile($dirpath,'..','bin');
       push @b, catfile($dirpath,'..','..');
@@ -59,6 +62,8 @@ sub AutodetectWin32gcc {
       foreach (@b) { push @bindir, $_ if (-e "$_/convert.exe" || -e "$_/identify.exe") };
 
       # try to detect 'include' dir
+      push @i, catfile($dirpath,'include');
+      push @i, catfile($dirpath,'include','ImageMagick');
       push @i, catfile($dirpath,'..','include');
       push @i, catfile($dirpath,'..','include','ImageMagick');
       push @i, catfile($dirpath,'..','..','include');
@@ -156,11 +161,11 @@ foreach my $delegate (@tested_delegates) {
 }
 
 # defaults for LIBS & INC & CCFLAGS params that we later pass to Writemakefile
-my $INC_magick = '-I../ -I.. -pthread -I/usr/include/pango-1.0 -I/usr/include/cairo -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng15 -I/usr/include/freetype2 -I/usr/include/libxml2 -I"' . $Config{'usrinc'} . '/ImageMagick"';
-my $LIBS_magick = '-L../MagickCore/.libs -lMagickCore -lperl -lm';
-my $CCFLAGS_magick = "$Config{'ccflags'} -pthread -I/usr/include/OpenEXR -fopenmp -g -O2 -Wall -pthread";
-my $LDFLAGS_magick   = "-L../MagickCore/.libs -lMagickCore $Config{'ldflags'} -L/usr/lib";
-my $LDDLFLAGS_magick = "-L../MagickCore/.libs -lMagickCore $Config{'lddlflags'} -L/usr/lib";
+my $INC_magick = '-I../ -I@top_srcdir@ @CPPFLAGS@ -I"' . $Config{'usrinc'} . '/ImageMagick"';
+my $LIBS_magick = '-L../../MagickCore/.libs -lMagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@ -lperl @MATH_LIBS@';
+my $CCFLAGS_magick = "$Config{'ccflags'} @CFLAGS@";
+my $LDFLAGS_magick   = "-L../../MagickCore/.libs -lMagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@ $Config{'ldflags'} @LDFLAGS@";
+my $LDDLFLAGS_magick = "-L../../MagickCore/.libs -lMagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@ $Config{'lddlflags'} @LDFLAGS@";
 
 if (($^O eq 'MSWin32') && ($Config{cc} =~ /gcc/)) {
   my($Ipaths, $Lpaths) = AutodetectWin32gcc();
@@ -169,7 +174,7 @@ if (($^O eq 'MSWin32') && ($Config{cc} =~ /gcc/)) {
   # Setup for strawberry perl.
   #
   $INC_magick       = "$Ipaths";
-  $LIBS_magick      = "-lMagickCore";
+  $LIBS_magick      = "-lMagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@";
   $CCFLAGS_magick   = "$Config{'ccflags'}";
   $LDFLAGS_magick   = "$Config{'ldflags'} $Lpaths ";
   $LDDLFLAGS_magick = "$Config{'lddlflags'} $Lpaths ";
@@ -180,34 +185,34 @@ if (($^O eq 'MSWin32') && ($Config{cc} =~ /gcc/)) {
 WriteMakefile
   (
    # Module description
-   'ABSTRACT'	=> 'ImageMagick PERL Extension',
+   'ABSTRACT'	=> 'ImageMagick PERL Extension (@MAGICK_ABI_SUFFIX@)',
 
    # Perl module name is Image::Magick
-   'NAME'	=> 'Image::Magick',
+   'NAME'	=> 'Image::Magick::@MAGICK_ABI_SUFFIX@',
 
    # Module author
    'AUTHOR' => 'ImageMagick Studio LLC',
 
    # Module version
-   'VERSION' => '7.00',
+   'VERSION' => '@PACKAGE_PERL_VERSION@',
 
    # Preprocessor defines
-   'DEFINE'	=> ' -D_LARGE_FILES=1 -DHAVE_CONFIG_H',     # e.g., '-DHAVE_SOMETHING'
+   'DEFINE'	=> '@LFS_CPPFLAGS@ @DEFS@',     # e.g., '-DHAVE_SOMETHING'
 
    # Header search specfication and preprocessor flags
    'INC'	=> $INC_magick,
 
    # C compiler
-   #'CC' => 'gcc -std=gnu99 -std=gnu99',
+   #'CC' => '@CC@',
 
    # C pre-processor flags (e.g. -I & -D options)
-   # 'CPPFLAGS' => "$Config{'cppflags'} -pthread -I/usr/include/pango-1.0 -I/usr/include/cairo -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng15 -I/usr/include/freetype2 -I/usr/include/libxml2",
+   # 'CPPFLAGS' => "$Config{'cppflags'} @CPPFLAGS@",
 
    # C compiler flags (e.g. -O -g)
    'CCFLAGS' => $CCFLAGS_magick,
 
    # Linker
-   #'LD' => $Config{'ld'} == $Config{'cc'} ? 'gcc -std=gnu99 -std=gnu99' : $Config{'ld'},
+   #'LD' => $Config{'ld'} == $Config{'cc'} ? '@CC@' : $Config{'ld'},
 
    # Linker flags for building an executable
    'LDFLAGS' =>  $LDFLAGS_magick,
@@ -216,7 +221,7 @@ WriteMakefile
    'LDDLFLAGS' => $LDDLFLAGS_magick,
 
    # Install PerlMagick binary into ImageMagick bin directory
-   'INSTALLBIN'	=> '/usr/local/bin',
+   'INSTALLBIN'	=> '@BIN_DIR@',
 
    # Library specification
    'LIBS' => [ $LIBS_magick ],
@@ -228,17 +233,22 @@ WriteMakefile
    # 'OPTIMIZE'	=> '',
 
    # Use same compiler as ImageMagick
-   'PERLMAINCC'	=> ' -fopenmp',
-   'AR' => 'ar',
-   'LD' => '',
+   'PERLMAINCC'	=> '@PERLMAINCC@ @OPENMP_CFLAGS@',
+   'PM' => { '@MAGICK_ABI_SUFFIX@.pm' => '$(INST_LIBDIR)/@MAGICK_ABI_SUFFIX@.pm' },
+   'XS' => { '@MAGICK_ABI_SUFFIX@.xs' => '@MAGICK_ABI_SUFFIX@.xs' },
+   'AR' => '@AR@',
+   'LD' => '@PERLMAINCC@',
 
    # Set Perl installation prefix to ImageMagick installation prefix
-#   'PREFIX'	=> '/usr/local',
+#   'PREFIX'	=> '@prefix@',
 
    # Include delegate directories in tests
    test	=> { TESTS	=>	$delegate_tests},
 
    ($Config{'archname'} =~ /-object$/i ? ('CAPI' => 'TRUE') : ()),
+
+# sane vesion
+   depend => { '$(FIRST_MAKEFILE)' => '$(VERSION_FROM)' }
 );
 
 
@@ -255,6 +265,6 @@ sub MY::makeaperl {
      # tries to insert our library path first. Also, use the same compiler used
      # to build perlmain.c to link so that a C++ compiler may be used if
      # necessary.
-     $inherited =~ s:MAP_LINKCMD\s.*\s*\$\(CC\):MAP_LINKCMD   = \$(PERLMAINCC) -L/usr/local/lib: ;
+     $inherited =~ s:MAP_LINKCMD\s.*\s*\$\(CC\):MAP_LINKCMD   = \$(PERLMAINCC) -L@MAGICKCORE_PATH@: ;
      $inherited;
  }

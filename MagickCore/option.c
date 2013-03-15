@@ -63,6 +63,7 @@
 #include "MagickCore/montage.h"
 #include "MagickCore/morphology.h"
 #include "MagickCore/option.h"
+#include "MagickCore/pixel.h"
 #include "MagickCore/policy.h"
 #include "MagickCore/property.h"
 #include "MagickCore/quantize.h"
@@ -114,6 +115,15 @@ static const OptionInfo
     { "True", MagickTrue, UndefinedOptionFlag, MagickFalse },
     { "0", MagickFalse, UndefinedOptionFlag, MagickFalse },
     { "1", MagickTrue, UndefinedOptionFlag, MagickFalse },
+    { (char *) NULL, MagickFalse, UndefinedOptionFlag, MagickFalse }
+  },
+  CacheOptions[] =
+  {
+    { "Disk", DiskCache, UndefinedOptionFlag, MagickFalse },
+    { "Distributed", DistributedCache, UndefinedOptionFlag, MagickFalse },
+    { "Map", MapCache, UndefinedOptionFlag, MagickFalse },
+    { "Memory", MemoryCache, UndefinedOptionFlag, MagickFalse },
+    { "Ping", PingCache, UndefinedOptionFlag, MagickFalse },
     { (char *) NULL, MagickFalse, UndefinedOptionFlag, MagickFalse }
   },
   ChannelOptions[] =
@@ -255,8 +265,8 @@ static const OptionInfo
     { "+channel", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-channel", 1L, ImageInfoOptionFlag, MagickFalse },
     { "-channel-fx", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
-    { "+charcoal", 0L, DeprecateOptionFlag, MagickTrue },
-    { "-charcoal", 0L, SimpleOperatorFlag, MagickFalse },
+    { "+charcoal", 1L, DeprecateOptionFlag, MagickTrue },
+    { "-charcoal", 1L, SimpleOperatorFlag, MagickFalse },
     { "+chop", 1L, DeprecateOptionFlag, MagickTrue },
     { "-chop", 1L, SimpleOperatorFlag, MagickFalse },
     { "+clamp", 0L, DeprecateOptionFlag, MagickTrue },
@@ -434,6 +444,8 @@ static const OptionInfo
     { "-implode", 1L, SimpleOperatorFlag, MagickFalse },
     { "+insert", 0L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "-insert", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
+    { "+intensity", 0L, ImageInfoOptionFlag, MagickFalse },
+    { "-intensity", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+intent", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-intent", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+interlace", 0L, ImageInfoOptionFlag, MagickFalse },
@@ -639,6 +651,8 @@ static const OptionInfo
     { "-sigmoidal-contrast", 1L, SimpleOperatorFlag, MagickFalse },
     { "+silent", 0L, NonMagickOptionFlag, MagickFalse },
     { "-silent", 1L, NonMagickOptionFlag, MagickFalse },
+    { "+similarity-threshold", 0L, NonMagickOptionFlag | ImageInfoOptionFlag, MagickFalse },
+    { "-similarity-threshold", 1L, NonMagickOptionFlag | ImageInfoOptionFlag, MagickFalse },
     { "+size", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-size", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+sketch", 1L, DeprecateOptionFlag, MagickTrue },
@@ -879,9 +893,7 @@ static const OptionInfo
     { "Log", LogColorspace, UndefinedOptionFlag, MagickFalse },
     { "Luv", LuvColorspace, UndefinedOptionFlag, MagickFalse },
     { "OHTA", OHTAColorspace, UndefinedOptionFlag, MagickFalse },
-    { "Rec601Luma", Rec601LumaColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec601YCbCr", Rec601YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
-    { "Rec709Luma", Rec709LumaColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec709YCbCr", Rec709YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
     { "RGB", RGBColorspace, UndefinedOptionFlag, MagickFalse },
     { "sRGB", sRGBColorspace, UndefinedOptionFlag, MagickFalse },
@@ -1202,6 +1214,7 @@ static const OptionInfo
     { "Align", MagickAlignOptions, UndefinedOptionFlag, MagickFalse },
     { "Alpha", MagickAlphaChannelOptions, UndefinedOptionFlag, MagickFalse },
     { "Boolean", MagickBooleanOptions, UndefinedOptionFlag, MagickFalse },
+    { "Cache", MagickCacheOptions, UndefinedOptionFlag, MagickFalse },
     { "Channel", MagickChannelOptions, UndefinedOptionFlag, MagickFalse },
     { "Class", MagickClassOptions, UndefinedOptionFlag, MagickFalse },
     { "ClipPath", MagickClipPathOptions, UndefinedOptionFlag, MagickFalse },
@@ -1228,6 +1241,7 @@ static const OptionInfo
     { "Format", MagickFormatOptions, UndefinedOptionFlag, MagickFalse },
     { "Function", MagickFunctionOptions, UndefinedOptionFlag, MagickFalse },
     { "Gravity", MagickGravityOptions, UndefinedOptionFlag, MagickFalse },
+    { "Intensity", MagickPixelIntensityOptions, UndefinedOptionFlag, MagickFalse },
     { "Intent", MagickIntentOptions, UndefinedOptionFlag, MagickFalse },
     { "Interlace", MagickInterlaceOptions, UndefinedOptionFlag, MagickFalse },
     { "Interpolate", MagickInterpolateOptions, UndefinedOptionFlag, MagickFalse },
@@ -1249,6 +1263,7 @@ static const OptionInfo
     { "Noise", MagickNoiseOptions, UndefinedOptionFlag, MagickFalse },
     { "Orientation", MagickOrientationOptions, UndefinedOptionFlag, MagickFalse },
     { "PixelChannel", MagickPixelChannelOptions, UndefinedOptionFlag, MagickFalse },
+    { "PixelIntensity", MagickPixelIntensityOptions, UndefinedOptionFlag, MagickFalse },
     { "PixelTrait", MagickPixelTraitOptions, UndefinedOptionFlag, MagickFalse },
     { "Policy", MagickPolicyOptions, UndefinedOptionFlag, MagickFalse },
     { "PolicyDomain", MagickPolicyDomainOptions, UndefinedOptionFlag, MagickFalse },
@@ -1415,6 +1430,19 @@ static const OptionInfo
     { "Y", YellowPixelChannel, UndefinedOptionFlag, MagickFalse },
     { "Yellow", YellowPixelChannel, UndefinedOptionFlag, MagickFalse },
     { (char *) NULL, UndefinedPixelChannel, UndefinedOptionFlag, MagickFalse }
+  },
+  PixelIntensityOptions[] =
+  {
+    { "Undefined", UndefinedPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Average", AveragePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Brightness", BrightnessPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Lightness", LightnessPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec601Luma", Rec601LumaPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec601Luminance", Rec601LuminancePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec709Luma", Rec709LumaPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec709Luminance", Rec709LuminancePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "RMS", RMSPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { (char *) NULL, UndefinedPixelIntensityMethod, UndefinedOptionFlag, MagickFalse }
   },
   PixelTraitOptions[] =
   {
@@ -1651,6 +1679,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
     case MagickAlignOptions: return(AlignOptions);
     case MagickAlphaChannelOptions: return(AlphaChannelOptions);
     case MagickBooleanOptions: return(BooleanOptions);
+    case MagickCacheOptions: return(CacheOptions);
     case MagickChannelOptions: return(ChannelOptions);
     case MagickClassOptions: return(ClassOptions);
     case MagickClipPathOptions: return(ClipPathOptions);
@@ -1688,6 +1717,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
     case MagickNoiseOptions: return(NoiseOptions);
     case MagickOrientationOptions: return(OrientationOptions);
     case MagickPixelChannelOptions: return(PixelChannelOptions);
+    case MagickPixelIntensityOptions: return(PixelIntensityOptions);
     case MagickPixelTraitOptions: return(PixelTraitOptions);
     case MagickPolicyDomainOptions: return(PolicyDomainOptions);
     case MagickPolicyRightsOptions: return(PolicyRightsOptions);

@@ -220,8 +220,7 @@ static void HCLComposite(const MagickRealType hue,const MagickRealType chroma,
     h,
     m,
     r,
-    x,
-    z;
+    x;
 
   /*
     Convert HCL to RGB colorspace.
@@ -271,25 +270,9 @@ static void HCLComposite(const MagickRealType hue,const MagickRealType chroma,
                 b=x;
               }
   m=luma-(0.298839f*r+0.586811f*g+0.114350f*b);
-  /*
-    Choose saturation strategy to clip it into the RGB cube; hue and luma are
-    preserved and chroma may be changed.
-  */
-  z=1.0;
-  if (m < 0.0)
-    {
-      z=luma/(luma-m);
-      m=0.0;
-    }
-  else
-    if (m+c > 1.0)
-      {
-        z=(1.0-luma)/(m+c-luma);
-        m=1.0-z*c;
-      }
-  *red=QuantumRange*(z*r+m);
-  *green=QuantumRange*(z*g+m);
-  *blue=QuantumRange*(z*b+m);
+  *red=QuantumRange*(r+m);
+  *green=QuantumRange*(g+m);
+  *blue=QuantumRange*(b+m);
 }
 
 static void CompositeHCL(const MagickRealType red,const MagickRealType green,
@@ -360,7 +343,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(composite_image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -414,11 +397,13 @@ static MagickBooleanType CompositeOverImage(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
+      double
+        gamma;
+
       MagickRealType
         alpha,
         Da,
         Dc,
-        gamma,
         Sa,
         Sc;
 
@@ -455,16 +440,10 @@ static MagickBooleanType CompositeOverImage(Image *image,
             source,exception);
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              composite_traits,
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
-            composite_traits=GetPixelChannelTraits(composite_image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
+            PixelTrait composite_traits=GetPixelChannelTraits(composite_image,
+              channel);
             if ((traits == UndefinedPixelTrait) ||
                 (composite_traits == UndefinedPixelTrait))
               continue;
@@ -492,16 +471,10 @@ static MagickBooleanType CompositeOverImage(Image *image,
       alpha=Sa*(-Da)+Sa+Da;
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          composite_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        composite_traits=GetPixelChannelTraits(composite_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait composite_traits=GetPixelChannelTraits(composite_image,
+          channel);
         if ((traits == UndefinedPixelTrait) ||
             (composite_traits == UndefinedPixelTrait))
           continue;
@@ -608,8 +581,11 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
   if (composite_image == (const Image *) NULL)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,RGBColorspace,exception);
+    (void) SetImageColorspace(image,sRGBColorspace,exception);
   (void) SetImageColorspace(composite_image,image->colorspace,exception);
+  if ((image->alpha_trait == BlendPixelTrait) &&
+      (composite_image->alpha_trait != BlendPixelTrait))
+    (void) SetImageAlphaChannel(composite_image,SetAlphaChannel,exception);
   if ((compose == OverCompositeOp) || (compose == SrcOverCompositeOp))
     {
       status=CompositeOverImage(image,composite_image,clip_to_self,x_offset,
@@ -639,7 +615,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
+        magick_threads(composite_image,image,composite_image->rows,1)
 #endif
       for (y=0; y < (ssize_t) composite_image->rows; y++)
       {
@@ -679,16 +655,10 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             }
           for (i=0; i < (ssize_t) GetPixelChannels(composite_image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              composite_traits,
-              traits;
-
-            channel=GetPixelChannelChannel(composite_image,i);
-            composite_traits=GetPixelChannelTraits(composite_image,channel);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(composite_image,i);
+            PixelTrait composite_traits=GetPixelChannelTraits(composite_image,
+              channel);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (composite_traits == UndefinedPixelTrait))
               continue;
@@ -773,13 +743,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       */
       SetGeometryInfo(&geometry_info);
       flags=NoValue;
-      value=GetImageArtifact(composite_image,"compose:args");
-      if (value != (char *) NULL)
+      value=GetImageArtifact(image,"compose:args");
+      if (value != (const char *) NULL)
         flags=ParseGeometry(value,&geometry_info);
-      if ((flags & WidthValue) == 0 ) {
-          (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionWarning,"InvalidSetting","'%s' '%s'",
-               "compose:args",value);
+      if ((flags & WidthValue) == 0)
+        {
+          (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
+            "InvalidSetting","'%s' '%s'","compose:args",value);
           composite_image=DestroyImage(composite_image);
           destination_image=DestroyImage(destination_image);
           return(MagickFalse);
@@ -1208,7 +1178,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(composite_image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1276,12 +1246,14 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
     GetPixelInfo(composite_image,&source_pixel);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
+      double
+        gamma;
+
       MagickRealType
         alpha,
         Da,
         Dc,
         Dca,
-        gamma,
         Sa,
         Sc,
         Sca;
@@ -1325,16 +1297,10 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             MagickRealType
               pixel;
 
-            PixelChannel
-              channel;
-
-            PixelTrait
-              composite_traits,
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
-            composite_traits=GetPixelChannelTraits(composite_image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
+            PixelTrait composite_traits=GetPixelChannelTraits(composite_image,
+              channel);
             if ((traits == UndefinedPixelTrait) ||
                 (composite_traits == UndefinedPixelTrait))
               continue;
@@ -1487,7 +1453,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           break;
         }
       }
-      if (GetPixelMask(image,p) != 0)
+      if (GetPixelMask(image,q) != 0)
         {
           p+=GetPixelChannels(composite_image);
           q+=GetPixelChannels(image);
@@ -1514,16 +1480,10 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           pixel,
           sans;
 
-        PixelChannel
-          channel;
-
-        PixelTrait
-          composite_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        composite_traits=GetPixelChannelTraits(composite_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait composite_traits=GetPixelChannelTraits(composite_image,
+          channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((compose != IntensityCompositeOp) &&
@@ -1620,7 +1580,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               case CopyAlphaCompositeOp:
               {
                 pixel=QuantumRange*Sa;
-                if (composite_image->alpha_trait != BlendPixelTrait)
+                if (composite_image->alpha_trait == BlendPixelTrait)
                   pixel=GetPixelIntensity(composite_image,p);
                 break;
               }
@@ -2411,10 +2371,6 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
       /*
         Tile texture onto the image background.
       */
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
-      #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
       for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) texture_image->rows)
       {
         register ssize_t
@@ -2441,9 +2397,6 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
-           #pragma omp critical (MagickCore_TextureImage)
-#endif
             proceed=SetImageProgress(image,TextureImageTag,(MagickOffsetType)
               y,image->rows);
             if (proceed == MagickFalse)
@@ -2461,9 +2414,9 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
   status=MagickTrue;
   texture_view=AcquireVirtualCacheView(texture_image,exception);
   image_view=AcquireAuthenticCacheView(image,exception);
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(texture_image,image,1,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2508,7 +2461,7 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
         register ssize_t
           i;
 
-        if (GetPixelMask(image,p) != 0)
+        if (GetPixelMask(image,q) != 0)
           {
             p+=GetPixelChannels(texture_image);
             q+=GetPixelChannels(image);
@@ -2516,16 +2469,10 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
           }
         for (i=0; i < (ssize_t) GetPixelChannels(texture_image); i++)
         {
-          PixelChannel
-            channel;
-
-          PixelTrait
-            texture_traits,
-            traits;
-
-          channel=GetPixelChannelChannel(texture_image,i);
-          texture_traits=GetPixelChannelTraits(texture_image,channel);
-          traits=GetPixelChannelTraits(image,channel);
+          PixelChannel channel=GetPixelChannelChannel(texture_image,i);
+          PixelTrait traits=GetPixelChannelTraits(image,channel);
+          PixelTrait texture_traits=GetPixelChannelTraits(texture_image,
+            channel);
           if ((traits == UndefinedPixelTrait) ||
               (texture_traits == UndefinedPixelTrait))
             continue;
@@ -2543,9 +2490,6 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT) && defined(NoBenefitFromParallelism)
-        #pragma omp critical (MagickCore_TextureImage)
-#endif
         proceed=SetImageProgress(image,TextureImageTag,(MagickOffsetType) y,
           image->rows);
         if (proceed == MagickFalse)

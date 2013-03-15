@@ -75,7 +75,7 @@
 #include "MagickCore/utility.h"
 #if defined(MAGICKCORE_XML_DELEGATE)
 #  if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#    if defined(__MINGW32__)
+#    if defined(__MINGW32__) || defined(__MINGW64__)
 #      define _MSC_VER
 #    else
 #      include <win32config.h>
@@ -93,10 +93,10 @@
 
 #if defined(MAGICKCORE_RSVG_DELEGATE)
 #include "librsvg/rsvg.h"
-#if defined(MAGICKCORE_CAIRO_DELEGATE)
+#if !LIBRSVG_CHECK_VERSION(2,36,2)
 #include "librsvg/rsvg-cairo.h"
-#endif
 #include "librsvg/librsvg-features.h"
+#endif
 #endif
 
 /*
@@ -1662,12 +1662,12 @@ static void SVGStartElement(void *context,const xmlChar *name,
                           "fill '%s'\n",color);
                              break;
                            }
-                        if (LocaleCompare(value,"#00000000") == 0)
+                        if (LocaleCompare(value,"#000000ff") == 0)
                           (void) FormatLocaleFile(svg_info->file,
-                          "fill '#000000'\n");
+                            "fill '#000000'\n");
                         else
                           (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",
-                          value);
+                            value);
                         break;
                       }
                     if (LocaleCompare(keyword,"fillcolor") == 0)
@@ -1755,12 +1755,12 @@ static void SVGStartElement(void *context,const xmlChar *name,
                           "stroke '%s'\n",color);
                              break;
                            }
-                        if (LocaleCompare(value,"#00000000") == 0)
+                        if (LocaleCompare(value,"#000000ff") == 0)
                           (void) FormatLocaleFile(svg_info->file,
-                          "fill '#000000'\n");
+                            "fill '#000000'\n");
                         else
                           (void) FormatLocaleFile(svg_info->file,
-                          "stroke '%s'\n",value);
+                            "stroke '%s'\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-antialiasing") == 0)
@@ -2744,7 +2744,7 @@ static void SVGExternalSubset(void *context,const xmlChar *name,
   Static declarations.
 */
 static char
-  SVGDensityGeometry[] = "90.0x90.0";
+  SVGDensityGeometry[] = "72.0x72.0";
 
 
 static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
@@ -3212,7 +3212,6 @@ ModuleExport size_t RegisterSVGImage(void)
   (void) CopyMagickString(version,"XML " LIBXML_DOTTED_VERSION,MaxTextExtent);
 #endif
 #if defined(MAGICKCORE_RSVG_DELEGATE)
-  g_type_init();
   (void) FormatLocaleString(version,MaxTextExtent,"RSVG %d.%d.%d",
     LIBRSVG_MAJOR_VERSION,LIBRSVG_MINOR_VERSION,LIBRSVG_MICRO_VERSION);
 #endif

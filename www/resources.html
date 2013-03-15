@@ -30,7 +30,7 @@
   <link rel="canonical" href="http://www.imagemagick.org" />
   <link rel="meta" type="application/rdf+xml" title="ICI" href="http://imagemagick.org/ici.rdf"/>
   <!-- Add jQuery library -->
-  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
+  <script type="text/javascript" src="http://localhost/ajax/libs/jquery/1.7/jquery.min.js"></script>
   
   <!-- Optionaly include easing and/or mousewheel plugins -->
   <script type="text/javascript" src="http://www.imagemagick.org/fancybox/jquery.easing-1.3.pack.js"></script>
@@ -52,7 +52,7 @@
   	});
   </script>
   <!-- ImageMagick style -->
-  <link rel="stylesheet" href="http://www.google.com/cse/style/look/default.css" type="text/css" />
+  <link rel="stylesheet" href="http://www.localhost/cse/style/look/default.css" type="text/css" />
   <style type="text/css" media="all">
     @import url("../www/magick.css");
   </style>
@@ -70,7 +70,7 @@
   //-->
   </script>
   <script type="text/javascript"
-    src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+    src="http://localhost/pagead/show_ads.js">
   </script>
 </div>
 <a href="../discourse-server">
@@ -152,7 +152,7 @@
 </div>
 <div class="sep"></div>
 <div class="menu">
-  <a title="Search" href="search.html">Search</a>
+  <a title="Search" href="http://www.imagemagick.org/script/search.php">Search</a>
 </div>
 <div class="sep"></div>
 <div class="menu">
@@ -222,10 +222,10 @@
     };
 
     (function() {
-      var po = document.createElement('script');
+      var po = document.createElement('offline-script');
       po.type = 'text/javascript'; po.async = true;
-      po.src = 'https://apis.google.com/js/plusone.js';
-      var script = document.getElementsByTagName('script')[0];
+      po.src = 'https://apis.localhost/js/plusone.js';
+      var script = document.getElementsByTagName('offline-script')[0];
       script.parentNode.insertBefore(po, script);
     })();
     var gplusone = document.getElementById("gplusone");
@@ -351,7 +351,7 @@ file or data stream.</p>
 <pre class="text">
   $MAGICK_CONFIGURE_PATH
   $PREFIX/etc/ImageMagick
-  $PREFIX/share/ImageMagick-6.7.7 
+  $PREFIX/share/ImageMagick-6.7.9 
   $HOME/.magick/
   &lt;<em>client path</em>&gt;/etc/ImageMagick/
 </pre>
@@ -363,8 +363,8 @@ file or data stream.</p>
 <pre class="text">
   $MAGICK_CONFIGURE_PATH
   $MAGICK_HOME/etc/ImageMagick
-  $MAGICK_HOME/share/ImageMagick-6.7.7 
-  $PREFIX/share/ImageMagick-6.7.7 
+  $MAGICK_HOME/share/ImageMagick-6.7.9 
+  $PREFIX/share/ImageMagick-6.7.9 
   $HOME/.magick/
   &lt;<em>client path</em>&gt;/etc/ImageMagick/
   &lt;<em>current directory</em>&gt;
@@ -380,7 +380,7 @@ file or data stream.</p>
   &lt;<em>client path</em>&gt;
 </pre>
 
-<p>Above, $PREFIX is the default install path, typically <kbd>c:\\Program Files\\ImageMagick-6.7.7</kbd>.</p>
+<p>Above, $PREFIX is the default install path, typically <kbd>c:\\Program Files\\ImageMagick-6.7.9</kbd>.</p>
 
 <p>For an uninstalled Windows installation, the configuration load order is:</p>
 
@@ -403,23 +403,23 @@ file or data stream.</p>
 <p>An image coder (i.e. encoder / decoder) is responsible for registering, optionally classifying, optionally reading, optionally writing, and unregistering one image format (e.g. PNG, GIF, JPEG, etc.).  ImageMagick searches for coders in the following order and it uses the first match found:</p>
 
 <pre class="text">
-  $MAGICK_HOME/lib/ImageMagick-6.7.7/modules-Q16/coders/
-  &lt;<em>client path</em>&gt;/../lib/ImageMagick-6.7.7/modules-Q16/coders/
-  $MAGICK_HOME/lib/ImageMagick-6.7.7/modules-Q16/coders
-  $MAGICK_HOME/share/ImageMagick-6.7.7/modules-Q16/coders
+  $MAGICK_HOME/lib/ImageMagick-6.7.9/modules-Q16/coders/
+  &lt;<em>client path</em>&gt;/../lib/ImageMagick-6.7.9/modules-Q16/coders/
+  $MAGICK_HOME/lib/ImageMagick-6.7.9/modules-Q16/coders
+  $MAGICK_HOME/share/ImageMagick-6.7.9/modules-Q16/coders
   $HOME/.magick/
-  &lt;<em>client path</em>&gt;/lib/ImageMagick-6.7.7/modules-Q16/coders
+  &lt;<em>client path</em>&gt;/lib/ImageMagick-6.7.9/modules-Q16/coders
 </pre>
 
 <h4>Filters</h4>
 <p>ImageMagick provides a convenient mechanism for adding your own custom image processing algorithms.  ImageMagick searches for filters in the following order and it uses the first match found:</p>
 <pre class="text">
-  $MAGICK_HOME/lib/ImageMagick-6.7.7/modules-Q16/filters/
-  &lt;<em>client path</em>&gt;/../lib/ImageMagick-6.7.7/modules-Q16/filters/
-  $MAGICK_HOME/lib/ImageMagick-6.7.7/modules-Q16/filters
-  $MAGICK_HOME/share/ImageMagick-6.7.7/modules-Q16/filters
+  $MAGICK_HOME/lib/ImageMagick-6.7.9/modules-Q16/filters/
+  &lt;<em>client path</em>&gt;/../lib/ImageMagick-6.7.9/modules-Q16/filters/
+  $MAGICK_HOME/lib/ImageMagick-6.7.9/modules-Q16/filters
+  $MAGICK_HOME/share/ImageMagick-6.7.9/modules-Q16/filters
   $HOME/.magick/
-  &lt;<em>client path</em>&gt;/lib/ImageMagick-6.7.7/modules-Q16/filters
+  &lt;<em>client path</em>&gt;/lib/ImageMagick-6.7.9/modules-Q16/filters
 </pre>
 
 </div>
@@ -432,7 +432,7 @@ file or data stream.</p>
 <pre class="text">
   $MAGICK_CONFIGURE_PATH
   $MAGICK_HOME/etc/ImageMagick/
-  $MAGICK_HOME/share/ImageMagick-6.7.7/
+  $MAGICK_HOME/share/ImageMagick-6.7.9/
   $HOME/.magick/
   &lt;<em>client path</em>&gt;/etc/ImageMagick/
   $MAGICK_FONT_PATH
@@ -522,9 +522,9 @@ file or data stream.</p>
     _gaq.push(['_trackPageview']);
 
     (function() {
-      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      var ga = document.createElement('offline-script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.localhost/ga.js';
+      var s = document.getElementsByTagName('offline-script')[0]; s.parentNode.insertBefore(ga, s);
     })();
   </script>
 </body>

@@ -31,8 +31,8 @@ typedef enum
   MapResource,
   MemoryResource,
   ThreadResource,
-  TimeResource,
-  ThrottleResource
+  ThrottleResource,
+  TimeResource
 } ResourceType;
 
 #define MagickResourceInfinity  MagickULLConstant(~0)
@@ -42,6 +42,7 @@ extern MagickExport int
 
 extern MagickExport MagickBooleanType
   AcquireMagickResource(const ResourceType,const MagickSizeType),
+  GetPathTemplate(char *),
   ListMagickResourceInfo(FILE *,ExceptionInfo *),
   RelinquishUniqueFileResource(const char *),
   SetMagickResourceLimit(const ResourceType,const MagickSizeType);

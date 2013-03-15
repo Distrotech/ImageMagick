@@ -135,7 +135,11 @@ static Image *ReadDOTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) AcquireUniqueFilename(read_info->filename);
   (void) FormatLocaleString(command,MaxTextExtent,"-Tsvg -o%s %s",
     read_info->filename,image_info->filename);
+#if !defined(WITH_CGRAPH)
   graph=agread(GetBlobFileHandle(image));
+#else
+  graph=agread(GetBlobFileHandle(image),(Agdisc_t *) NULL);
+#endif
   if (graph == (graph_t *) NULL)
     return ((Image *) NULL);
   option=GetImageOption(image_info,"dot:layout-engine");
@@ -145,6 +149,7 @@ static Image *ReadDOTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     gvLayout(graphic_context,graph,(char *) option);
   gvRenderFilename(graphic_context,graph,(char *) "svg",read_info->filename);
   gvFreeLayout(graphic_context,graph);
+  agclose(graph);
   /*
     Read SVG graph.
   */
@@ -193,6 +198,14 @@ ModuleExport size_t RegisterDOTImage(void)
   entry->description=ConstantString("Graphviz");
   entry->module=ConstantString("DOT");
   (void) RegisterMagickInfo(entry);
+  entry=SetMagickInfo("GV");
+#if defined(MAGICKCORE_GVC_DELEGATE)
+  entry->decoder=(DecodeImageHandler *) ReadDOTImage;
+#endif
+  entry->blob_support=MagickFalse;
+  entry->description=ConstantString("Graphviz");
+  entry->module=ConstantString("DOT");
+  (void) RegisterMagickInfo(entry);
 #if defined(MAGICKCORE_GVC_DELEGATE)
   graphic_context=gvContext();
 #endif
@@ -220,6 +233,7 @@ ModuleExport size_t RegisterDOTImage(void)
 */
 ModuleExport void UnregisterDOTImage(void)
 {
+  (void) UnregisterMagickInfo("GV");
   (void) UnregisterMagickInfo("DOT");
 #if defined(MAGICKCORE_GVC_DELEGATE)
   gvFreeContext(graphic_context);

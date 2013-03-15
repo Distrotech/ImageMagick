@@ -464,6 +464,7 @@ static MagickBooleanType ParseImageResourceBlocks(Image *image,
         p=PushShortPixel(MSBEndian,p,&short_sans);
         p=PushShortPixel(MSBEndian,p,&short_sans);
         p=PushShortPixel(MSBEndian,p,&short_sans);
+        image->units=PixelsPerInchResolution;
         break;
       }
       default:
@@ -579,7 +580,7 @@ static MagickBooleanType ReadPSDLayer(Image *image,const size_t channels,
       for (y=0; y < (ssize_t) image->rows; y++)
         if ((MagickOffsetType) length < offsets[y])
           length=(size_t) offsets[y];
-      compact_pixels=(unsigned char *) AcquireQuantumMemory(length,
+      compact_pixels=(unsigned char *) AcquireQuantumMemory(length+256,
         sizeof(*pixels));
       if (compact_pixels == (unsigned char *) NULL)
         ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",

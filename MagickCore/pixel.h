@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#include <MagickCore/colorspace.h>
+#include "MagickCore/colorspace.h"
 
 #define MaxPixelChannels  32
 #undef index
@@ -60,23 +60,6 @@ typedef enum
 
 typedef enum
 {
-  UndefinedInterpolatePixel,
-  AverageInterpolatePixel,    /* Average 4 nearest neighbours */
-  Average9InterpolatePixel,   /* Average 9 nearest neighbours */
-  Average16InterpolatePixel,  /* Average 16 nearest neighbours */
-  BackgroundInterpolatePixel, /* Just return background color */
-  BilinearInterpolatePixel,   /* Triangular filter interpolation */
-  BlendInterpolatePixel,      /* blend of nearest 1, 2 or 4 pixels */
-  CatromInterpolatePixel,     /* Catmull-Rom interpolation */
-  IntegerInterpolatePixel,    /* Integer (floor) interpolation */
-  MeshInterpolatePixel,       /* Triangular Mesh interpolation */
-  NearestInterpolatePixel,    /* Nearest Neighbour Only */
-  SplineInterpolatePixel     /* Cubic Spline (blurred) interpolation */
-  /* FilterInterpolatePixel,  ** Use resize filter - (very slow) */
-} PixelInterpolateMethod;
-
-typedef enum
-{
   UndefinedPixelChannel = 0,
   RedPixelChannel = 0,
   CyanPixelChannel = 0,
@@ -100,6 +83,36 @@ typedef enum
   CompositePixelChannel = MaxPixelChannels,
   SyncPixelChannel = MaxPixelChannels+1
 } PixelChannel;  /* must correspond to ChannelType */
+
+typedef enum
+{
+  UndefinedPixelIntensityMethod = 0,
+  AveragePixelIntensityMethod,
+  BrightnessPixelIntensityMethod,
+  LightnessPixelIntensityMethod,
+  Rec601LumaPixelIntensityMethod,
+  Rec601LuminancePixelIntensityMethod,
+  Rec709LumaPixelIntensityMethod,
+  Rec709LuminancePixelIntensityMethod,
+  RMSPixelIntensityMethod
+} PixelIntensityMethod;
+
+typedef enum
+{
+  UndefinedInterpolatePixel,
+  AverageInterpolatePixel,    /* Average 4 nearest neighbours */
+  Average9InterpolatePixel,   /* Average 9 nearest neighbours */
+  Average16InterpolatePixel,  /* Average 16 nearest neighbours */
+  BackgroundInterpolatePixel, /* Just return background color */
+  BilinearInterpolatePixel,   /* Triangular filter interpolation */
+  BlendInterpolatePixel,      /* blend of nearest 1, 2 or 4 pixels */
+  CatromInterpolatePixel,     /* Catmull-Rom interpolation */
+  IntegerInterpolatePixel,    /* Integer (floor) interpolation */
+  MeshInterpolatePixel,       /* Triangular Mesh interpolation */
+  NearestInterpolatePixel,    /* Nearest Neighbour Only */
+  SplineInterpolatePixel     /* Cubic Spline (blurred) interpolation */
+  /* FilterInterpolatePixel,  ** Use resize filter - (very slow) */
+} PixelInterpolateMethod;
 
 typedef enum
 {
@@ -194,6 +207,10 @@ extern MagickExport MagickBooleanType
   IsFuzzyEquivalencePixelInfo(const PixelInfo *,const PixelInfo *),
   SetPixelMetaChannels(Image *,const size_t,ExceptionInfo *);
 
+extern MagickExport MagickRealType
+  GetPixelIntensity(const Image *restrict,const Quantum *restrict)
+    magick_hot_spot;
+
 extern MagickExport PixelChannelMap
   *AcquirePixelChannelMap(void),
   *ClonePixelChannelMap(PixelChannelMap *),
@@ -201,6 +218,10 @@ extern MagickExport PixelChannelMap
 
 extern MagickExport PixelInfo
   *ClonePixelInfo(const PixelInfo *);
+
+extern MagickExport MagickRealType
+  DecodePixelGamma(const MagickRealType) magick_hot_spot,
+  EncodePixelGamma(const MagickRealType) magick_hot_spot;
 
 extern MagickExport void
   InitializePixelChannelMap(Image *),

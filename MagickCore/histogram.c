@@ -219,7 +219,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(cube_info);
     }
   GetPixelInfo(image,&pixel);
@@ -247,7 +247,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
                   image->filename);
                 return(0);
               }
@@ -274,7 +274,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                ResourceLimitError,"MemoryAllocationFailed","`%s'",
                 image->filename);
               return(0);
             }
@@ -537,7 +537,7 @@ MagickExport PixelInfo *GetImageHistogram(const Image *image,
         sizeof(*histogram));
       if (histogram == (PixelInfo *) NULL)
         (void) ThrowMagickException(exception,GetMagickModule(),
-          ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+          ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       else
         {
           PixelInfo
@@ -681,7 +681,7 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(MagickFalse);
     }
   GetPixelInfo(image,&pixel);
@@ -709,7 +709,7 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
                   image->filename);
                 break;
               }
@@ -741,7 +741,7 @@ MagickExport MagickBooleanType IsHistogramImage(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                ResourceLimitError,"MemoryAllocationFailed","`%s'",
                 image->filename);
               break;
             }
@@ -841,7 +841,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
   if (cube_info == (CubeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(MagickFalse);
     }
   GetPixelInfo(image,&pixel);
@@ -869,7 +869,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
             if (node_info->child[id] == (NodeInfo *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                  ResourceLimitError,"MemoryAllocationFailed","`%s'",
                   image->filename);
                 break;
               }
@@ -901,7 +901,7 @@ MagickExport MagickBooleanType IsPaletteImage(const Image *image,
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                ResourceLimitError,"MemoryAllocationFailed","`%s'",
                 image->filename);
               break;
             }
@@ -1011,14 +1011,8 @@ MagickExport MagickBooleanType MinMaxStretchImage(Image *image,
     ChannelType
       channel_mask;
 
-    PixelChannel
-      channel;
-
-    PixelTrait
-      traits;
-
-    channel=GetPixelChannelChannel(image,i);
-    traits=GetPixelChannelTraits(image,channel);
+    PixelChannel channel=GetPixelChannelChannel(image,i);
+    PixelTrait traits=GetPixelChannelTraits(image,channel);
     if ((traits & UpdatePixelTrait) == 0)
       continue;
     channel_mask=SetImageChannelMask(image,(ChannelType) (1 << i));

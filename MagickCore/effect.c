@@ -300,7 +300,7 @@ MagickExport Image *AdaptiveBlurImage(const Image *image,const double radius,
   blur_view=AcquireAuthenticCacheView(blur_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,blur_image,blur_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) blur_image->rows; y++)
   {
@@ -383,7 +383,7 @@ MagickExport Image *AdaptiveBlurImage(const Image *image,const double radius,
             (blur_traits == UndefinedPixelTrait))
           continue;
         if (((blur_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+            (GetPixelMask(image,p+center) != 0))
           {
             SetPixelChannel(blur_image,channel,p[center+i],q);
             continue;
@@ -625,7 +625,7 @@ MagickExport Image *AdaptiveSharpenImage(const Image *image,const double radius,
   sharp_view=AcquireAuthenticCacheView(sharp_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,sharp_image,sharp_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) sharp_image->rows; y++)
   {
@@ -708,7 +708,7 @@ MagickExport Image *AdaptiveSharpenImage(const Image *image,const double radius,
             (sharp_traits == UndefinedPixelTrait))
           continue;
         if (((sharp_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+            (GetPixelMask(image,p+center) != 0))
           {
             SetPixelChannel(sharp_image,channel,p[center+i],q);
             continue;
@@ -801,10 +801,6 @@ MagickExport Image *AdaptiveSharpenImage(const Image *image,const double radius,
 %  the radius should be larger than sigma.  Use a radius of 0 and BlurImage()
 %  selects a suitable radius for you.
 %
-%  BlurImage() differs from GaussianBlurImage() in that it uses a separable
-%  kernel which is faster but mathematically equivalent to the non-separable
-%  kernel.
-%
 %  The format of the BlurImage method is:
 %
 %      Image *BlurImage(const Image *image,const double radius,
@@ -822,65 +818,17 @@ MagickExport Image *AdaptiveSharpenImage(const Image *image,const double radius,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-
-static MagickRealType *GetBlurKernel(const size_t width,const double sigma)
+MagickExport Image *BlurImage(const Image *image,const double radius,
+  const double sigma,ExceptionInfo *exception)
 {
   double
     normalize;
 
-  MagickRealType
-    *kernel;
-
-  register ssize_t
-    i;
-
-  ssize_t
-    j,
-    k;
-
-  /*
-    Generate a 1-D convolution kernel.
-  */
-  (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  kernel=(MagickRealType *) MagickAssumeAligned(AcquireAlignedMemory((size_t)
-    width,sizeof(*kernel)));
-  if (kernel == (MagickRealType *) NULL)
-    return(0);
-  normalize=0.0;
-  j=(ssize_t) width/2;
-  i=0;
-  for (k=(-j); k <= j; k++)
-  {
-    kernel[i]=(MagickRealType) (exp(-((double) k*k)/(2.0*MagickSigma*
-      MagickSigma))/(MagickSQ2PI*MagickSigma));
-    normalize+=kernel[i];
-    i++;
-  }
-  for (i=0; i < (ssize_t) width; i++)
-    kernel[i]/=normalize;
-  return(kernel);
-}
-
-MagickExport Image *BlurImage(const Image *image,const double radius,
-  const double sigma,ExceptionInfo *exception)
-{
-#define BlurImageTag  "Blur/Image"
-
-  CacheView
-    *blur_view,
-    *image_view;
-
   Image
     *blur_image;
 
-  MagickBooleanType
-    status;
-
-  MagickOffsetType
-    progress;
-
-  MagickRealType
-    *kernel;
+  KernelInfo
+    *kernel_info;
 
   register ssize_t
     i;
@@ -889,316 +837,52 @@ MagickExport Image *BlurImage(const Image *image,const double radius,
     width;
 
   ssize_t
-    center,
-    x,
-    y;
+    j,
+    u,
+    v;
 
-  /*
-    Initialize blur image attributes.
-  */
-  assert(image != (Image *) NULL);
+  assert(image != (const Image *) NULL);
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-  blur_image=CloneImage(image,0,0,MagickTrue,exception);
-  if (blur_image == (Image *) NULL)
-    return((Image *) NULL);
-  if (fabs(sigma) < MagickEpsilon)
-    return(blur_image);
-  if (SetImageStorageClass(blur_image,DirectClass,exception) == MagickFalse)
+  width=GetOptimalKernelWidth2D(radius,sigma);
+  kernel_info=AcquireKernelInfo((const char *) NULL);
+  if (kernel_info == (KernelInfo *) NULL)
+    ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
+  (void) ResetMagickMemory(kernel_info,0,sizeof(*kernel_info));
+  kernel_info->width=width;
+  kernel_info->height=width;
+  kernel_info->x=(ssize_t) width/2;
+  kernel_info->y=(ssize_t) width/2;
+  kernel_info->signature=MagickSignature;
+  kernel_info->values=(MagickRealType *) MagickAssumeAligned(
+    AcquireAlignedMemory(kernel_info->width,kernel_info->width*
+    sizeof(*kernel_info->values)));
+  if (kernel_info->values == (MagickRealType *) NULL)
     {
-      blur_image=DestroyImage(blur_image);
-      return((Image *) NULL);
-    }
-  width=GetOptimalKernelWidth1D(radius,sigma);
-  kernel=GetBlurKernel(width,sigma);
-  if (kernel == (MagickRealType *) NULL)
-    {
-      blur_image=DestroyImage(blur_image);
+      kernel_info=DestroyKernelInfo(kernel_info);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  if (image->debug != MagickFalse)
-    {
-      char
-        format[MaxTextExtent],
-        *message;
-
-      register const MagickRealType
-        *k;
-
-      (void) LogMagickEvent(TransformEvent,GetMagickModule(),
-        "  blur image with kernel width %.20g:",(double) width);
-      message=AcquireString("");
-      k=kernel;
-      for (i=0; i < (ssize_t) width; i++)
-      {
-        *message='\0';
-        (void) FormatLocaleString(format,MaxTextExtent,"%.20g: ",(double) i);
-        (void) ConcatenateString(&message,format);
-        (void) FormatLocaleString(format,MaxTextExtent,"%g ",(double) *k++);
-        (void) ConcatenateString(&message,format);
-        (void) LogMagickEvent(TransformEvent,GetMagickModule(),"%s",message);
-      }
-      message=DestroyString(message);
-    }
-  /*
-    Blur rows.
-  */
-  status=MagickTrue;
-  progress=0;
-  center=(ssize_t) GetPixelChannels(image)*(width/2L);
-  image_view=AcquireVirtualCacheView(image,exception);
-  blur_view=AcquireAuthenticCacheView(blur_image,exception);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
-  for (y=0; y < (ssize_t) image->rows; y++)
+  normalize=0.0;
+  j=(ssize_t) (kernel_info->width-1)/2;
+  i=0;
+  for (v=(-j); v <= j; v++)
   {
-    register const Quantum
-      *restrict p;
-
-    register Quantum
-      *restrict q;
-
-    register ssize_t
-      x;
-
-    if (status == MagickFalse)
-      continue;
-    p=GetCacheViewVirtualPixels(image_view,-((ssize_t) width/2L),y,
-      image->columns+width,1,exception);
-    q=QueueCacheViewAuthenticPixels(blur_view,0,y,blur_image->columns,1,
-      exception);
-    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
-      {
-        status=MagickFalse;
-        continue;
-      }
-    for (x=0; x < (ssize_t) image->columns; x++)
+    for (u=(-j); u <= j; u++)
     {
-      register ssize_t
-        i;
-
-      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
-      {
-        double
-          alpha,
-          gamma,
-          pixel;
-
-        PixelChannel
-          channel;
-
-        PixelTrait
-          blur_traits,
-          traits;
-
-        register const MagickRealType
-          *restrict k;
-
-        register const Quantum
-          *restrict pixels;
-
-        register ssize_t
-          u;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        blur_traits=GetPixelChannelTraits(blur_image,channel);
-        if ((traits == UndefinedPixelTrait) ||
-            (blur_traits == UndefinedPixelTrait))
-          continue;
-        if (((blur_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
-          {
-            SetPixelChannel(blur_image,channel,p[center+i],q);
-            continue;
-          }
-        k=kernel;
-        pixels=p;
-        pixel=0.0;
-        if ((blur_traits & BlendPixelTrait) == 0)
-          {
-            /*
-              No alpha blending.
-            */
-            for (u=0; u < (ssize_t) width; u++)
-            {
-              pixel+=(*k)*pixels[i];
-              k++;
-              pixels+=GetPixelChannels(image);
-            }
-            SetPixelChannel(blur_image,channel,ClampToQuantum(pixel),q);
-            continue;
-          }
-        /*
-          Alpha blending.
-        */
-        gamma=0.0;
-        for (u=0; u < (ssize_t) width; u++)
-        {
-          alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
-          pixel+=(*k)*alpha*pixels[i];
-          gamma+=(*k)*alpha;
-          k++;
-          pixels+=GetPixelChannels(image);
-        }
-        gamma=PerceptibleReciprocal(gamma);
-        SetPixelChannel(blur_image,channel,ClampToQuantum(gamma*pixel),q);
-      }
-      p+=GetPixelChannels(image);
-      q+=GetPixelChannels(blur_image);
+      kernel_info->values[i]=(MagickRealType) (exp(-((double) u*u+v*v)/(2.0*
+        MagickSigma*MagickSigma))/(2.0*MagickPI*MagickSigma*MagickSigma));
+      normalize+=kernel_info->values[i];
+      i++;
     }
-    if (SyncCacheViewAuthenticPixels(blur_view,exception) == MagickFalse)
-      status=MagickFalse;
-    if (image->progress_monitor != (MagickProgressMonitor) NULL)
-      {
-        MagickBooleanType
-          proceed;
-
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_BlurImage)
-#endif
-        proceed=SetImageProgress(image,BlurImageTag,progress++,blur_image->rows+
-          blur_image->columns);
-        if (proceed == MagickFalse)
-          status=MagickFalse;
-      }
   }
-  blur_view=DestroyCacheView(blur_view);
-  image_view=DestroyCacheView(image_view);
-  /*
-    Blur columns.
-  */
-  center=(ssize_t) GetPixelChannels(blur_image)*(width/2L);
-  image_view=AcquireVirtualCacheView(blur_image,exception);
-  blur_view=AcquireAuthenticCacheView(blur_image,exception);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
-  for (x=0; x < (ssize_t) blur_image->columns; x++)
-  {
-    register const Quantum
-      *restrict p;
-
-    register Quantum
-      *restrict q;
-
-    register ssize_t
-      y;
-
-    if (status == MagickFalse)
-      continue;
-    p=GetCacheViewVirtualPixels(image_view,x,-((ssize_t) width/2L),1,
-      blur_image->rows+width,exception);
-    q=GetCacheViewAuthenticPixels(blur_view,x,0,1,blur_image->rows,exception);
-    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
-      {
-        status=MagickFalse;
-        continue;
-      }
-    for (y=0; y < (ssize_t) blur_image->rows; y++)
-    {
-      register ssize_t
-        i;
-
-      for (i=0; i < (ssize_t) GetPixelChannels(blur_image); i++)
-      {
-        double
-          alpha,
-          gamma,
-          pixel;
-
-        PixelChannel
-          channel;
-
-        PixelTrait
-          blur_traits,
-          traits;
-
-        register const MagickRealType
-          *restrict k;
-
-        register const Quantum
-          *restrict pixels;
-
-        register ssize_t
-          u;
-
-        channel=GetPixelChannelChannel(blur_image,i);
-        traits=GetPixelChannelTraits(blur_image,channel);
-        blur_traits=GetPixelChannelTraits(blur_image,channel);
-        if ((traits == UndefinedPixelTrait) ||
-            (blur_traits == UndefinedPixelTrait))
-          continue;
-        if (((blur_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
-          {
-            SetPixelChannel(blur_image,channel,p[center+i],q);
-            continue;
-          }
-        k=kernel;
-        pixels=p;
-        pixel=0.0;
-        if ((blur_traits & BlendPixelTrait) == 0)
-          {
-            /*
-              No alpha blending.
-            */
-            for (u=0; u < (ssize_t) width; u++)
-            {
-              pixel+=(*k)*pixels[i];
-              k++;
-              pixels+=GetPixelChannels(blur_image);
-            }
-            SetPixelChannel(blur_image,channel,ClampToQuantum(pixel),q);
-            continue;
-          }
-        /*
-          Alpha blending.
-        */
-        gamma=0.0;
-        for (u=0; u < (ssize_t) width; u++)
-        {
-          alpha=(double) (QuantumScale*GetPixelAlpha(blur_image,
-            pixels));
-          pixel+=(*k)*alpha*pixels[i];
-          gamma+=(*k)*alpha;
-          k++;
-          pixels+=GetPixelChannels(blur_image);
-        }
-        gamma=PerceptibleReciprocal(gamma);
-        SetPixelChannel(blur_image,channel,ClampToQuantum(gamma*pixel),q);
-      }
-      p+=GetPixelChannels(blur_image);
-      q+=GetPixelChannels(blur_image);
-    }
-    if (SyncCacheViewAuthenticPixels(blur_view,exception) == MagickFalse)
-      status=MagickFalse;
-    if (blur_image->progress_monitor != (MagickProgressMonitor) NULL)
-      {
-        MagickBooleanType
-          proceed;
-
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_BlurImage)
-#endif
-        proceed=SetImageProgress(blur_image,BlurImageTag,progress++,
-          blur_image->rows+blur_image->columns);
-        if (proceed == MagickFalse)
-          status=MagickFalse;
-      }
-  }
-  blur_view=DestroyCacheView(blur_view);
-  image_view=DestroyCacheView(image_view);
-  kernel=(MagickRealType *) RelinquishAlignedMemory(kernel);
-  blur_image->type=image->type;
-  if (status == MagickFalse)
-    blur_image=DestroyImage(blur_image);
+  kernel_info->values[i/2]+=(1.0-normalize);
+  if (sigma < MagickEpsilon)
+    kernel_info->values[i/2]=1.0;
+  blur_image=ConvolveImage(image,kernel_info,exception);
+  kernel_info=DestroyKernelInfo(kernel_info);
   return(blur_image);
 }
 
@@ -1283,8 +967,8 @@ static void Hull(const Image *image,const ssize_t x_offset,
   q=g+(columns+2);
   r=p+(y_offset*(columns+2)+x_offset);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) \
-    dynamic_number_threads(image,columns,rows,1)
+  #pragma omp parallel for schedule(static,4) \
+    magick_threads(image,image,1,1)
 #endif
   for (y=0; y < (ssize_t) rows; y++)
   {
@@ -1320,8 +1004,8 @@ static void Hull(const Image *image,const ssize_t x_offset,
   r=q+(y_offset*(columns+2)+x_offset);
   s=q-(y_offset*(columns+2)+x_offset);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static) \
-    dynamic_number_threads(image,columns,rows,1)
+  #pragma omp parallel for schedule(static,4) \
+    magick_threads(image,image,1,1)
 #endif
   for (y=0; y < (ssize_t) rows; y++)
   {
@@ -1488,8 +1172,8 @@ MagickExport Image *DespeckleImage(const Image *image,ExceptionInfo *exception)
       register Quantum
         *restrict q;
 
-      q=QueueCacheViewAuthenticPixels(despeckle_view,0,y,
-        despeckle_image->columns,1,exception);
+      q=GetCacheViewAuthenticPixels(despeckle_view,0,y,despeckle_image->columns,
+        1,exception);
       if (q == (Quantum *) NULL)
         {
           status=MagickFalse;
@@ -1590,6 +1274,8 @@ MagickExport Image *EdgeImage(const Image *image,const double radius,
     ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
   kernel_info->width=width;
   kernel_info->height=width;
+  kernel_info->x=(ssize_t) width/2;
+  kernel_info->y=(ssize_t) width/2;
   kernel_info->values=(MagickRealType *) MagickAssumeAligned(
     AcquireAlignedMemory(kernel_info->width,kernel_info->width*
     sizeof(*kernel_info->values)));
@@ -1598,7 +1284,7 @@ MagickExport Image *EdgeImage(const Image *image,const double radius,
       kernel_info=DestroyKernelInfo(kernel_info);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  j=(ssize_t) kernel_info->width/2;
+  j=(ssize_t) (kernel_info->width-1)/2;
   i=0;
   for (v=(-j); v <= j; v++)
   {
@@ -1680,6 +1366,8 @@ MagickExport Image *EmbossImage(const Image *image,const double radius,
     ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
   kernel_info->width=width;
   kernel_info->height=width;
+  kernel_info->x=(ssize_t) width/2;
+  kernel_info->y=(ssize_t) width/2;
   kernel_info->values=(MagickRealType *) MagickAssumeAligned(
     AcquireAlignedMemory(kernel_info->width,kernel_info->width*
     sizeof(*kernel_info->values)));
@@ -1688,7 +1376,7 @@ MagickExport Image *EmbossImage(const Image *image,const double radius,
       kernel_info=DestroyKernelInfo(kernel_info);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  j=(ssize_t) kernel_info->width/2;
+  j=(ssize_t) (kernel_info->width-1)/2;
   k=j;
   i=0;
   for (v=(-j); v <= j; v++)
@@ -1777,6 +1465,8 @@ MagickExport Image *GaussianBlurImage(const Image *image,const double radius,
   (void) ResetMagickMemory(kernel_info,0,sizeof(*kernel_info));
   kernel_info->width=width;
   kernel_info->height=width;
+  kernel_info->x=(ssize_t) width/2;
+  kernel_info->y=(ssize_t) width/2;
   kernel_info->signature=MagickSignature;
   kernel_info->values=(MagickRealType *) MagickAssumeAligned(
     AcquireAlignedMemory(kernel_info->width,kernel_info->width*
@@ -1786,7 +1476,7 @@ MagickExport Image *GaussianBlurImage(const Image *image,const double radius,
       kernel_info=DestroyKernelInfo(kernel_info);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  j=(ssize_t) kernel_info->width/2;
+  j=(ssize_t) (kernel_info->width-1)/2;
   i=0;
   for (v=(-j); v <= j; v++)
   {
@@ -1874,6 +1564,8 @@ static MagickRealType *GetMotionBlurKernel(const size_t width,
 MagickExport Image *MotionBlurImage(const Image *image,const double radius,
   const double sigma,const double angle,ExceptionInfo *exception)
 {
+#define BlurImageTag  "Blur/Image"
+
   CacheView
     *blur_view,
     *image_view,
@@ -1952,7 +1644,7 @@ MagickExport Image *MotionBlurImage(const Image *image,const double radius,
   blur_view=AcquireAuthenticCacheView(blur_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,blur_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2214,8 +1906,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
       {
         degrees+=5.0;
         preview_image=ShearImage(thumbnail,degrees,degrees,exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"shear %gx%g",
-          degrees,2.0*degrees);
+        (void) FormatLocaleString(label,MaxTextExtent,"shear %gx%g",degrees,
+          2.0*degrees);
         break;
       }
       case RollPreview:
@@ -2232,8 +1924,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
         preview_image=CloneImage(thumbnail,0,0,MagickTrue,exception);
         if (preview_image == (Image *) NULL)
           break;
-        (void) FormatLocaleString(factor,MaxTextExtent,"100,100,%g",
-          2.0*percentage);
+        (void) FormatLocaleString(factor,MaxTextExtent,"100,100,%g",2.0*
+          percentage);
         (void) ModulateImage(preview_image,factor,exception);
         (void) FormatLocaleString(label,MaxTextExtent,"modulate %s",factor);
         break;
@@ -2243,8 +1935,7 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
         preview_image=CloneImage(thumbnail,0,0,MagickTrue,exception);
         if (preview_image == (Image *) NULL)
           break;
-        (void) FormatLocaleString(factor,MaxTextExtent,"100,%g",
-          2.0*percentage);
+        (void) FormatLocaleString(factor,MaxTextExtent,"100,%g",2.0*percentage);
         (void) ModulateImage(preview_image,factor,exception);
         (void) FormatLocaleString(label,MaxTextExtent,"modulate %s",factor);
         break;
@@ -2388,8 +2079,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
       case SharpenPreview:
       {
         preview_image=SharpenImage(thumbnail,radius,sigma,exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"sharpen %gx%g",
-          radius,sigma);
+        (void) FormatLocaleString(label,MaxTextExtent,"sharpen %gx%g",radius,
+          sigma);
         break;
       }
       case BlurPreview:
@@ -2406,8 +2097,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
           break;
         (void) BilevelImage(thumbnail,(double) (percentage*((double)
           QuantumRange+1.0))/100.0,exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"threshold %g",
-          (double) (percentage*((double) QuantumRange+1.0))/100.0);
+        (void) FormatLocaleString(label,MaxTextExtent,"threshold %g",(double)
+          (percentage*((double) QuantumRange+1.0))/100.0);
         break;
       }
       case EdgeDetectPreview:
@@ -2420,8 +2111,7 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
       {
         preview_image=SpreadImage(thumbnail,radius,thumbnail->interpolate,
           exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"spread %g",
-          radius+0.5);
+        (void) FormatLocaleString(label,MaxTextExtent,"spread %g",radius+0.5);
         break;
       }
       case SolarizePreview:
@@ -2429,8 +2119,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
         preview_image=CloneImage(thumbnail,0,0,MagickTrue,exception);
         if (preview_image == (Image *) NULL)
           break;
-        (void) SolarizeImage(preview_image,(double) QuantumRange*
-          percentage/100.0,exception);
+        (void) SolarizeImage(preview_image,(double) QuantumRange*percentage/
+          100.0,exception);
         (void) FormatLocaleString(label,MaxTextExtent,"solarize %g",
           (QuantumRange*percentage)/100.0);
         break;
@@ -2440,8 +2130,8 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
         degrees+=10.0;
         preview_image=ShadeImage(thumbnail,MagickTrue,degrees,degrees,
           exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"shade %gx%g",
-          degrees,degrees);
+        (void) FormatLocaleString(label,MaxTextExtent,"shade %gx%g",degrees,
+          degrees);
         break;
       }
       case RaisePreview:
@@ -2492,24 +2182,24 @@ MagickExport Image *PreviewImage(const Image *image,const PreviewType preview,
         degrees+=5.0f;
         preview_image=WaveImage(thumbnail,0.5*degrees,2.0*degrees,
           image->interpolate,exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"wave %gx%g",
-          0.5*degrees,2.0*degrees);
+        (void) FormatLocaleString(label,MaxTextExtent,"wave %gx%g",0.5*degrees,
+          2.0*degrees);
         break;
       }
       case OilPaintPreview:
       {
         preview_image=OilPaintImage(thumbnail,(double) radius,(double) sigma,
           exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"charcoal %gx%g",
-          radius,sigma);
+        (void) FormatLocaleString(label,MaxTextExtent,"charcoal %gx%g",radius,
+          sigma);
         break;
       }
       case CharcoalDrawingPreview:
       {
         preview_image=CharcoalImage(thumbnail,(double) radius,(double) sigma,
           exception);
-        (void) FormatLocaleString(label,MaxTextExtent,"charcoal %gx%g",
-          radius,sigma);
+        (void) FormatLocaleString(label,MaxTextExtent,"charcoal %gx%g",radius,
+          sigma);
         break;
       }
       case JPEGPreview:
@@ -2728,7 +2418,7 @@ MagickExport Image *RadialBlurImage(const Image *image,const double angle,
   blur_view=AcquireAuthenticCacheView(blur_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,blur_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3038,7 +2728,7 @@ MagickExport Image *SelectiveBlurImage(const Image *image,const double radius,
   blur_view=AcquireAuthenticCacheView(blur_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,blur_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3114,7 +2804,7 @@ MagickExport Image *SelectiveBlurImage(const Image *image,const double radius,
             (blur_traits == UndefinedPixelTrait))
           continue;
         if (((blur_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+            (GetPixelMask(image,p+center) != 0))
           {
             SetPixelChannel(blur_image,channel,p[center+i],q);
             continue;
@@ -3141,7 +2831,7 @@ MagickExport Image *SelectiveBlurImage(const Image *image,const double radius,
                 pixels+=GetPixelChannels(image);
                 luminance_pixels+=GetPixelChannels(luminance_image);
               }
-              pixels+=image->columns*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
               luminance_pixels+=luminance_image->columns*
                 GetPixelChannels(luminance_image);
             }
@@ -3161,8 +2851,7 @@ MagickExport Image *SelectiveBlurImage(const Image *image,const double radius,
             contrast=GetPixelIntensity(image,pixels)-intensity;
             if (fabs(contrast) < threshold)
               {
-                alpha=(double) (QuantumScale*
-                  GetPixelAlpha(image,pixels));
+                alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
                 pixel+=(*k)*alpha*pixels[i];
                 gamma+=(*k)*alpha;
               }
@@ -3170,7 +2859,7 @@ MagickExport Image *SelectiveBlurImage(const Image *image,const double radius,
             pixels+=GetPixelChannels(image);
             luminance_pixels+=GetPixelChannels(luminance_image);
           }
-          pixels+=image->columns*GetPixelChannels(image);
+          pixels+=(image->columns-1)*GetPixelChannels(image);
           luminance_pixels+=luminance_image->columns*
             GetPixelChannels(luminance_image);
         }
@@ -3255,6 +2944,7 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
     *shade_view;
 
   Image
+    *linear_image,
     *shade_image;
 
   MagickBooleanType
@@ -3278,11 +2968,19 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
+  linear_image=CloneImage(image,0,0,MagickTrue,exception);
   shade_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
-  if (shade_image == (Image *) NULL)
-    return((Image *) NULL);
+  if ((linear_image == (Image *) NULL) || (shade_image == (Image *) NULL))
+    {
+      if (linear_image != (Image *) NULL)
+        linear_image=DestroyImage(linear_image);
+      if (shade_image != (Image *) NULL)
+        shade_image=DestroyImage(shade_image);
+      return((Image *) NULL);
+    }
   if (SetImageStorageClass(shade_image,DirectClass,exception) == MagickFalse)
     {
+      linear_image=DestroyImage(linear_image);
       shade_image=DestroyImage(shade_image);
       return((Image *) NULL);
     }
@@ -3299,13 +2997,13 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
   */
   status=MagickTrue;
   progress=0;
-  image_view=AcquireVirtualCacheView(image,exception);
+  image_view=AcquireVirtualCacheView(linear_image,exception);
   shade_view=AcquireAuthenticCacheView(shade_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(linear_image,shade_image,linear_image->rows,1)
 #endif
-  for (y=0; y < (ssize_t) image->rows; y++)
+  for (y=0; y < (ssize_t) linear_image->rows; y++)
   {
     double
       distance,
@@ -3329,7 +3027,8 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
 
     if (status == MagickFalse)
       continue;
-    p=GetCacheViewVirtualPixels(image_view,-1,y-1,image->columns+2,3,exception);
+    p=GetCacheViewVirtualPixels(image_view,-1,y-1,linear_image->columns+2,3,
+      exception);
     q=QueueCacheViewAuthenticPixels(shade_view,0,y,shade_image->columns,1,
       exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
@@ -3341,10 +3040,10 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
       Shade this row of pixels.
     */
     normal.z=2.0*(double) QuantumRange;  /* constant Z of surface normal */
-    pre=p+GetPixelChannels(image);
-    center=pre+(image->columns+2)*GetPixelChannels(image);
-    post=center+(image->columns+2)*GetPixelChannels(image);
-    for (x=0; x < (ssize_t) image->columns; x++)
+    pre=p+GetPixelChannels(linear_image);
+    center=pre+(linear_image->columns+2)*GetPixelChannels(linear_image);
+    post=center+(linear_image->columns+2)*GetPixelChannels(linear_image);
+    for (x=0; x < (ssize_t) linear_image->columns; x++)
     {
       register ssize_t
         i;
@@ -3352,17 +3051,20 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
       /*
         Determine the surface normal and compute shading.
       */
-      normal.x=(double) (GetPixelIntensity(image,pre-GetPixelChannels(image))+
-        GetPixelIntensity(image,center-GetPixelChannels(image))+
-        GetPixelIntensity(image,post-GetPixelChannels(image))-
-        GetPixelIntensity(image,pre+GetPixelChannels(image))-
-        GetPixelIntensity(image,center+GetPixelChannels(image))-
-        GetPixelIntensity(image,post+GetPixelChannels(image)));
-      normal.y=(double) (GetPixelIntensity(image,post-GetPixelChannels(image))+
-        GetPixelIntensity(image,post)+GetPixelIntensity(image,post+
-        GetPixelChannels(image))-GetPixelIntensity(image,pre-
-        GetPixelChannels(image))-GetPixelIntensity(image,pre)-
-        GetPixelIntensity(image,pre+GetPixelChannels(image)));
+      normal.x=(double) (
+        GetPixelIntensity(linear_image,pre-GetPixelChannels(linear_image))+
+        GetPixelIntensity(linear_image,center-GetPixelChannels(linear_image))+
+        GetPixelIntensity(linear_image,post-GetPixelChannels(linear_image))-
+        GetPixelIntensity(linear_image,pre+GetPixelChannels(linear_image))-
+        GetPixelIntensity(linear_image,center+GetPixelChannels(linear_image))-
+        GetPixelIntensity(linear_image,post+GetPixelChannels(linear_image)));
+      normal.y=(double) (
+        GetPixelIntensity(linear_image,post-GetPixelChannels(linear_image))+
+        GetPixelIntensity(linear_image,post)+
+        GetPixelIntensity(linear_image,post+GetPixelChannels(linear_image))-
+        GetPixelIntensity(linear_image,pre-GetPixelChannels(linear_image))-
+        GetPixelIntensity(linear_image,pre)-
+        GetPixelIntensity(linear_image,pre+GetPixelChannels(linear_image)));
       if ((normal.x == 0.0) && (normal.y == 0.0))
         shade=light.z;
       else
@@ -3371,13 +3073,13 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
           distance=normal.x*light.x+normal.y*light.y+normal.z*light.z;
           if (distance > MagickEpsilon)
             {
-              normal_distance=
-                normal.x*normal.x+normal.y*normal.y+normal.z*normal.z;
+              normal_distance=normal.x*normal.x+normal.y*normal.y+
+                normal.z*normal.z;
               if (normal_distance > (MagickEpsilon*MagickEpsilon))
                 shade=distance/sqrt((double) normal_distance);
             }
         }
-      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      for (i=0; i < (ssize_t) GetPixelChannels(linear_image); i++)
       {
         PixelChannel
           channel;
@@ -3386,14 +3088,14 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
           shade_traits,
           traits;
 
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        channel=GetPixelChannelChannel(linear_image,i);
+        traits=GetPixelChannelTraits(linear_image,channel);
         shade_traits=GetPixelChannelTraits(shade_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (shade_traits == UndefinedPixelTrait))
           continue;
         if (((shade_traits & CopyPixelTrait) != 0) ||
-            (GetPixelMask(image,p) != 0))
+            (GetPixelMask(linear_image,center) != 0))
           {
             SetPixelChannel(shade_image,channel,center[i],q);
             continue;
@@ -3406,9 +3108,9 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
         SetPixelChannel(shade_image,channel,ClampToQuantum(QuantumScale*shade*
           center[i]),q);
       }
-      pre+=GetPixelChannels(image);
-      center+=GetPixelChannels(image);
-      post+=GetPixelChannels(image);
+      pre+=GetPixelChannels(linear_image);
+      center+=GetPixelChannels(linear_image);
+      post+=GetPixelChannels(linear_image);
       q+=GetPixelChannels(shade_image);
     }
     if (SyncCacheViewAuthenticPixels(shade_view,exception) == MagickFalse)
@@ -3428,6 +3130,7 @@ MagickExport Image *ShadeImage(const Image *image,const MagickBooleanType gray,
   }
   shade_view=DestroyCacheView(shade_view);
   image_view=DestroyCacheView(image_view);
+  linear_image=DestroyImage(linear_image);
   if (status == MagickFalse)
     shade_image=DestroyImage(shade_image);
   return(shade_image);
@@ -3507,6 +3210,8 @@ MagickExport Image *SharpenImage(const Image *image,const double radius,
   (void) ResetMagickMemory(kernel_info,0,sizeof(*kernel_info));
   kernel_info->width=width;
   kernel_info->height=width;
+  kernel_info->x=(ssize_t) width/2;
+  kernel_info->y=(ssize_t) width/2;
   kernel_info->signature=MagickSignature;
   kernel_info->values=(MagickRealType *) MagickAssumeAligned(
     AcquireAlignedMemory(kernel_info->width,kernel_info->width*
@@ -3517,7 +3222,7 @@ MagickExport Image *SharpenImage(const Image *image,const double radius,
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
   normalize=0.0;
-  j=(ssize_t) kernel_info->width/2;
+  j=(ssize_t) (kernel_info->width-1)/2;
   i=0;
   for (v=(-j); v <= j; v++)
   {
@@ -3530,6 +3235,8 @@ MagickExport Image *SharpenImage(const Image *image,const double radius,
     }
   }
   kernel_info->values[i/2]=(double) ((-2.0)*normalize);
+  if (sigma < MagickEpsilon)
+    kernel_info->values[i/2]=1.0;
   sharp_image=ConvolveImage(image,kernel_info,exception);
   kernel_info=DestroyKernelInfo(kernel_info);
   return(sharp_image);
@@ -3622,14 +3329,12 @@ MagickExport Image *SpreadImage(const Image *image,const double radius,
   progress=0;
   width=GetOptimalKernelWidth1D(radius,0.5);
   random_info=AcquireRandomInfoThreadSet();
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  key=GetRandomSecretKey(random_info[0]);
-#endif
   image_view=AcquireVirtualCacheView(image,exception);
   spread_view=AcquireAuthenticCacheView(spread_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
+  key=GetRandomSecretKey(random_info[0]);
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+    magick_threads(image,spread_image,image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3684,6 +3389,8 @@ MagickExport Image *SpreadImage(const Image *image,const double radius,
   spread_view=DestroyCacheView(spread_view);
   image_view=DestroyCacheView(image_view);
   random_info=DestroyRandomInfoThreadSet(random_info);
+  if (status == MagickFalse)
+    spread_image=DestroyImage(spread_image);
   return(spread_image);
 }
 
@@ -3769,7 +3476,7 @@ MagickExport Image *UnsharpMaskImage(const Image *image,const double radius,
   unsharp_view=AcquireAuthenticCacheView(unsharp_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,unsharp_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

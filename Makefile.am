@@ -152,6 +152,10 @@ pkgconfig_DATA = \
 	$(MAGICKWAND_PKGCONFIG) \
 	$(MAGICKPP_PKGCONFIG)
 
+# create a copy for pc file (ideally the non abi should be symlinked)
+%-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc: %.pc
+	cp -f $^ $@
+
 # Manual pages to install
 man_MANS = \
 	$(MAGICKCORE_MANS) \
@@ -187,6 +191,34 @@ uninstall-local: $(MAGICK_UNINSTALL_LOCAL_TARGETS) \
 	$(HTML_UNINSTALL_DATA_TARGETS) \
 	$(UTILITIES_UNINSTALL_LOCAL_TARGETS)
 
+install-exec-hook:
+	$(install_sh) -d  $(DESTDIR)/$(LIB_BIN_DIR_PATH)
+	cd $(DESTDIR)/$(bindir) && \
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		mv -f ./$$CURR_PROG$(EXEEXT) $(DESTDIR)/$(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) && \
+		$(LN_S) $(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) ./$$CURR_PROG$(EXEEXT); \
+	done;
+
+uninstall-hook:
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		rm -f $(DESTDIR)/$(LIB_DIR_PATH)/$$CURR_PROG$(EXEEXT)
+	done;
+	rm -r -f $(LIB_BIN_DIR_PATH)
+
+install-exec-hook:
+	$(install_sh) -d  $(DESTDIR)/$(LIB_BIN_DIR_PATH)
+	cd $(DESTDIR)/$(bindir) && \
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		mv -f ./$$CURR_PROG$(EXEEXT) $(DESTDIR)/$(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) && \
+		$(LN_S) $(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) ./$$CURR_PROG$(EXEEXT); \
+	done;
+
+uninstall-hook:
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		rm -f $(DESTDIR)/$(LIB_DIR_PATH)/$$CURR_PROG$(EXEEXT)
+	done;
+	rm -r -f $(LIB_BIN_DIR_PATH)
+
 clean-local: $(PERLMAGICK_CLEAN_LOCAL_TARGETS)
 
 distclean-local: $(PERLMAGICK_DISTCLEAN_LOCAL_TARGETS)
@@ -216,14 +248,14 @@ ptrcheck:
 	$(MAKE) MEMCHECK='valgrind --tool=exp-ptrcheck --quiet $(VALGRIND_EXTRA_OPTS)' check
 
 # Non-Automake subdirectories to distribute
-DISTDIRS = images scenes scripts www PerlMagick
+DISTDIRS = images scripts www PerlMagick
 dist-hook:
 	( \
 	  builddir=`pwd` ; \
 	  cd $(srcdir) && \
 	  ( \
 	    for dir in $(DISTDIRS) ; do \
-	      find $$dir -depth -print | egrep -v '(~$$)|(/CVS)|(/\.#)|(/\.deps)|(/\.svn)' \
+	      find $$dir -depth -print | egrep -v '(~$$)|(/.svn)|(/\.#)|(/\.deps)|(/\.svn)' \
 	        | cpio -pdum $$builddir/$(distdir) 2> /dev/null ; \
 	    done \
 	  ) \
@@ -281,6 +313,7 @@ libtool: $(LIBTOOL_DEPS)
 html:
 	doxygen config/MagickCore.dox
 	doxygen config/MagickWand.dox
+	doxygen config/Magick++.dox
 
 #
 # Build Windows source Zip and 7Zip balls

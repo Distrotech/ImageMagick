@@ -192,6 +192,8 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
       case '8':
       case '9':
       case 215:
+      case 'e':
+      case 'E':
       {
         p++;
         break;
@@ -905,6 +907,8 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       case '/':
       case ':':
       case 215:
+      case 'e':
+      case 'E':
       {
         p++;
         break;
@@ -1147,7 +1151,7 @@ MagickExport MagickStatusType ParseGravityGeometry(const Image *image,
   if (flags == NoValue)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "InvalidGeometry","'%s'",geometry);
+        "InvalidGeometry","`%s'",geometry);
       return(flags);
     }
   if ((flags & PercentValue) != 0)
@@ -1434,7 +1438,7 @@ MagickExport MagickStatusType ParsePageGeometry(const Image *image,
   if (flags == NoValue)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "InvalidGeometry","'%s'",geometry);
+        "InvalidGeometry","`%s'",geometry);
       return(flags);
     }
   if ((flags & PercentValue) != 0)
@@ -1499,7 +1503,7 @@ MagickExport MagickStatusType ParseRegionGeometry(const Image *image,
     &region_info->width,&region_info->height);
   if (flags == NoValue)
     (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-      "InvalidGeometry","'%s'",geometry);
+      "InvalidGeometry","`%s'",geometry);
   return(flags);
 }
 

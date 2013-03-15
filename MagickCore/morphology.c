@@ -70,6 +70,7 @@
 #include "MagickCore/morphology-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
+#include "MagickCore/pixel-private.h"
 #include "MagickCore/prepress.h"
 #include "MagickCore/quantize.h"
 #include "MagickCore/resource_.h"
@@ -84,23 +85,6 @@
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 
-
-/*
-** The following test is for special floating point numbers of value NaN (not
-** a number), that may be used within a Kernel Definition.  NaN's are defined
-** as part of the IEEE standard for floating point number representation.
-**
-** These are used as a Kernel value to mean that this kernel position is not
-** part of the kernel neighbourhood for convolution or morphology processing,
-** and thus should be ignored.  This allows the use of 'shaped' kernels.
-**
-** The special property that two NaN's are never equal, even if they are from
-** the same variable allow you to test if a value is special NaN value.
-**
-** This macro  IsNaN() is thus is only true if the value given is NaN.
-*/
-#define IsNan(a)   ((a)!=(a))
-
 /*
   Other global definitions used by module.
 */
@@ -540,7 +524,7 @@ MagickExport KernelInfo *AcquireKernelInfo(const char *kernel_string)
 
       /* Error handling -- this is not proper error handling! */
       if ( new_kernel == (KernelInfo *) NULL ) {
-        (void) FormatLocaleFile(stderr, "Failed to parse kernel number #%.20g\n",
+        (void) FormatLocaleFile(stderr,"Failed to parse kernel number #%.20g\n",
           (double) kernel_number);
         if ( kernel != (KernelInfo *) NULL )
           kernel=DestroyKernelInfo(kernel);
@@ -1101,7 +1085,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
               }
             else /* limiting case - a unity (normalized Dirac) kernel */
               { (void) ResetMagickMemory(kernel->values,0, (size_t)
-                            kernel->width*kernel->height*sizeof(double));
+                  kernel->width*kernel->height*sizeof(*kernel->values));
                 kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
               }
           }
@@ -1133,7 +1117,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
               }
             else /* special case - generate a unity kernel */
               { (void) ResetMagickMemory(kernel->values,0, (size_t)
-                            kernel->width*kernel->height*sizeof(double));
+                  kernel->width*kernel->height*sizeof(*kernel->values));
                 kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
               }
           }
@@ -1193,7 +1177,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
         /* initialize */
         v = (ssize_t) (kernel->width*KernelRank-1)/2; /* start/end points to fit range */
         (void) ResetMagickMemory(kernel->values,0, (size_t)
-                     kernel->width*kernel->height*sizeof(double));
+          kernel->width*kernel->height*sizeof(*kernel->values));
         /* Calculate a Positive 1D Gaussian */
         if ( sigma > MagickEpsilon )
           { sigma *= KernelRank;               /* simplify loop expressions */
@@ -1219,7 +1203,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           }
         else /* special case - generate a unity kernel */
           { (void) ResetMagickMemory(kernel->values,0, (size_t)
-                         kernel->width*kernel->height*sizeof(double));
+              kernel->width*kernel->height*sizeof(*kernel->values));
             kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
           }
 #endif
@@ -1278,7 +1262,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 #define KernelRank 3
             v = (ssize_t) kernel->width*KernelRank; /* start/end points */
             (void) ResetMagickMemory(kernel->values,0, (size_t)
-                          kernel->width*sizeof(double));
+              kernel->width*sizeof(*kernel->values));
             sigma *= KernelRank;            /* simplify the loop expression */
             A = 1.0/(2.0*sigma*sigma);
             /* B = 1.0/(MagickSQ2PI*sigma); */
@@ -1300,7 +1284,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
           }
         else /* special case - generate a unity kernel */
           { (void) ResetMagickMemory(kernel->values,0, (size_t)
-                         kernel->width*kernel->height*sizeof(double));
+              kernel->width*kernel->height*sizeof(*kernel->values));
             kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
             kernel->positive_range = 1.0;
           }
@@ -2416,9 +2400,9 @@ static MagickBooleanType SameKernelInfo(const KernelInfo *kernel1,
   /* check actual kernel values */
   for (i=0; i < (kernel1->width*kernel1->height); i++) {
     /* Test for Nan equivalence */
-    if ( IsNan(kernel1->values[i]) && !IsNan(kernel2->values[i]) )
+    if ( IsNaN(kernel1->values[i]) && !IsNaN(kernel2->values[i]) )
       return MagickFalse;
-    if ( IsNan(kernel2->values[i]) && !IsNan(kernel1->values[i]) )
+    if ( IsNaN(kernel2->values[i]) && !IsNaN(kernel1->values[i]) )
       return MagickFalse;
     /* Test actual values are equivalent */
     if ( fabs(kernel1->values[i] - kernel2->values[i]) >= MagickEpsilon )
@@ -2520,10 +2504,10 @@ static void CalcKernelMetaData(KernelInfo *kernel)
 %  other 'operators' that internally use morphology operations as part of
 %  their processing.
 %
-%  It is basically equivalent to as MorphologyImage() (see below) but
-%  without any user controls.  This allows internel programs to use this
-%  function, to actually perform a specific task without possible interference
-%  by any API user supplied settings.
+%  It is basically equivalent to as MorphologyImage() (see below) but without
+%  any user controls.  This allows internel programs to use this method to
+%  perform a specific task without possible interference by any API user
+%  supplied settings.
 %
 %  It is MorphologyImage() task to extract any such user controls, and
 %  pass them to this function for processing.
@@ -2564,12 +2548,6 @@ static void CalcKernelMetaData(KernelInfo *kernel)
 %    o exception: return any errors or warnings in this structure.
 %
 */
-
-/* Apply a Morphology Primative to an image using the given kernel.
-** Two pre-created images must be provided, and no image is created.
-** It returns the number of pixels that changed between the images
-** for result convergence determination.
-*/
 static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
   const MorphologyMethod method,const KernelInfo *kernel,const double bias,
   ExceptionInfo *exception)
@@ -2580,11 +2558,14 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
     *image_view,
     *morphology_view;
 
+  OffsetInfo
+    offset;
+
   ssize_t
-    y, offx, offy;
+    y;
 
   size_t
-    virt_width,
+    width,
     changed;
 
   MagickBooleanType
@@ -2601,240 +2582,199 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
   assert(kernel->signature == MagickSignature);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-
   status=MagickTrue;
   changed=0;
   progress=0;
-
   image_view=AcquireVirtualCacheView(image,exception);
   morphology_view=AcquireAuthenticCacheView(morphology_image,exception);
-  virt_width=image->columns+kernel->width-1;
-
-  /* Some methods (including convolve) needs use a reflected kernel.
-   * Adjust 'origin' offsets to loop though kernel as a reflection.
-   */
-  offx = kernel->x;
-  offy = kernel->y;
-  switch(method) {
+  width=image->columns+kernel->width-1;
+  switch (method)
+  {
     case ConvolveMorphology:
     case DilateMorphology:
     case DilateIntensityMorphology:
     case IterativeDistanceMorphology:
-      /* kernel needs to used with reflection about origin */
-      offx = (ssize_t) kernel->width-offx-1;
-      offy = (ssize_t) kernel->height-offy-1;
+    {
+      /*
+        Kernel needs to used with reflection about origin.
+      */
+      offset.x=(ssize_t) kernel->width-kernel->x-1;
+      offset.y=(ssize_t) kernel->height-kernel->y-1;
       break;
+    }
     case ErodeMorphology:
     case ErodeIntensityMorphology:
     case HitAndMissMorphology:
     case ThinningMorphology:
     case ThickenMorphology:
-      /* kernel is used as is, without reflection */
+    {
+      offset.x=kernel->x;
+      offset.y=kernel->y;
       break;
+    }
     default:
+    {
       assert("Not a Primitive Morphology Method" != (char *) NULL);
       break;
+    }
   }
-
-  if ( method == ConvolveMorphology && kernel->width == 1 )
-  { /* Special handling (for speed) of vertical (blur) kernels.
-    ** This performs its handling in columns rather than in rows.
-    ** This is only done for convolve as it is the only method that
-    ** generates very large 1-D vertical kernels (such as a 'BlurKernel')
-    **
-    ** Timing tests (on single CPU laptop)
-    ** Using a vertical 1-d Blue with normal row-by-row (below)
-    **   time convert logo: -morphology Convolve Blur:0x10+90 null:
-    **      0.807u
-    ** Using this column method
-    **   time convert logo: -morphology Convolve Blur:0x10+90 null:
-    **      0.620u
-    **
-    ** Anthony Thyssen, 14 June 2010
-    */
-    register ssize_t
-      x;
-
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(progress,status) \
-      dynamic_number_threads(image,image->columns,image->rows,1)
-#endif
-    for (x=0; x < (ssize_t) image->columns; x++)
+  if ((method == ConvolveMorphology) && (kernel->width == 1))
     {
-      register const Quantum
-        *restrict p;
-
-      register Quantum
-        *restrict q;
-
       register ssize_t
-        y;
+        x;
 
-      ssize_t
-        r;
-
-      if (status == MagickFalse)
-        continue;
-      p=GetCacheViewVirtualPixels(image_view,x,-offy,1,image->rows+
-        kernel->height-1,exception);
-      q=GetCacheViewAuthenticPixels(morphology_view,x,0,1,
-        morphology_image->rows,exception);
-      if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
-        {
-          status=MagickFalse;
-          continue;
-        }
-      /* offset to origin in 'p'. while 'q' points to it directly */
-      r = offy;
-
-      for (y=0; y < (ssize_t) image->rows; y++)
+      /*
+        Special handling (for speed) of vertical (blur) kernels.  This performs
+        its handling in columns rather than in rows.  This is only done
+        for convolve as it is the only method that generates very large 1-D
+        vertical kernels (such as a 'BlurKernel')
+     */
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+     #pragma omp parallel for schedule(static,4) shared(progress,status) \
+       magick_threads(image,morphology_image,image->columns,1)
+#endif
+      for (x=0; x < (ssize_t) image->columns; x++)
       {
-        PixelInfo
-          result;
-
-        register const MagickRealType
-          *restrict k;
-
         register const Quantum
-          *restrict k_pixels;
+          *restrict p;
+
+        register Quantum
+          *restrict q;
 
         register ssize_t
-          v;
+          y;
 
-        /* Copy input image to the output image for unused channels
-        * This removes need for 'cloning' a new image every iteration
-        */
-        SetPixelRed(morphology_image,GetPixelRed(image,p+r*
-          GetPixelChannels(image)),q);
-        SetPixelGreen(morphology_image,GetPixelGreen(image,p+r*
-          GetPixelChannels(image)),q);
-        SetPixelBlue(morphology_image,GetPixelBlue(image,p+r*
-          GetPixelChannels(image)),q);
-        if (image->colorspace == CMYKColorspace)
-          SetPixelBlack(morphology_image,GetPixelBlack(image,p+r*
-            GetPixelChannels(image)),q);
+        ssize_t
+          center;
 
-        /* Set the bias of the weighted average output */
-        result.red   =
-        result.green =
-        result.blue  =
-        result.alpha =
-        result.black = bias;
-
-
-        /* Weighted Average of pixels using reflected kernel
-        **
-        ** NOTE for correct working of this operation for asymetrical
-        ** kernels, the kernel needs to be applied in its reflected form.
-        ** That is its values needs to be reversed.
-        */
-        k = &kernel->values[ kernel->height-1 ];
-        k_pixels = p;
-        if ( (image->channel_mask != DefaultChannels) ||
-             (image->alpha_trait != BlendPixelTrait) )
-          { /* No 'Sync' involved.
-            ** Convolution is just a simple greyscale channel operation
-            */
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              if ( IsNan(*k) ) continue;
-              result.red     += (*k)*GetPixelRed(image,k_pixels);
-              result.green   += (*k)*GetPixelGreen(image,k_pixels);
-              result.blue    += (*k)*GetPixelBlue(image,k_pixels);
-              if (image->colorspace == CMYKColorspace)
-                result.black+=(*k)*GetPixelBlack(image,k_pixels);
-              result.alpha += (*k)*GetPixelAlpha(image,k_pixels);
-              k--;
-              k_pixels+=GetPixelChannels(image);
-            }
-            if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-              SetPixelRed(morphology_image,ClampToQuantum(result.red),q);
-            if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-              SetPixelGreen(morphology_image,ClampToQuantum(result.green),q);
-            if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-              SetPixelBlue(morphology_image,ClampToQuantum(result.blue),q);
-            if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->colorspace == CMYKColorspace))
-              SetPixelBlack(morphology_image,ClampToQuantum(result.black),q);
-            if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                (image->alpha_trait == BlendPixelTrait))
-              SetPixelAlpha(morphology_image,ClampToQuantum(result.alpha),q);
+        if (status == MagickFalse)
+          continue;
+        p=GetCacheViewVirtualPixels(image_view,x,-offset.y,1,image->rows+
+          kernel->height-1,exception);
+        q=GetCacheViewAuthenticPixels(morphology_view,x,0,1,
+          morphology_image->rows,exception);
+        if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
+          {
+            status=MagickFalse;
+            continue;
           }
-        else
-          { /* Channel 'Sync' Flag, and Alpha Channel enabled.
-            ** Weight the color channels with Alpha Channel so that
-            ** transparent pixels are not part of the results.
-            */
-            double
-              alpha,  /* alpha weighting for colors : alpha  */
-              gamma;  /* divisor, sum of color alpha weighting */
-            size_t
-              count;  /* alpha valus collected, number kernel values */
-
-            count=0;
-            gamma=0.0;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              if ( IsNan(*k) ) continue;
-              alpha=QuantumScale*GetPixelAlpha(image,k_pixels);
-              gamma += alpha; /* normalize alpha weights only */
-              count++;        /* number of alpha values collected */
-              alpha*=(*k);    /* include kernel weighting now */
-              result.red     += alpha*GetPixelRed(image,k_pixels);
-              result.green   += alpha*GetPixelGreen(image,k_pixels);
-              result.blue    += alpha*GetPixelBlue(image,k_pixels);
-              if (image->colorspace == CMYKColorspace)
-                result.black += alpha*GetPixelBlack(image,k_pixels);
-              result.alpha   += (*k)*GetPixelAlpha(image,k_pixels);
-              k--;
-              k_pixels+=GetPixelChannels(image);
-            }
-            /* Sync'ed channels, all channels are modified */
-            gamma=(double)count/(fabs((double) gamma) < MagickEpsilon ? MagickEpsilon : gamma);
-            SetPixelRed(morphology_image,ClampToQuantum(gamma*result.red),q);
-            SetPixelGreen(morphology_image,ClampToQuantum(gamma*result.green),q);
-            SetPixelBlue(morphology_image,ClampToQuantum(gamma*result.blue),q);
-            if (image->colorspace == CMYKColorspace)
-              SetPixelBlack(morphology_image,ClampToQuantum(gamma*result.black),q);
-            SetPixelAlpha(morphology_image,ClampToQuantum(result.alpha),q);
-          }
-
-        /* Count up changed pixels */
-        if ((GetPixelRed(image,p+r*GetPixelChannels(image)) != GetPixelRed(morphology_image,q))
-            || (GetPixelGreen(image,p+r*GetPixelChannels(image)) != GetPixelGreen(morphology_image,q))
-            || (GetPixelBlue(image,p+r*GetPixelChannels(image)) != GetPixelBlue(morphology_image,q))
-            || (GetPixelAlpha(image,p+r*GetPixelChannels(image)) != GetPixelAlpha(morphology_image,q))
-            || ((image->colorspace == CMYKColorspace) &&
-                (GetPixelBlack(image,p+r*GetPixelChannels(image)) != GetPixelBlack(morphology_image,q))))
-          changed++;  /* The pixel was changed in some way! */
-        p+=GetPixelChannels(image);
-        q+=GetPixelChannels(morphology_image);
-      } /* y */
-      if ( SyncCacheViewAuthenticPixels(morphology_view,exception) == MagickFalse)
-        status=MagickFalse;
-      if (image->progress_monitor != (MagickProgressMonitor) NULL)
+        center=(ssize_t) GetPixelChannels(image)*offset.y;
+        for (y=0; y < (ssize_t) image->rows; y++)
         {
-          MagickBooleanType
-            proceed;
+          register ssize_t
+            i;
+
+          for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+          {
+            double
+              alpha,
+              pixel;
+
+            PixelChannel
+              channel;
+
+            PixelTrait
+              morphology_traits,
+              traits;
+
+            register const MagickRealType
+              *restrict k;
+
+            register const Quantum
+              *restrict pixels;
+
+            register ssize_t
+              u;
+
+            ssize_t
+              v;
+
+            channel=GetPixelChannelChannel(image,i);
+            traits=GetPixelChannelTraits(image,channel);
+            morphology_traits=GetPixelChannelTraits(morphology_image,channel);
+            if ((traits == UndefinedPixelTrait) ||
+                (morphology_traits == UndefinedPixelTrait))
+              continue;
+            if (((morphology_traits & CopyPixelTrait) != 0) ||
+                (GetPixelMask(image,p+center) != 0))
+              {
+                SetPixelChannel(morphology_image,channel,p[center+i],q);
+                continue;
+              }
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            pixels=p;
+            pixel=bias;
+            if ((morphology_traits & BlendPixelTrait) == 0)
+              {
+                /*
+                  No alpha blending.
+                */
+                for (v=0; v < (ssize_t) kernel->height; v++)
+                {
+                  for (u=0; u < (ssize_t) kernel->width; u++)
+                  {
+                    if (IsNaN(*k) == MagickFalse)
+                      pixel+=(*k)*pixels[i];
+                    k--;
+                    pixels+=GetPixelChannels(image);
+                  }
+                }
+                if (fabs(pixel-p[center+i]) > MagickEpsilon)
+                  changed++;
+                SetPixelChannel(morphology_image,channel,ClampToQuantum(pixel),
+                  q);
+                continue;
+              }
+            /*
+              Alpha blending.
+            */
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
+                    pixel+=(*k)*alpha*pixels[i];
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
+              }
+            }
+            if (fabs(pixel-p[center+i]) > MagickEpsilon)
+              changed++;
+            SetPixelChannel(morphology_image,channel,ClampToQuantum(pixel),q);
+          }
+          p+=GetPixelChannels(image);
+          q+=GetPixelChannels(morphology_image);
+        }
+        if (SyncCacheViewAuthenticPixels(morphology_view,exception) == MagickFalse)
+          status=MagickFalse;
+        if (image->progress_monitor != (MagickProgressMonitor) NULL)
+          {
+            MagickBooleanType
+              proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-          #pragma omp critical (MagickCore_MorphologyImage)
+            #pragma omp critical (MagickCore_MorphologyImage)
 #endif
-          proceed=SetImageProgress(image,MorphologyTag,progress++,image->rows);
-          if (proceed == MagickFalse)
-            status=MagickFalse;
-        }
-    } /* x */
-    morphology_image->type=image->type;
-    morphology_view=DestroyCacheView(morphology_view);
-    image_view=DestroyCacheView(image_view);
-    return(status ? (ssize_t) changed : 0);
-  }
-
+            proceed=SetImageProgress(image,MorphologyTag,progress++,
+              image->rows);
+            if (proceed == MagickFalse)
+              status=MagickFalse;
+          }
+      }
+      morphology_image->type=image->type;
+      morphology_view=DestroyCacheView(morphology_view);
+      image_view=DestroyCacheView(image_view);
+      return(status ? (ssize_t) changed : 0);
+    }
   /*
-  ** Normal handling of horizontal or rectangular kernels (row by row)
+    Normal handling of horizontal or rectangular kernels (row by row).
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,morphology_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2847,511 +2787,361 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
     register ssize_t
       x;
 
-    size_t
-      r;
+    ssize_t
+      center;
 
     if (status == MagickFalse)
       continue;
-    p=GetCacheViewVirtualPixels(image_view, -offx, y-offy, virt_width,
-      kernel->height,  exception);
-    q=GetCacheViewAuthenticPixels(morphology_view,0,y,
-      morphology_image->columns,1,exception);
+    p=GetCacheViewVirtualPixels(image_view,-offset.x,y-offset.y,width,
+      kernel->height,exception);
+    q=GetCacheViewAuthenticPixels(morphology_view,0,y,morphology_image->columns,
+      1,exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       {
         status=MagickFalse;
         continue;
       }
-    /* offset to origin in 'p'. while 'q' points to it directly */
-    r = virt_width*offy + offx;
-
+    center=(ssize_t) (GetPixelChannels(image)*width*offset.y+
+      GetPixelChannels(image)*offset.x);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      PixelInfo
-        result,
-        min,
-        max;
-
-      register const MagickRealType
-        *restrict k;
-
-      register const Quantum
-        *restrict k_pixels;
-
       register ssize_t
-        u;
+        i;
 
-      ssize_t
-        v;
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        double
+          alpha,
+          maximum,
+          minimum,
+          pixel;
 
-      /* Copy input image to the output image for unused channels
-       * This removes need for 'cloning' a new image every iteration
-       */
-      SetPixelRed(morphology_image,GetPixelRed(image,p+r*
-        GetPixelChannels(image)),q);
-      SetPixelGreen(morphology_image,GetPixelGreen(image,p+r*
-        GetPixelChannels(image)),q);
-      SetPixelBlue(morphology_image,GetPixelBlue(image,p+r*
-        GetPixelChannels(image)),q);
-      if (image->colorspace == CMYKColorspace)
-        SetPixelBlack(morphology_image,GetPixelBlack(image,p+r*
-          GetPixelChannels(image)),q);
+        PixelChannel
+          channel;
 
-      /* Defaults */
-      min.red     =
-      min.green   =
-      min.blue    =
-      min.alpha =
-      min.black   = (double) QuantumRange;
-      max.red     =
-      max.green   =
-      max.blue    =
-      max.alpha =
-      max.black   = (double) 0;
-      /* default result is the original pixel value */
-      result.red     = (double) GetPixelRed(image,p+r*GetPixelChannels(image));
-      result.green   = (double) GetPixelGreen(image,p+r*GetPixelChannels(image));
-      result.blue    = (double) GetPixelBlue(image,p+r*GetPixelChannels(image));
-      result.black   = 0.0;
-      if (image->colorspace == CMYKColorspace)
-        result.black = (double) GetPixelBlack(image,p+r*GetPixelChannels(image));
-      result.alpha=(double) GetPixelAlpha(image,p+r*GetPixelChannels(image));
+        PixelTrait
+          morphology_traits,
+          traits;
 
-      switch (method) {
-        case ConvolveMorphology:
-          /* Set the bias of the weighted average output */
-          result.red     =
-          result.green   =
-          result.blue    =
-          result.alpha =
-          result.black   = bias;
-          break;
-        case DilateIntensityMorphology:
-        case ErodeIntensityMorphology:
-          /* use a boolean flag indicating when first match found */
-          result.red = 0.0;  /* result is not used otherwise */
-          break;
-        default:
-          break;
-      }
+        register const MagickRealType
+          *restrict k;
 
-      switch ( method ) {
-        case ConvolveMorphology:
-            /* Weighted Average of pixels using reflected kernel
-            **
-            ** NOTE for correct working of this operation for asymetrical
-            ** kernels, the kernel needs to be applied in its reflected form.
-            ** That is its values needs to be reversed.
-            **
-            ** Correlation is actually the same as this but without reflecting
-            ** the kernel, and thus 'lower-level' that Convolution.  However
-            ** as Convolution is the more common method used, and it does not
-            ** really cost us much in terms of processing to use a reflected
-            ** kernel, so it is Convolution that is implemented.
-            **
-            ** Correlation will have its kernel reflected before calling
-            ** this function to do a Convolve.
-            **
-            ** For more details of Correlation vs Convolution see
-            **   http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
+        register const Quantum
+          *restrict pixels;
+
+        register ssize_t
+          u;
+
+        ssize_t
+          v;
+
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
+        morphology_traits=GetPixelChannelTraits(morphology_image,channel);
+        if ((traits == UndefinedPixelTrait) ||
+            (morphology_traits == UndefinedPixelTrait))
+          continue;
+        if (((morphology_traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,p+center) != 0))
+          {
+            SetPixelChannel(morphology_image,channel,p[center+i],q);
+            continue;
+          }
+        pixels=p;
+        maximum=0.0;
+        minimum=(double) QuantumRange;
+        switch (method)
+        {
+          case ConvolveMorphology: pixel=bias; break;
+          case HitAndMissMorphology: pixel=(double) QuantumRange; break;
+          case ThinningMorphology: pixel=(double) QuantumRange; break;
+          case ThickenMorphology: pixel=(double) QuantumRange; break;
+          case ErodeMorphology: pixel=(double) QuantumRange; break;
+          case DilateMorphology: pixel=0.0; break;
+          case ErodeIntensityMorphology:
+          case DilateIntensityMorphology:
+          case IterativeDistanceMorphology:
+          {
+            pixel=(double) p[center+i];
+            break;
+          }
+          default: pixel=0; break;
+        }
+        switch (method)
+        {
+          case ConvolveMorphology:
+          {
+            /*
+               Weighted Average of pixels using reflected kernel
+
+               For correct working of this operation for asymetrical
+               kernels, the kernel needs to be applied in its reflected form.
+               That is its values needs to be reversed.
+
+               Correlation is actually the same as this but without reflecting
+               the kernel, and thus 'lower-level' that Convolution.  However
+               as Convolution is the more common method used, and it does not
+               really cost us much in terms of processing to use a reflected
+               kernel, so it is Convolution that is implemented.
+
+               Correlation will have its kernel reflected before calling
+               this function to do a Convolve.
+
+               For more details of Correlation vs Convolution see
+                 http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
             */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            if ( (image->channel_mask != DefaultChannels) ||
-                 (image->alpha_trait != BlendPixelTrait) )
-              { /* No 'Sync' involved.
-                ** Convolution is simple greyscale channel operation
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            if ((morphology_traits & BlendPixelTrait) == 0)
+              {
+                /*
+                  No alpha blending.
                 */
-                for (v=0; v < (ssize_t) kernel->height; v++) {
-                  for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                    if ( IsNan(*k) ) continue;
-                    result.red     += (*k)*
-                      GetPixelRed(image,k_pixels+u*GetPixelChannels(image));
-                    result.green   += (*k)*
-                      GetPixelGreen(image,k_pixels+u*GetPixelChannels(image));
-                    result.blue    += (*k)*
-                      GetPixelBlue(image,k_pixels+u*GetPixelChannels(image));
-                    if (image->colorspace == CMYKColorspace)
-                      result.black += (*k)*
-                        GetPixelBlack(image,k_pixels+u*GetPixelChannels(image));
-                    result.alpha += (*k)*
-                      GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image));
+                for (v=0; v < (ssize_t) kernel->height; v++)
+                {
+                  for (u=0; u < (ssize_t) kernel->width; u++)
+                  {
+                    if (IsNaN(*k) == MagickFalse)
+                      pixel+=(*k)*pixels[i];
+                    k--;
+                    pixels+=GetPixelChannels(image);
                   }
-                  k_pixels += virt_width*GetPixelChannels(image);
+                  pixels+=(image->columns-1)*GetPixelChannels(image);
                 }
-                if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-                  SetPixelRed(morphology_image,ClampToQuantum(result.red),
-                    q);
-                if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-                  SetPixelGreen(morphology_image,ClampToQuantum(result.green),
-                    q);
-                if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-                  SetPixelBlue(morphology_image,ClampToQuantum(result.blue),
-                    q);
-                if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-                    (image->colorspace == CMYKColorspace))
-                  SetPixelBlack(morphology_image,ClampToQuantum(result.black),
-                    q);
-                if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-                    (image->alpha_trait == BlendPixelTrait))
-                  SetPixelAlpha(morphology_image,ClampToQuantum(result.alpha),
-                    q);
+                break;
               }
+            /*
+              Alpha blending.
+            */
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
+                    pixel+=(*k)*alpha*pixels[i];
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            break;
+          }
+          case ErodeMorphology:
+          {
+            /*
+              Minimum value within kernel neighbourhood.
+
+              The kernel is not reflected for this operation.  In normal
+              Greyscale Morphology, the kernel value should be added
+              to the real value, this is currently not done, due to the
+              nature of the boolean kernels being used.
+            */
+            k=kernel->values;
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if ((IsNaN(*k) == MagickFalse) && (*k >= 0.5))
+                  {
+                    if ((double) pixels[i] < pixel)
+                      pixel=(double) pixels[i];
+                  }
+                k++;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            break;
+          }
+          case DilateMorphology:
+          {
+            /*
+               Maximum value within kernel neighbourhood.
+
+               For correct working of this operation for asymetrical kernels,
+               the kernel needs to be applied in its reflected form.  That is
+               its values needs to be reversed.
+
+               In normal Greyscale Morphology, the kernel value should be
+               added to the real value, this is currently not done, due to the
+               nature of the boolean kernels being used.
+            */
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if ((IsNaN(*k) == MagickFalse) && (*k > 0.5))
+                  {
+                    if ((double) pixels[i] > pixel)
+                      pixel=(double) pixels[i];
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            break;
+          }
+          case HitAndMissMorphology:
+          case ThinningMorphology:
+          case ThickenMorphology:
+          {
+            /*
+               Minimum of foreground pixel minus maxumum of background pixels.
+
+               The kernel is not reflected for this operation, and consists
+               of both foreground and background pixel neighbourhoods, 0.0 for
+               background, and 1.0 for foreground with either Nan or 0.5 values
+               for don't care.
+
+               This never produces a meaningless negative result.  Such results
+               cause Thinning/Thicken to not work correctly when used against a
+               greyscale image.
+            */
+            k=kernel->values;
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    if (*k > 0.7)
+                      {
+                        if ((double) pixels[i] < pixel)
+                          pixel=(double) pixels[i];
+                      }
+                    else
+                      if (*k < 0.3)
+                        {
+                          if ((double) pixels[i] > maximum)
+                            maximum=(double) pixels[i];
+                        }
+                  }
+                k++;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            pixel-=maximum;
+            if (pixel < 0.0)
+              pixel=0.0;
+            if (method ==  ThinningMorphology)
+              pixel=(double) p[center+i]-pixel;
             else
-              { /* Channel 'Sync' Flag, and Alpha Channel enabled.
-                ** Weight the color channels with Alpha Channel so that
-                ** transparent pixels are not part of the results.
-                */
-                double
-                  alpha,  /* alpha weighting for colors : alpha  */
-                  gamma;  /* divisor, sum of color alpha weighting */
-                size_t
-                  count;  /* alpha valus collected, number kernel values */
+              if (method ==  ThickenMorphology)
+                pixel+=(double) p[center+i]+pixel;
+            break;
+          }
+          case ErodeIntensityMorphology:
+          {
+            /*
+              Select pixel with minimum intensity within kernel neighbourhood.
 
-                count=0;
-                gamma=0.0;
-                for (v=0; v < (ssize_t) kernel->height; v++) {
-                  for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                    if ( IsNan(*k) ) continue;
-                    alpha=QuantumScale*GetPixelAlpha(image,
-                                k_pixels+u*GetPixelChannels(image));
-                    gamma += alpha;    /* normalize alpha weights only */
-                    count++;           /* number of alpha values collected */
-                    alpha=alpha*(*k);  /* include kernel weighting now */
-                    result.red     += alpha*
-                      GetPixelRed(image,k_pixels+u*GetPixelChannels(image));
-                    result.green   += alpha*
-                      GetPixelGreen(image,k_pixels+u*GetPixelChannels(image));
-                    result.blue    += alpha*
-                      GetPixelBlue(image,k_pixels+u*GetPixelChannels(image));
-                    if (image->colorspace == CMYKColorspace)
-                      result.black += alpha*
-                        GetPixelBlack(image,k_pixels+u*GetPixelChannels(image));
-                    result.alpha   += (*k)*
-                      GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image));
+              The kernel is not reflected for this operation.
+            */
+            k=kernel->values;
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if ((IsNaN(*k) == MagickFalse) && (*k >= 0.5))
+                  {
+                    if (GetPixelIntensity(image,pixels) < minimum)
+                      {
+                        pixel=(double) pixels[i];
+                        minimum=GetPixelIntensity(image,pixels);
+                      }
                   }
-                  k_pixels += virt_width*GetPixelChannels(image);
-                }
-                /* Sync'ed channels, all channels are modified */
-                gamma=(double)count/(fabs((double) gamma) < MagickEpsilon ? MagickEpsilon : gamma);
-                SetPixelRed(morphology_image,
-                  ClampToQuantum(gamma*result.red),q);
-                SetPixelGreen(morphology_image,
-                  ClampToQuantum(gamma*result.green),q);
-                SetPixelBlue(morphology_image,
-                  ClampToQuantum(gamma*result.blue),q);
-                if (image->colorspace == CMYKColorspace)
-                  SetPixelBlack(morphology_image,
-                    ClampToQuantum(gamma*result.black),q);
-                SetPixelAlpha(morphology_image,ClampToQuantum(result.alpha),q);
+                k++;
+                pixels+=GetPixelChannels(image);
               }
-            break;
-
-        case ErodeMorphology:
-            /* Minimum Value within kernel neighbourhood
-            **
-            ** NOTE that the kernel is not reflected for this operation!
-            **
-            ** NOTE: in normal Greyscale Morphology, the kernel value should
-            ** be added to the real value, this is currently not done, due to
-            ** the nature of the boolean kernels being used.
-            */
-            k = kernel->values;
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k++) {
-                if ( IsNan(*k) || (*k) < 0.5 ) continue;
-                Minimize(min.red,     (double)
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(min.green,   (double)
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(min.blue,    (double)
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(min.alpha,   (double)
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-                if (image->colorspace == CMYKColorspace)
-                  Minimize(min.black,  (double)
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
             }
             break;
+          }
+          case DilateIntensityMorphology:
+          {
+            /*
+              Select pixel with maximum intensity within kernel neighbourhood.
 
-        case DilateMorphology:
-            /* Maximum Value within kernel neighbourhood
-            **
-            ** NOTE for correct working of this operation for asymetrical
-            ** kernels, the kernel needs to be applied in its reflected form.
-            ** That is its values needs to be reversed.
-            **
-            ** NOTE: in normal Greyscale Morphology, the kernel value should
-            ** be added to the real value, this is currently not done, due to
-            ** the nature of the boolean kernels being used.
-            **
+              The kernel is not reflected for this operation.
             */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) || (*k) < 0.5 ) continue;
-                Maximize(max.red,     (double)
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.green,   (double)
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.blue,    (double)
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                Maximize(max.alpha,   (double)
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-                if (image->colorspace == CMYKColorspace)
-                  Maximize(max.black,   (double)
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if ((IsNaN(*k) == MagickFalse) && (*k >= 0.5))
+                  {
+                    if (GetPixelIntensity(image,pixels) > maximum)
+                      {
+                        pixel=(double) pixels[i];
+                        maximum=GetPixelIntensity(image,pixels);
+                      }
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
               }
-              k_pixels += virt_width*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
             }
             break;
+          }
+          case IterativeDistanceMorphology:
+          {
+            /*
+               Compute th iterative distance from black edge of a white image
+               shape.  Essentually white values are decreased to the smallest
+               'distance from edge' it can find.
 
-        case HitAndMissMorphology:
-        case ThinningMorphology:
-        case ThickenMorphology:
-            /* Minimum of Foreground Pixel minus Maxumum of Background Pixels
-            **
-            ** NOTE that the kernel is not reflected for this operation,
-            ** and consists of both foreground and background pixel
-            ** neighbourhoods, 0.0 for background, and 1.0 for foreground
-            ** with either Nan or 0.5 values for don't care.
-            **
-            ** Note that this will never produce a meaningless negative
-            ** result.  Such results can cause Thinning/Thicken to not work
-            ** correctly when used against a greyscale image.
-            */
-            k = kernel->values;
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k++) {
-                if ( IsNan(*k) ) continue;
-                if ( (*k) > 0.7 )
-                { /* minimim of foreground pixels */
-                  Minimize(min.red,     (double)
-                    GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                  Minimize(min.green,   (double)
-                    GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                  Minimize(min.blue,    (double)
-                    GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                  Minimize(min.alpha,(double)
-                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-                  if ( image->colorspace == CMYKColorspace)
-                    Minimize(min.black,(double)
-                      GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                }
-                else if ( (*k) < 0.3 )
-                { /* maximum of background pixels */
-                  Maximize(max.red,     (double)
-                    GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                  Maximize(max.green,   (double)
-                    GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                  Maximize(max.blue,    (double)
-                    GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                  Maximize(max.alpha,(double)
-                    GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-                  if (image->colorspace == CMYKColorspace)
-                    Maximize(max.black,   (double)
-                      GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                }
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
-            }
-            /* Pattern Match if difference is positive */
-            min.red     -= max.red;     Maximize( min.red,     0.0 );
-            min.green   -= max.green;   Maximize( min.green,   0.0 );
-            min.blue    -= max.blue;    Maximize( min.blue,    0.0 );
-            min.black   -= max.black;   Maximize( min.black,   0.0 );
-            min.alpha -= max.alpha; Maximize( min.alpha, 0.0 );
-            break;
+               It works by adding kernel values to the neighbourhood, and and
+               select the minimum value found. The kernel is rotated before
+               use, so kernel distances match resulting distances, when a user
+               provided asymmetric kernel is applied.
 
-        case ErodeIntensityMorphology:
-            /* Select Pixel with Minimum Intensity within kernel neighbourhood
-            **
-            ** WARNING: the intensity test fails for CMYK and does not
-            ** take into account the moderating effect of the alpha channel
-            ** on the intensity.
-            **
-            ** NOTE that the kernel is not reflected for this operation!
+               This code is nearly identical to True GrayScale Morphology but
+               not quite.
+
+               GreyDilate Kernel values added, maximum value found Kernel is
+               rotated before use.
+
+               GrayErode:  Kernel values subtracted and minimum value found No
+               kernel rotation used.
+
+               Note the the Iterative Distance method is essentially a
+               GrayErode, but with negative kernel values, and kernel rotation
+               applied.
             */
-            k = kernel->values;
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k++) {
-                if ( IsNan(*k) || (*k) < 0.5 ) continue;
-                if ( result.red == 0.0 ||
-                     GetPixelIntensity(image,k_pixels+u*GetPixelChannels(image)) < GetPixelIntensity(morphology_image,q) ) {
-                  /* copy the whole pixel - no channel selection */
-                  SetPixelRed(morphology_image,GetPixelRed(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelGreen(morphology_image,GetPixelGreen(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelBlue(morphology_image,GetPixelBlue(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelAlpha(morphology_image,GetPixelAlpha(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  if ( result.red > 0.0 ) changed++;
-                  result.red = 1.0;
-                }
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            for (v=0; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    if ((pixels[i]+(*k)) < pixel)
+                      pixel=(double) pixels[i]+(*k);
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
               }
-              k_pixels += virt_width*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
             }
             break;
-
-        case DilateIntensityMorphology:
-            /* Select Pixel with Maximum Intensity within kernel neighbourhood
-            **
-            ** WARNING: the intensity test fails for CMYK and does not
-            ** take into account the moderating effect of the alpha channel
-            ** on the intensity (yet).
-            **
-            ** NOTE for correct working of this operation for asymetrical
-            ** kernels, the kernel needs to be applied in its reflected form.
-            ** That is its values needs to be reversed.
-            */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) || (*k) < 0.5 ) continue; /* boolean kernel */
-                if ( result.red == 0.0 ||
-                     GetPixelIntensity(image,k_pixels+u*GetPixelChannels(image)) > GetPixelIntensity(morphology_image,q) ) {
-                  /* copy the whole pixel - no channel selection */
-                  SetPixelRed(morphology_image,GetPixelRed(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelGreen(morphology_image,GetPixelGreen(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelBlue(morphology_image,GetPixelBlue(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  SetPixelAlpha(morphology_image,GetPixelAlpha(image,
-                    k_pixels+u*GetPixelChannels(image)),q);
-                  if ( result.red > 0.0 ) changed++;
-                  result.red = 1.0;
-                }
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
-            }
+          }
+          case UndefinedMorphology:
+          default:
             break;
-
-        case IterativeDistanceMorphology:
-            /* Work out an iterative distance from black edge of a white image
-            ** shape.  Essentually white values are decreased to the smallest
-            ** 'distance from edge' it can find.
-            **
-            ** It works by adding kernel values to the neighbourhood, and and
-            ** select the minimum value found. The kernel is rotated before
-            ** use, so kernel distances match resulting distances, when a user
-            ** provided asymmetric kernel is applied.
-            **
-            **
-            ** This code is almost identical to True GrayScale Morphology But
-            ** not quite.
-            **
-            ** GreyDilate  Kernel values added, maximum value found Kernel is
-            ** rotated before use.
-            **
-            ** GrayErode:  Kernel values subtracted and minimum value found No
-            ** kernel rotation used.
-            **
-            ** Note the the Iterative Distance method is essentially a
-            ** GrayErode, but with negative kernel values, and kernel
-            ** rotation applied.
-            */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            for (v=0; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+(double)
-                     GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.green,   (*k)+(double)
-                     GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.blue,    (*k)+(double)
-                     GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.alpha,   (*k)+(double)
-                     GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-                if ( image->colorspace == CMYKColorspace)
-                  Maximize(result.black, (*k)+(double)
-                      GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
-            }
-            break;
-
-        case UndefinedMorphology:
-        default:
-            break; /* Do nothing */
+        }
+        if (fabs(pixel-p[center+i]) > MagickEpsilon)
+          changed++;
+        SetPixelChannel(morphology_image,channel,ClampToQuantum(pixel),q);
       }
-      /* Final mathematics of results (combine with original image?)
-      **
-      ** NOTE: Difference Morphology operators Edge* and *Hat could also
-      ** be done here but works better with iteration as a image difference
-      ** in the controling function (below).  Thicken and Thinning however
-      ** should be done here so thay can be iterated correctly.
-      */
-      switch ( method ) {
-        case HitAndMissMorphology:
-        case ErodeMorphology:
-          result = min;    /* minimum of neighbourhood */
-          break;
-        case DilateMorphology:
-          result = max;    /* maximum of neighbourhood */
-          break;
-        case ThinningMorphology:
-          /* subtract pattern match from original */
-          result.red     -= min.red;
-          result.green   -= min.green;
-          result.blue    -= min.blue;
-          result.black   -= min.black;
-          result.alpha   -= min.alpha;
-          break;
-        case ThickenMorphology:
-          /* Add the pattern matchs to the original */
-          result.red     += min.red;
-          result.green   += min.green;
-          result.blue    += min.blue;
-          result.black   += min.black;
-          result.alpha   += min.alpha;
-          break;
-        default:
-          /* result directly calculated or assigned */
-          break;
-      }
-      /* Assign the resulting pixel values - Clamping Result */
-      switch ( method ) {
-        case UndefinedMorphology:
-        case ConvolveMorphology:
-        case DilateIntensityMorphology:
-        case ErodeIntensityMorphology:
-          break;  /* full pixel was directly assigned - not a channel method */
-        default:
-          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelRed(morphology_image,ClampToQuantum(result.red),q);
-          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelGreen(morphology_image,ClampToQuantum(result.green),q);
-          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelBlue(morphology_image,ClampToQuantum(result.blue),q);
-          if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->colorspace == CMYKColorspace))
-            SetPixelBlack(morphology_image,ClampToQuantum(result.black),q);
-          if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->alpha_trait == BlendPixelTrait))
-            SetPixelAlpha(morphology_image,ClampToQuantum(result.alpha),q);
-          break;
-      }
-      /* Count up changed pixels */
-      if ((GetPixelRed(image,p+r*GetPixelChannels(image)) != GetPixelRed(morphology_image,q)) ||
-          (GetPixelGreen(image,p+r*GetPixelChannels(image)) != GetPixelGreen(morphology_image,q)) ||
-          (GetPixelBlue(image,p+r*GetPixelChannels(image)) != GetPixelBlue(morphology_image,q)) ||
-          (GetPixelAlpha(image,p+r*GetPixelChannels(image)) != GetPixelAlpha(morphology_image,q)) ||
-          ((image->colorspace == CMYKColorspace) &&
-           (GetPixelBlack(image,p+r*GetPixelChannels(image)) != GetPixelBlack(morphology_image,q))))
-        changed++;  /* The pixel was changed in some way! */
       p+=GetPixelChannels(image);
       q+=GetPixelChannels(morphology_image);
-    } /* x */
+    }
     if ( SyncCacheViewAuthenticPixels(morphology_view,exception) == MagickFalse)
       status=MagickFalse;
     if (image->progress_monitor != (MagickProgressMonitor) NULL)
@@ -3366,31 +3156,32 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
-  } /* y */
+  }
   morphology_view=DestroyCacheView(morphology_view);
   image_view=DestroyCacheView(image_view);
   return(status ? (ssize_t)changed : -1);
 }
 
-/* This is almost identical to the MorphologyPrimative() function above,
-** but will apply the primitive directly to the actual image using two
-** passes, once in each direction, with the results of the previous (and
-** current) row being re-used.
-**
-** That is after each row is 'Sync'ed' into the image, the next row will
-** make use of those values as part of the calculation of the next row.
-** It then repeats, but going in the oppisite (bottom-up) direction.
-**
-** Because of this 're-use of results' this function can not make use
-** of multi-threaded, parellel processing.
+/*
+  This is almost identical to the MorphologyPrimative() function above, but
+  applies the primitive directly to the actual image using two passes, once in
+  each direction, with the results of the previous (and current) row being
+  re-used.
+
+  That is after each row is 'Sync'ed' into the image, the next row makes use of
+  those values as part of the calculation of the next row.  It repeats, but
+  going in the oppisite (bottom-up) direction.
+
+  Because of this 're-use of results' this function can not make use of multi-
+  threaded, parellel processing.
 */
 static ssize_t MorphologyPrimitiveDirect(Image *image,
   const MorphologyMethod method,const KernelInfo *kernel,
   ExceptionInfo *exception)
 {
   CacheView
-    *auth_view,
-    *virt_view;
+    *morphology_view,
+    *image_view;
 
   MagickBooleanType
     status;
@@ -3398,16 +3189,15 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
   MagickOffsetType
     progress;
 
-  ssize_t
-    y, offx, offy;
+  OffsetInfo
+    offset;
 
   size_t
-    virt_width,
+    width,
     changed;
 
-  status=MagickTrue;
-  changed=0;
-  progress=0;
+  ssize_t
+    y;
 
   assert(image != (Image *) NULL);
   assert(image->signature == MagickSignature);
@@ -3415,35 +3205,34 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
   assert(kernel->signature == MagickSignature);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
-
-  /* Some methods (including convolve) needs use a reflected kernel.
-   * Adjust 'origin' offsets to loop though kernel as a reflection.
-   */
-  offx = kernel->x;
-  offy = kernel->y;
-  switch(method) {
+  status=MagickTrue;
+  changed=0;
+  progress=0;
+  switch(method)
+  {
     case DistanceMorphology:
     case VoronoiMorphology:
-      /* kernel needs to used with reflection about origin */
-      offx = (ssize_t) kernel->width-offx-1;
-      offy = (ssize_t) kernel->height-offy-1;
+    {
+      /*
+        Kernel reflected about origin.
+      */
+      offset.x=(ssize_t) kernel->width-kernel->x-1;
+      offset.y=(ssize_t) kernel->height-kernel->y-1;
       break;
-#if 0
-    case ?????Morphology:
-      /* kernel is used as is, without reflection */
-      break;
-#endif
+    }
     default:
-      assert("Not a PrimativeDirect Morphology Method" != (char *) NULL);
+    {
+      offset.x=kernel->x;
+      offset.y=kernel->y;
       break;
+    }
   }
-
-  /* DO NOT THREAD THIS CODE! */
-  /* two views into same image (virtual, and actual) */
-  virt_view=AcquireVirtualCacheView(image,exception);
-  auth_view=AcquireAuthenticCacheView(image,exception);
-  virt_width=image->columns+kernel->width-1;
-
+  /*
+    Two views into same image, do not thread.
+  */
+  image_view=AcquireVirtualCacheView(image,exception);
+  morphology_view=AcquireAuthenticCacheView(image,exception);
+  width=image->columns+kernel->width-1;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     register const Quantum
@@ -3456,177 +3245,158 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       x;
 
     ssize_t
-      r;
+      center;
 
-    /* NOTE read virtual pixels, and authentic pixels, from the same image!
-    ** we read using virtual to get virtual pixel handling, but write back
-    ** into the same image.
-    **
-    ** Only top half of kernel is processed as we do a single pass downward
-    ** through the image iterating the distance function as we go.
+    /*
+      Read virtual pixels, and authentic pixels, from the same image!  We read
+      using virtual to get virtual pixel handling, but write back into the same
+      image.
+
+      Only top half of kernel is processed as we do a single pass downward
+      through the image iterating the distance function as we go.
     */
     if (status == MagickFalse)
       break;
-    p=GetCacheViewVirtualPixels(virt_view,-offx,y-offy,virt_width,(size_t)
-      offy+1,exception);
-    q=GetCacheViewAuthenticPixels(auth_view, 0, y, image->columns, 1,
+    p=GetCacheViewVirtualPixels(image_view,-offset.x,y-offset.y,width,(size_t)
+      offset.y+1,exception);
+    q=GetCacheViewAuthenticPixels(morphology_view,0,y,image->columns,1,
       exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       status=MagickFalse;
     if (status == MagickFalse)
       break;
-
-    /* offset to origin in 'p'. while 'q' points to it directly */
-    r = (ssize_t) virt_width*offy + offx;
-
+    center=(ssize_t) (GetPixelChannels(image)*width*offset.y+
+      GetPixelChannels(image)*offset.x);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      PixelInfo
-        result;
-
-      register const MagickRealType
-        *restrict k;
-
-      register const Quantum
-        *restrict k_pixels;
-
       register ssize_t
-        u;
+        i;
 
-      ssize_t
-        v;
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        double
+          pixel;
 
-      /* Starting Defaults */
-      GetPixelInfo(image,&result);
-      GetPixelInfoPixel(image,q,&result);
-      if ( method != VoronoiMorphology )
-        result.alpha = QuantumRange - result.alpha;
+        PixelTrait
+          traits;
 
-      switch ( method ) {
-        case DistanceMorphology:
-            /* Add kernel Value and select the minimum value found. */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            for (v=0; v <= (ssize_t) offy; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.green,   (*k)+
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.blue,    (*k)+
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                if (image->colorspace == CMYKColorspace)
-                  Minimize(result.black,(*k)+
-                    GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.alpha, (*k)+
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
-            }
-            /* repeat with the just processed pixels of this row */
-            k = &kernel->values[ kernel->width*(kernel->y+1)-1 ];
-            k_pixels = q-offx*GetPixelChannels(image);
-              for (u=0; u < (ssize_t) offx; u++, k--) {
-                if ( x+u-offx < 0 ) continue;  /* off the edge! */
-                if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.green,   (*k)+
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.blue,    (*k)+
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                if (image->colorspace == CMYKColorspace)
-                  Minimize(result.black,(*k)+
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.alpha,(*k)+
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-              }
-            break;
-        case VoronoiMorphology:
-            /* Apply Distance to 'Matte' channel, while coping the color
-            ** values of the closest pixel.
-            **
-            ** This is experimental, and realy the 'alpha' component should
-            ** be completely separate 'masking' channel so that alpha can
-            ** also be used as part of the results.
-            */
-            k = &kernel->values[ kernel->width*kernel->height-1 ];
-            k_pixels = p;
-            for (v=0; v <= (ssize_t) offy; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) ) continue;
-                if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
+        register const MagickRealType
+          *restrict k;
+
+        register const Quantum
+          *restrict pixels;
+
+        register ssize_t
+          u;
+
+        ssize_t
+          v;
+
+        traits=GetPixelChannelTraits(image,i);
+        if (traits == UndefinedPixelTrait)
+          continue;
+        if (((traits & CopyPixelTrait) != 0) ||
+            (GetPixelMask(image,p+center) != 0))
+          continue;
+        pixels=p;
+        pixel=(double) QuantumRange;
+        switch (method)
+        {
+          case DistanceMorphology:
+          {
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            for (v=0; v <= offset.y; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
                   {
-                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
-                      &result);
-                    result.alpha += *k;
+                    if ((pixels[i]+(*k)) < pixel)
+                      pixel=(double) pixels[i]+(*k);
                   }
+                k--;
+                pixels+=GetPixelChannels(image);
               }
-              k_pixels += virt_width*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
             }
-            /* repeat with the just processed pixels of this row */
-            k = &kernel->values[ kernel->width*(kernel->y+1)-1 ];
-            k_pixels = q-offx*GetPixelChannels(image);
-              for (u=0; u < (ssize_t) offx; u++, k--) {
-                if ( x+u-offx < 0 ) continue;  /* off the edge! */
-                if ( IsNan(*k) ) continue;
-                if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
-                  {
-                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
-                      &result);
-                    result.alpha += *k;
-                  }
-              }
+            k=(&kernel->values[kernel->width*(kernel->y+1)-1]);
+            pixels=q-offset.x*GetPixelChannels(image);
+            for (u=0; u < offset.x; u++)
+            {
+              if ((IsNaN(*k) == MagickFalse) && ((x+u-offset.x) >= 0))
+                {
+                  if ((pixels[i]+(*k)) < pixel)
+                    pixel=(double) pixels[i]+(*k);
+                }
+              k--;
+              pixels+=GetPixelChannels(image);
+            }
             break;
-        default:
-          /* result directly calculated or assigned */
-          break;
+          }
+          case VoronoiMorphology:
+          {
+            k=(&kernel->values[kernel->width*kernel->height-1]);
+            for (v=0; v < offset.y; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    if ((pixels[i]+(*k)) < pixel)
+                      pixel=(double) pixels[i]+(*k);
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            k=(&kernel->values[kernel->width*(kernel->y+1)-1]);
+            pixels=q-offset.x*GetPixelChannels(image);
+            for (u=0; u < offset.x; u++)
+            {
+              if ((IsNaN(*k) == MagickFalse) && ((x+u-offset.x) >= 0))
+                {
+                  if ((pixels[i]+(*k)) < pixel)
+                    pixel=(double) pixels[i]+(*k);
+                }
+              k--;
+              pixels+=GetPixelChannels(image);
+            }
+            break;
+          }
+          default:
+            break;
+        }
+        if (fabs(pixel-q[i]) > MagickEpsilon)
+          changed++;
+        q[i]=ClampToQuantum(pixel);
       }
-      /* Assign the resulting pixel values - Clamping Result */
-      switch ( method ) {
-        case VoronoiMorphology:
-          SetPixelInfoPixel(image,&result,q);
-          break;
-        default:
-          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelRed(image,ClampToQuantum(result.red),q);
-          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelGreen(image,ClampToQuantum(result.green),q);
-          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelBlue(image,ClampToQuantum(result.blue),q);
-          if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->colorspace == CMYKColorspace))
-            SetPixelBlack(image,ClampToQuantum(result.black),q);
-          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0 &&
-              (image->alpha_trait == BlendPixelTrait))
-            SetPixelAlpha(image,ClampToQuantum(result.alpha),q);
-          break;
-      }
-      /* Count up changed pixels */
-      if ((GetPixelRed(image,p+r*GetPixelChannels(image)) != GetPixelRed(image,q)) ||
-          (GetPixelGreen(image,p+r*GetPixelChannels(image)) != GetPixelGreen(image,q)) ||
-          (GetPixelBlue(image,p+r*GetPixelChannels(image)) != GetPixelBlue(image,q)) ||
-          (GetPixelAlpha(image,p+r*GetPixelChannels(image)) != GetPixelAlpha(image,q)) ||
-          ((image->colorspace == CMYKColorspace) &&
-           (GetPixelBlack(image,p+r*GetPixelChannels(image)) != GetPixelBlack(image,q))))
-        changed++;  /* The pixel was changed in some way! */
-
-      p+=GetPixelChannels(image); /* increment pixel buffers */
+      p+=GetPixelChannels(image);
       q+=GetPixelChannels(image);
-    } /* x */
-
-    if ( SyncCacheViewAuthenticPixels(auth_view,exception) == MagickFalse)
+    }
+    if (SyncCacheViewAuthenticPixels(morphology_view,exception) == MagickFalse)
       status=MagickFalse;
     if (image->progress_monitor != (MagickProgressMonitor) NULL)
-      if ( SetImageProgress(image,MorphologyTag,progress++,image->rows)
-                == MagickFalse )
-        status=MagickFalse;
+      {
+        MagickBooleanType
+          proceed;
 
-  } /* y */
-
-  /* Do the reversed pass through the image */
-  for (y=(ssize_t)image->rows-1; y >= 0; y--)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp critical (MagickCore_MorphologyImage)
+#endif
+        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  morphology_view=DestroyCacheView(morphology_view);
+  image_view=DestroyCacheView(image_view);
+  /*
+    Do the reverse pass through the image.
+  */
+  image_view=AcquireVirtualCacheView(image,exception);
+  morphology_view=AcquireAuthenticCacheView(image,exception);
+  for (y=(ssize_t) image->rows-1; y >= 0; y--)
   {
     register const Quantum
       *restrict p;
@@ -3638,188 +3408,165 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       x;
 
     ssize_t
-      r;
+      center;
 
+    /*
+       Read virtual pixels, and authentic pixels, from the same image.  We
+       read using virtual to get virtual pixel handling, but write back
+       into the same image.
+
+       Only the bottom half of the kernel is processed as we up the image.
+    */
     if (status == MagickFalse)
       break;
-    /* NOTE read virtual pixels, and authentic pixels, from the same image!
-    ** we read using virtual to get virtual pixel handling, but write back
-    ** into the same image.
-    **
-    ** Only the bottom half of the kernel will be processes as we
-    ** up the image.
-    */
-    p=GetCacheViewVirtualPixels(virt_view,-offx,y,virt_width,(size_t)
+    p=GetCacheViewVirtualPixels(image_view,-offset.x,y,width,(size_t)
       kernel->y+1,exception);
-    q=GetCacheViewAuthenticPixels(auth_view, 0, y, image->columns, 1,
+    q=GetCacheViewAuthenticPixels(morphology_view,0,y,image->columns,1,
       exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       status=MagickFalse;
     if (status == MagickFalse)
       break;
-
-    /* adjust positions to end of row */
-    p += (image->columns-1)*GetPixelChannels(image);
-    q += (image->columns-1)*GetPixelChannels(image);
-
-    /* offset to origin in 'p'. while 'q' points to it directly */
-    r = offx;
-
-    for (x=(ssize_t)image->columns-1; x >= 0; x--)
+    p+=(image->columns-1)*GetPixelChannels(image);
+    q+=(image->columns-1)*GetPixelChannels(image);
+    center=(ssize_t) (offset.x*GetPixelChannels(image));
+    for (x=(ssize_t) image->columns-1; x >= 0; x--)
     {
-      PixelInfo
-        result;
-
-      register const MagickRealType
-        *restrict k;
-
-      register const Quantum
-        *restrict k_pixels;
-
       register ssize_t
-        u;
+        i;
 
-      ssize_t
-        v;
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        double
+          pixel;
 
-      /* Default - previously modified pixel */
-      GetPixelInfo(image,&result);
-      GetPixelInfoPixel(image,q,&result);
-      if ( method != VoronoiMorphology )
-        result.alpha = QuantumRange - result.alpha;
+        PixelTrait
+          traits;
 
-      switch ( method ) {
-        case DistanceMorphology:
-            /* Add kernel Value and select the minimum value found. */
-            k = &kernel->values[ kernel->width*(kernel->y+1)-1 ];
-            k_pixels = p;
-            for (v=offy; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.green,   (*k)+
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.blue,    (*k)+
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                if ( image->colorspace == CMYKColorspace)
-                  Minimize(result.black,(*k)+
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.alpha, (*k)+
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-              }
-              k_pixels += virt_width*GetPixelChannels(image);
-            }
-            /* repeat with the just processed pixels of this row */
-            k = &kernel->values[ kernel->width*(kernel->y)+kernel->x-1 ];
-            k_pixels = q-offx*GetPixelChannels(image);
-              for (u=offx+1; u < (ssize_t) kernel->width; u++, k--) {
-                if ( (x+u-offx) >= (ssize_t)image->columns ) continue;
-                if ( IsNan(*k) ) continue;
-                Minimize(result.red,     (*k)+
-                  GetPixelRed(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.green,   (*k)+
-                  GetPixelGreen(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.blue,    (*k)+
-                  GetPixelBlue(image,k_pixels+u*GetPixelChannels(image)));
-                if ( image->colorspace == CMYKColorspace)
-                  Minimize(result.black,   (*k)+
-                    GetPixelBlack(image,k_pixels+u*GetPixelChannels(image)));
-                Minimize(result.alpha, (*k)+
-                  GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)));
-              }
-            break;
-        case VoronoiMorphology:
-            /* Apply Distance to 'Matte' channel, coping the closest color.
-            **
-            ** This is experimental, and realy the 'alpha' component should
-            ** be completely separate 'masking' channel.
-            */
-            k = &kernel->values[ kernel->width*(kernel->y+1)-1 ];
-            k_pixels = p;
-            for (v=offy; v < (ssize_t) kernel->height; v++) {
-              for (u=0; u < (ssize_t) kernel->width; u++, k--) {
-                if ( IsNan(*k) ) continue;
-                if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
+        register const MagickRealType
+          *restrict k;
+
+        register const Quantum
+          *restrict pixels;
+
+        register ssize_t
+          u;
+
+        ssize_t
+          v;
+
+        traits=GetPixelChannelTraits(image,i);
+        if (traits == UndefinedPixelTrait)
+          continue;
+        if (((traits & CopyPixelTrait) != 0) ||
+             (GetPixelMask(image,p+center) != 0))
+          continue;
+        pixels=p;
+        pixel=(double) QuantumRange;
+        switch (method)
+        {
+          case DistanceMorphology:
+          {
+            k=(&kernel->values[kernel->width*(kernel->y+1)-1]);
+            for (v=offset.y; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
                   {
-                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
-                      &result);
-                    result.alpha += *k;
+                    if ((pixels[i]+(*k)) < pixel)
+                      pixel=(double) pixels[i]+(*k);
                   }
+                k--;
+                pixels+=GetPixelChannels(image);
               }
-              k_pixels += virt_width*GetPixelChannels(image);
+              pixels+=(image->columns-1)*GetPixelChannels(image);
             }
-            /* repeat with the just processed pixels of this row */
-            k = &kernel->values[ kernel->width*(kernel->y)+kernel->x-1 ];
-            k_pixels = q-offx*GetPixelChannels(image);
-              for (u=offx+1; u < (ssize_t) kernel->width; u++, k--) {
-                if ( (x+u-offx) >= (ssize_t)image->columns ) continue;
-                if ( IsNan(*k) ) continue;
-                if( result.alpha > (*k)+GetPixelAlpha(image,k_pixels+u*GetPixelChannels(image)) )
-                  {
-                    GetPixelInfoPixel(image,k_pixels+u*GetPixelChannels(image),
-                      &result);
-                    result.alpha += *k;
-                  }
-              }
+            k=(&kernel->values[kernel->width*kernel->y+kernel->x-1]);
+            pixels=q-offset.x*GetPixelChannels(image);
+            for (u=offset.x+1; u < (ssize_t) kernel->width; u++)
+            {
+              if ((IsNaN(*k) == MagickFalse) &&
+                  ((x+u-offset.x) < (ssize_t) image->columns))
+                {
+                  if ((pixels[i]+(*k)) < pixel)
+                    pixel=(double) pixels[i]+(*k);
+                }
+              k--;
+              pixels+=GetPixelChannels(image);
+            }
             break;
-        default:
-          /* result directly calculated or assigned */
-          break;
+          }
+          case VoronoiMorphology:
+          {
+            k=(&kernel->values[kernel->width*(kernel->y+1)-1]);
+            for (v=offset.y; v < (ssize_t) kernel->height; v++)
+            {
+              for (u=0; u < (ssize_t) kernel->width; u++)
+              {
+                if (IsNaN(*k) == MagickFalse)
+                  {
+                    if ((pixels[i]+(*k)) < pixel)
+                      pixel=(double) pixels[i]+(*k);
+                  }
+                k--;
+                pixels+=GetPixelChannels(image);
+              }
+              pixels+=(image->columns-1)*GetPixelChannels(image);
+            }
+            k=(&kernel->values[kernel->width*(kernel->y+1)-1]);
+            pixels=q-offset.x*GetPixelChannels(image);
+            for (u=offset.x+1; u < (ssize_t) kernel->width; u++)
+            {
+              if ((IsNaN(*k) == MagickFalse) &&
+                  ((x+u-offset.x) < (ssize_t) image->columns))
+                {
+                  if ((pixels[i]+(*k)) < pixel)
+                    pixel=(double) pixels[i]+(*k);
+                }
+              k--;
+              pixels+=GetPixelChannels(image);
+            }
+            break;
+          }
+          default:
+            break;
+        }
+        if (fabs(pixel-q[i]) > MagickEpsilon)
+          changed++;
+        q[i]=ClampToQuantum(pixel);
       }
-      /* Assign the resulting pixel values - Clamping Result */
-      switch ( method ) {
-        case VoronoiMorphology:
-          SetPixelInfoPixel(image,&result,q);
-          break;
-        default:
-          if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelRed(image,ClampToQuantum(result.red),q);
-          if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelGreen(image,ClampToQuantum(result.green),q);
-          if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-            SetPixelBlue(image,ClampToQuantum(result.blue),q);
-          if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
-              (image->colorspace == CMYKColorspace))
-            SetPixelBlack(image,ClampToQuantum(result.black),q);
-          if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0 &&
-              (image->alpha_trait == BlendPixelTrait))
-            SetPixelAlpha(image,ClampToQuantum(result.alpha),q);
-          break;
-      }
-      /* Count up changed pixels */
-      if (   (GetPixelRed(image,p+r*GetPixelChannels(image)) != GetPixelRed(image,q))
-          || (GetPixelGreen(image,p+r*GetPixelChannels(image)) != GetPixelGreen(image,q))
-          || (GetPixelBlue(image,p+r*GetPixelChannels(image)) != GetPixelBlue(image,q))
-          || (GetPixelAlpha(image,p+r*GetPixelChannels(image)) != GetPixelAlpha(image,q))
-          || ((image->colorspace == CMYKColorspace) &&
-              (GetPixelBlack(image,p+r*GetPixelChannels(image)) != GetPixelBlack(image,q))))
-        changed++;  /* The pixel was changed in some way! */
-
-      p-=GetPixelChannels(image); /* go backward through pixel buffers */
+      p-=GetPixelChannels(image);
       q-=GetPixelChannels(image);
-    } /* x */
-    if ( SyncCacheViewAuthenticPixels(auth_view,exception) == MagickFalse)
+    }
+    if (SyncCacheViewAuthenticPixels(morphology_view,exception) == MagickFalse)
       status=MagickFalse;
     if (image->progress_monitor != (MagickProgressMonitor) NULL)
-      if ( SetImageProgress(image,MorphologyTag,progress++,image->rows)
-                == MagickFalse )
-        status=MagickFalse;
+      {
+        MagickBooleanType
+          proceed;
 
-  } /* y */
-
-  auth_view=DestroyCacheView(auth_view);
-  virt_view=DestroyCacheView(virt_view);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp critical (MagickCore_MorphologyImage)
+#endif
+        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  morphology_view=DestroyCacheView(morphology_view);
+  image_view=DestroyCacheView(image_view);
   return(status ? (ssize_t) changed : -1);
 }
 
-/* Apply a Morphology by calling one of the above low level primitive
-** application functions.  This function handles any iteration loops,
-** composition or re-iteration of results, and compound morphology methods
-** that is based on multiple low-level (staged) morphology methods.
-**
-** Basically this provides the complex glue between the requested morphology
-** method and raw low-level implementation (above).
+/*
+  Apply a Morphology by calling one of the above low level primitive
+  application functions.  This function handles any iteration loops,
+  composition or re-iteration of results, and compound morphology methods that
+  is based on multiple low-level (staged) morphology methods.
+
+  Basically this provides the complex glue between the requested morphology
+  method and raw low-level implementation (above).
 */
 MagickPrivate Image *MorphologyApply(const Image *image,
   const MorphologyMethod method, const ssize_t iterations,
@@ -4654,7 +4401,6 @@ static void RotateKernelInfo(KernelInfo *kernel, double angle)
 MagickExport void ScaleGeometryKernelInfo (KernelInfo *kernel,
      const char *geometry)
 {
-  //GeometryFlags
   MagickStatusType
     flags;
 
@@ -4797,7 +4543,7 @@ MagickExport void ScaleKernelInfo(KernelInfo *kernel,
   neg_scale = scaling_factor/neg_scale;
 
   for (i=0; i < (ssize_t) (kernel->width*kernel->height); i++)
-    if ( ! IsNan(kernel->values[i]) )
+    if ( ! IsNaN(kernel->values[i]) )
       kernel->values[i] *= (kernel->values[i] >= 0) ? pos_scale : neg_scale;
 
   /* convolution output range */
@@ -4880,7 +4626,7 @@ MagickPrivate void ShowKernelInfo(const KernelInfo *kernel)
     for (i=v=0; v < k->height; v++) {
       (void) FormatLocaleFile(stderr, "%2lu:", (unsigned long) v );
       for (u=0; u < k->width; u++, i++)
-        if ( IsNan(k->values[i]) )
+        if ( IsNaN(k->values[i]) )
           (void) FormatLocaleFile(stderr," %*s", GetMagickPrecision()+3, "nan");
         else
           (void) FormatLocaleFile(stderr," %*.*lg", GetMagickPrecision()+3,
@@ -4972,7 +4718,7 @@ MagickPrivate void ZeroKernelNans(KernelInfo *kernel)
     ZeroKernelNans(kernel->next);
 
   for (i=0; i < (kernel->width*kernel->height); i++)
-    if ( IsNan(kernel->values[i]) )
+    if ( IsNaN(kernel->values[i]) )
       kernel->values[i] = 0.0;
 
   return;

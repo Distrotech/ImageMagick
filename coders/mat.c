@@ -849,17 +849,6 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
       }
 
 
-    /* ----- Create gray palette ----- */
-
-    if (CellType==miUINT8 && z!=3)
-    {
-      if(image->colors > 256) image->colors = 256;
-
-      if (AcquireImageColormap(image, image->colors,exception) == MagickFalse)
-      {
- NoMemory:ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");}
-    }
-
     /*
       If ping is true, then only set image size and colors without
       reading any image data.
@@ -875,7 +864,7 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   /* ----- Load raster data ----- */
     BImgBuff = (unsigned char *) AcquireQuantumMemory((size_t) (ldblk),sizeof(unsigned char *));    /* Ldblk was set in the check phase */
     if (BImgBuff == NULL)
-      goto NoMemory;
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
 
     MinVal = 0;
     MaxVal = 0;
@@ -891,7 +880,7 @@ MATLAB_KO: ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     {
       for (i = 0; i < (ssize_t) MATLAB_HDR.SizeY; i++)
       {
-        q=QueueAuthenticPixels(image,0,MATLAB_HDR.SizeY-i-1,image->columns,1,exception);
+        q=GetAuthenticPixels(image,0,MATLAB_HDR.SizeY-i-1,image->columns,1,exception);
         if (q == (Quantum *)NULL)
   {
     if (logging) (void)LogMagickEvent(CoderEvent,GetMagickModule(),

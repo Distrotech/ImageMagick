@@ -325,14 +325,12 @@ static void DefaultErrorHandler(const ExceptionType magick_unused(severity),
 %
 %    o severity: Specifies the numeric error category.
 %
-%    o reason: Specifies the reason to display before terminating the
-%      program.
+%    o reason: Specifies the reason to display before terminating the program.
 %
 %    o description: Specifies any description to the reason.
 %
 */
-static void DefaultFatalErrorHandler(
-  const ExceptionType magick_unused(severity),
+static void DefaultFatalErrorHandler(const ExceptionType severity,
   const char *reason,const char *description)
 {
   if (reason == (char *) NULL)
@@ -343,7 +341,7 @@ static void DefaultFatalErrorHandler(
   (void) FormatLocaleFile(stderr,".\n");
   (void) fflush(stderr);
   MagickCoreTerminus();
-  exit(1);
+  exit((int) (severity-FatalErrorException)+1);
 }
 
 /*
@@ -661,7 +659,7 @@ MagickExport void InheritException(ExceptionInfo *exception,
   assert(relative->signature == MagickSignature);
   if (relative->exceptions == (void *) NULL)
     return;
-  LockSemaphoreInfo(exception->semaphore);
+  LockSemaphoreInfo(relative->semaphore);
   ResetLinkedListIterator((LinkedListInfo *) relative->exceptions);
   p=(const ExceptionInfo *) GetNextValueInLinkedList((LinkedListInfo *)
     relative->exceptions);
@@ -671,7 +669,7 @@ MagickExport void InheritException(ExceptionInfo *exception,
     p=(const ExceptionInfo *) GetNextValueInLinkedList((LinkedListInfo *)
       relative->exceptions);
   }
-  UnlockSemaphoreInfo(exception->semaphore);
+  UnlockSemaphoreInfo(relative->semaphore);
 }
 
 /*
@@ -917,15 +915,22 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
 
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
+  LockSemaphoreInfo(exception->semaphore);
   p=(ExceptionInfo *) GetLastValueInLinkedList((LinkedListInfo *)
     exception->exceptions);
   if ((p != (ExceptionInfo *) NULL) && (p->severity == severity) &&
       (LocaleCompare(exception->reason,reason) == 0) &&
       (LocaleCompare(exception->description,description) == 0))
-    return(MagickTrue);
+    {
+      UnlockSemaphoreInfo(exception->semaphore);
+      return(MagickTrue);
+    }
   p=(ExceptionInfo *) AcquireMagickMemory(sizeof(*p));
   if (p == (ExceptionInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+    {
+      UnlockSemaphoreInfo(exception->semaphore);
+      ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+    }
   (void) ResetMagickMemory(p,0,sizeof(*p));
   p->severity=severity;
   if (reason != (const char *) NULL)
@@ -937,6 +942,7 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
   exception->severity=p->severity;
   exception->reason=p->reason;
   exception->description=p->description;
+  UnlockSemaphoreInfo(exception->semaphore);
   return(MagickTrue);
 }
 
@@ -979,10 +985,10 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
 %
 */
 
-MagickExport MagickBooleanType ThrowMagickExceptionList(ExceptionInfo *exception,
-  const char *module,const char *function,const size_t line,
-  const ExceptionType severity,const char *tag,const char *format,
-  va_list operands)
+MagickExport MagickBooleanType ThrowMagickExceptionList(
+  ExceptionInfo *exception,const char *module,const char *function,
+  const size_t line,const ExceptionType severity,const char *tag,
+  const char *format,va_list operands)
 {
   char
     message[MaxTextExtent],

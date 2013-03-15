@@ -28,7 +28,7 @@ extern "C" {
 #define MAGICKCORE_QUANTUM_DEPTH  16
 #endif
 
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__MINGW32__)
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__MINGW32__) && !defined(__MINGW64__)
 #  define MagickLLConstant(c)  (MagickOffsetType) (c ## i64)
 #  define MagickULLConstant(c)  (MagickSizeType) (c ## ui64)
 #else
@@ -95,9 +95,7 @@ typedef double_t Quantum;
 #define QuantumRange  18446744073709551615.0
 #define QuantumFormat  "%g"
 #else
-#if !defined(_CH_)
-# error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
-#endif
+#error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
 #define MagickEpsilon  (1.0e-15)
 #define MagickHuge  3.4e+38F

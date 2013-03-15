@@ -141,7 +141,7 @@ static MagickBooleanType ChannelImage(Image *destination_image,
   width=MagickMin(source_image->columns,destination_image->columns);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(source_image,width,height,1)
+    magick_threads(source_image,source_image,height,1)
 #endif
   for (y=0; y < (ssize_t) height; y++)
   {
@@ -239,8 +239,6 @@ MagickExport Image *ChannelFxImage(const Image *image,const char *expression,
   destination_image=CloneImage(source_image,0,0,MagickTrue,exception);
   if (destination_image == (Image *) NULL)
     return((Image *) NULL);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace((Image *) image,RGBColorspace,exception);
   if (expression == (const char *) NULL)
     return(destination_image);
   destination_channel=RedPixelChannel;
@@ -290,8 +288,6 @@ MagickExport Image *ChannelFxImage(const Image *image,const char *expression,
             destination_image=DestroyImageList(destination_image);
             return(destination_image);
           }
-        if (IsGrayColorspace(canvas->colorspace) != MagickFalse)
-          (void) TransformImageColorspace(canvas,RGBColorspace,exception);
         AppendImageToList(&destination_image,canvas);
         destination_image=GetLastImageInList(destination_image);
         GetMagickToken(p,&p,token);
@@ -303,7 +299,7 @@ MagickExport Image *ChannelFxImage(const Image *image,const char *expression,
     if (i < 0)
       {
         (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-          "UnrecognizedChannelType","'%s'",token);
+          "UnrecognizedChannelType","`%s'",token);
         destination_image=DestroyImageList(destination_image);
         return(destination_image);
       }
@@ -342,7 +338,7 @@ MagickExport Image *ChannelFxImage(const Image *image,const char *expression,
         if (i < 0)
           {
             (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-              "UnrecognizedChannelType","'%s'",token);
+              "UnrecognizedChannelType","`%s'",token);
             destination_image=DestroyImageList(destination_image);
             return(destination_image);
           }
@@ -488,8 +484,6 @@ MagickExport Image *CombineImages(const Image *image,
       combine_image=DestroyImage(combine_image);
       return((Image *) NULL);
     }
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(combine_image,RGBColorspace,exception);
   if ((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0)
     combine_image->alpha_trait=BlendPixelTrait;
   /*
@@ -530,20 +524,14 @@ MagickExport Image *CombineImages(const Image *image,
     next=image;
     for (i=0; i < (ssize_t) GetPixelChannels(combine_image); i++)
     {
-      PixelChannel
-        channel;
-
-      PixelTrait
-        traits;
-
       register ssize_t
         x;
 
-      if (next == (Image *) NULL)
-        continue;
-      channel=GetPixelChannelChannel(combine_image,i);
-      traits=GetPixelChannelTraits(combine_image,channel);
+      PixelChannel channel=GetPixelChannelChannel(combine_image,i);
+      PixelTrait traits=GetPixelChannelTraits(combine_image,channel);
       if (traits == UndefinedPixelTrait)
+        continue;
+      if (next == (Image *) NULL)
         continue;
       image_view=AcquireVirtualCacheView(next,exception);
       p=GetCacheViewVirtualPixels(image_view,0,y,next->columns,1,exception);
@@ -576,9 +564,9 @@ MagickExport Image *CombineImages(const Image *image,
       }
   }
   combine_view=DestroyCacheView(combine_view);
+  (void) TransformImageColorspace(combine_image,colorspace,exception);
   if (status == MagickFalse)
     combine_image=DestroyImage(combine_image);
-  (void) TransformImageColorspace(combine_image,colorspace,exception);
   return(combine_image);
 }
 
@@ -661,7 +649,7 @@ MagickExport Image *SeparateImage(const Image *image,
   separate_view=AcquireAuthenticCacheView(separate_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -701,20 +689,14 @@ MagickExport Image *SeparateImage(const Image *image,
         double
           pixel;
 
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (GetChannelBit(channel_type,channel) == 0))
           continue;
         pixel=p[i];
         if (IssRGBColorspace(image->colorspace) != MagickFalse)
-          pixel=DecodesRGBGamma(pixel);
+          pixel=DecodePixelGamma(pixel);
         SetPixelChannel(separate_image,GrayPixelChannel,ClampToQuantum(pixel),
           q);
       }
@@ -738,6 +720,8 @@ MagickExport Image *SeparateImage(const Image *image,
   }
   separate_view=DestroyCacheView(separate_view);
   image_view=DestroyCacheView(image_view);
+  if (status == MagickFalse)
+    separate_image=DestroyImage(separate_image);
   return(separate_image);
 }
 
@@ -782,14 +766,8 @@ MagickExport Image *SeparateImages(const Image *image,ExceptionInfo *exception)
   images=NewImageList();
   for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
   {
-    PixelChannel
-      channel;
-
-    PixelTrait
-      traits;
-
-    channel=GetPixelChannelChannel(image,i);
-    traits=GetPixelChannelTraits(image,channel);
+    PixelChannel channel=GetPixelChannelChannel(image,i);
+    PixelTrait traits=GetPixelChannelTraits(image,channel);
     if ((traits == UndefinedPixelTrait) ||
         ((traits & UpdatePixelTrait) == 0))
       continue;

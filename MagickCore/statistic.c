@@ -475,7 +475,7 @@ MagickExport Image *EvaluateImages(const Image *images,
     {
       image=DestroyImage(image);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",images->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",images->filename);
       return((Image *) NULL);
     }
   /*
@@ -492,7 +492,7 @@ MagickExport Image *EvaluateImages(const Image *images,
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+        magick_threads(image,images,image->rows,key == ~0UL)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -551,16 +551,9 @@ MagickExport Image *EvaluateImages(const Image *images,
               }
             for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
             {
-              PixelChannel
-                channel;
-
-              PixelTrait
-                evaluate_traits,
-                traits;
-
-              channel=GetPixelChannelChannel(image,i);
-              evaluate_traits=GetPixelChannelTraits(image,channel);
-              traits=GetPixelChannelTraits(next,channel);
+              PixelChannel channel=GetPixelChannelChannel(image,i);
+              PixelTrait evaluate_traits=GetPixelChannelTraits(image,channel);
+              PixelTrait traits=GetPixelChannelTraits(next,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
@@ -600,7 +593,7 @@ MagickExport Image *EvaluateImages(const Image *images,
     {
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(progress,status) \
-        dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+        magick_threads(image,images,image->rows,key == ~0UL)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -664,16 +657,9 @@ MagickExport Image *EvaluateImages(const Image *images,
               }
             for (i=0; i < (ssize_t) GetPixelChannels(next); i++)
             {
-              PixelChannel
-                channel;
-
-              PixelTrait
-                evaluate_traits,
-                traits;
-
-              channel=GetPixelChannelChannel(image,i);
-              traits=GetPixelChannelTraits(next,channel);
-              evaluate_traits=GetPixelChannelTraits(image,channel);
+              PixelChannel channel=GetPixelChannelChannel(image,i);
+              PixelTrait  traits=GetPixelChannelTraits(next,channel);
+              PixelTrait  evaluate_traits=GetPixelChannelTraits(image,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
@@ -729,14 +715,8 @@ MagickExport Image *EvaluateImages(const Image *images,
             }
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             if ((traits & UpdatePixelTrait) == 0)
@@ -810,7 +790,7 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+    magick_threads(image,image,image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -838,14 +818,8 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if (((traits & CopyPixelTrait) != 0) ||
@@ -1039,7 +1013,7 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1069,14 +1043,8 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
@@ -1208,14 +1176,8 @@ MagickExport MagickBooleanType GetImageMean(const Image *image,double *mean,
   channel_statistics[CompositePixelChannel].standard_deviation=0.0;
   for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
   {
-    PixelChannel
-      channel;
-
-    PixelTrait
-      traits;
-
-    channel=GetPixelChannelChannel(image,i);
-    traits=GetPixelChannelTraits(image,channel);
+    PixelChannel channel=GetPixelChannelChannel(image,i);
+    PixelTrait traits=GetPixelChannelTraits(image,channel);
     if (traits == UndefinedPixelTrait)
       continue;
     if ((traits & UpdatePixelTrait) == 0)
@@ -1248,8 +1210,8 @@ MagickExport MagickBooleanType GetImageMean(const Image *image,double *mean,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  GetImageKurtosis() returns the kurtosis and skewness of one or more
-%  image channels.
+%  GetImageKurtosis() returns the kurtosis and skewness of one or more image
+%  channels.
 %
 %  The format of the GetImageKurtosis method is:
 %
@@ -1303,7 +1265,7 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1326,20 +1288,18 @@ MagickExport MagickBooleanType GetImageKurtosis(const Image *image,
       register ssize_t
         i;
 
+      if (GetPixelMask(image,p) != 0)
+        {
+          p+=GetPixelChannels(image);
+          continue;
+        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & UpdatePixelTrait) == 0) ||
-            (GetPixelMask(image,p) != 0))
+        if ((traits & UpdatePixelTrait) == 0)
           continue;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
         #pragma omp critical (MagickCore_GetImageKurtosis)
@@ -1430,7 +1390,7 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status,initialize) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1460,14 +1420,8 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
@@ -1543,15 +1497,9 @@ static size_t GetImageChannels(const Image *image)
   channels=0;
   for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
   {
-    PixelChannel
-      channel;
-
-    PixelTrait
-      traits;
-
-    channel=GetPixelChannelChannel(image,i);
-    traits=GetPixelChannelTraits(image,channel);
-    if ((traits & UpdatePixelTrait) != 0)
+    PixelChannel channel=GetPixelChannelChannel(image,i);
+    PixelTrait traits=GetPixelChannelTraits(image,channel);
+    if (traits != UndefinedPixelTrait)
       channels++;
   }
   return(channels);
@@ -1618,14 +1566,8 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if (channel_statistics[channel].depth != MAGICKCORE_QUANTUM_DEPTH)
@@ -1713,6 +1655,8 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
     double
       standard_deviation;
 
+    if (channel_statistics[i].standard_deviation == 0.0)
+      continue;
     standard_deviation=PerceptibleReciprocal(
       channel_statistics[i].standard_deviation);
     channel_statistics[i].skewness=(channel_statistics[i].sum_cubed-3.0*
@@ -1812,7 +1756,7 @@ MagickExport Image *PolynomialImage(const Image *images,
     {
       image=DestroyImage(image);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",images->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",images->filename);
       return((Image *) NULL);
     }
   /*
@@ -1823,7 +1767,7 @@ MagickExport Image *PolynomialImage(const Image *images,
   polynomial_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1893,16 +1837,9 @@ MagickExport Image *PolynomialImage(const Image *images,
             coefficient,
             degree;
 
-          PixelChannel
-            channel;
-
-          PixelTrait
-            polynomial_traits,
-            traits;
-
-          channel=GetPixelChannelChannel(image,i);
-          traits=GetPixelChannelTraits(next,channel);
-          polynomial_traits=GetPixelChannelTraits(image,channel);
+          PixelChannel channel=GetPixelChannelChannel(image,i);
+          PixelTrait traits=GetPixelChannelTraits(next,channel);
+          PixelTrait polynomial_traits=GetPixelChannelTraits(image,channel);
           if ((traits == UndefinedPixelTrait) ||
               (polynomial_traits == UndefinedPixelTrait))
             continue;
@@ -1930,14 +1867,8 @@ MagickExport Image *PolynomialImage(const Image *images,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
@@ -2501,7 +2432,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
   statistic_view=AcquireAuthenticCacheView(statistic_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,statistic_image,statistic_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) statistic_image->rows; y++)
   {
@@ -2535,13 +2466,6 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          statistic_traits,
-          traits;
-
         Quantum
           pixel;
 
@@ -2554,9 +2478,10 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
         ssize_t
           v;
 
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        statistic_traits=GetPixelChannelTraits(statistic_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait statistic_traits=GetPixelChannelTraits(statistic_image,
+          channel);
         if ((traits == UndefinedPixelTrait) ||
             (statistic_traits == UndefinedPixelTrait))
           continue;
@@ -2575,7 +2500,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
             InsertPixelList(image,pixels[i],pixel_list[id]);
             pixels+=GetPixelChannels(image);
           }
-          pixels+=image->columns*GetPixelChannels(image);
+          pixels+=(image->columns-1)*GetPixelChannels(image);
         }
         switch (type)
         {
@@ -2653,5 +2578,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
   statistic_view=DestroyCacheView(statistic_view);
   image_view=DestroyCacheView(image_view);
   pixel_list=DestroyPixelListThreadSet(pixel_list);
+  if (status == MagickFalse)
+    statistic_image=DestroyImage(statistic_image);
   return(statistic_image);
 }

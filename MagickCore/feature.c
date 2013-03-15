@@ -209,7 +209,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       channel_features=(ChannelFeatures *) RelinquishMagickMemory(
         channel_features);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(channel_features);
     }
   for (i=0; i <= (ssize_t) MaxMap; i++)
@@ -224,7 +224,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   image_view=AcquireVirtualCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -340,7 +340,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       channel_features=(ChannelFeatures *) RelinquishMagickMemory(
         channel_features);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(channel_features);
     }
   (void) ResetMagickMemory(&correlation,0,sizeof(correlation));
@@ -389,7 +389,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       channel_features=(ChannelFeatures *) RelinquishMagickMemory(
         channel_features);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(channel_features);
     }
   /*
@@ -522,7 +522,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       channel_features=(ChannelFeatures *) RelinquishMagickMemory(
         channel_features);
       (void) ThrowMagickException(exception,GetMagickModule(),
-        ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+        ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
       return(channel_features);
     }
   /*
@@ -595,7 +595,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,number_grays,number_grays,1)
+    magick_threads(image,image,number_grays,1)
 #endif
   for (i=0; i < 4; i++)
   {
@@ -780,7 +780,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,number_grays,number_grays,1)
+    magick_threads(image,image,number_grays,1)
 #endif
   for (i=0; i < 4; i++)
   {
@@ -856,7 +856,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,number_grays,number_grays,1)
+    magick_threads(image,image,number_grays,1)
 #endif
   for (i=0; i < 4; i++)
   {
@@ -977,7 +977,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   (void) ResetMagickMemory(&sum_squares,0,sizeof(sum_squares));
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,number_grays,number_grays,1)
+    magick_threads(image,image,number_grays,1)
 #endif
   for (i=0; i < 4; i++)
   {
@@ -1129,7 +1129,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,number_grays,number_grays,1)
+    magick_threads(image,image,number_grays,1)
 #endif
   for (i=0; i < 4; i++)
   {

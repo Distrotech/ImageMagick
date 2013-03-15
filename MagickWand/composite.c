@@ -337,9 +337,7 @@ static MagickBooleanType CompositeUsage(void)
     };
 
 
-  (void) printf("Version: %s\n",GetMagickVersion((size_t *) NULL));
-  (void) printf("Copyright: %s\n",GetMagickCopyright());
-  (void) printf("Features: %s\n\n",GetMagickFeatures());
+  ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] image [options ...] composite\n"
     "  [ [options ...] mask ] [options ...] composite\n",
     GetClientName());
@@ -395,7 +393,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
 }
 #define ThrowCompositeException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
      option == (char *) NULL ? GetExceptionMessage(errno) : option); \
   DestroyComposite(); \
   return(MagickFalse); \
@@ -456,12 +454,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
       if ((LocaleCompare("version",option+1) == 0) ||
           (LocaleCompare("-version",option+1) == 0))
         {
-          (void) FormatLocaleFile(stdout,"Version: %s\n",
-            GetMagickVersion((size_t *) NULL));
-          (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-            GetMagickCopyright());
-          (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-            GetMagickFeatures());
+          ListMagickVersion(stdout);
           return(MagickFalse);
         }
     }
@@ -1540,12 +1533,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
         if ((LocaleCompare("version",option+1) == 0) ||
             (LocaleCompare("-version",option+1) == 0))
           {
-            (void) FormatLocaleFile(stdout,"Version: %s\n",
-              GetMagickVersion((size_t *) NULL));
-            (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-              GetMagickCopyright());
-            (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-              GetMagickFeatures());
+            ListMagickVersion(stdout);
             break;
           }
         if (LocaleCompare("virtual-pixel",option+1) == 0)
@@ -1634,22 +1622,12 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
     {
       if ((composite_options.compose == DisplaceCompositeOp) ||
           (composite_options.compose == DistortCompositeOp))
-        {
-          /*
-            Merge Y displacement into X displacement image.
-          */
-          (void) CompositeImage(composite_image,mask_image,CopyGreenCompositeOp,
-            MagickTrue,0,0,exception);
-          mask_image=DestroyImage(mask_image);
-        }
+        status&=CompositeImage(composite_image,mask_image,
+          CopyGreenCompositeOp,MagickTrue,0,0,exception);
       else
-        {
-          /*
-            Set a blending mask for the composition.
-          */
-          (void) NegateImage(mask_image,MagickFalse,exception);
-          (void) SetImageMask(image,mask_image,exception);
-        }
+        status&=CompositeImage(composite_image,mask_image,IntensityCompositeOp,
+          MagickTrue,0,0,exception);
+      mask_image=DestroyImage(mask_image);
     }
   status&=CompositeImageList(image_info,&images,composite_image,
     &composite_options,exception);

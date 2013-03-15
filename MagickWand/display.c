@@ -223,9 +223,7 @@ static MagickBooleanType DisplayUsage(void)
       (char *) NULL
     };
 
-  (void) printf("Version: %s\n",GetMagickVersion((size_t *) NULL));
-  (void) printf("Copyright: %s\n",GetMagickCopyright());
-  (void) printf("Features: %s\n\n",GetMagickFeatures());
+  ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] file [ [options ...] file ...]\n",
     GetClientName());
   (void) printf("\nImage Settings:\n");
@@ -285,7 +283,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 }
 #define ThrowDisplayException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
     option); \
   DestroyDisplay(); \
   return(MagickFalse); \
@@ -361,12 +359,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
       if ((LocaleCompare("version",option+1) == 0) ||
           (LocaleCompare("-version",option+1) == 0))
         {
-          (void) FormatLocaleFile(stdout,"Version: %s\n",
-            GetMagickVersion((size_t *) NULL));
-          (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-            GetMagickCopyright());
-          (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-            GetMagickFeatures());
+          ListMagickVersion(stdout);
           return(MagickFalse);
         }
     }
@@ -615,24 +608,21 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           if ((state & FormerImageState) != 0)
             for (l=0; l < (ssize_t) resource_info.quantum; l++)
             {
-              display_image=GetPreviousImageInList(display_image);
-              if (display_image == (Image *) NULL)
+              if (GetPreviousImageInList(display_image) == (Image *) NULL)
                 break;
+              display_image=GetPreviousImageInList(display_image);
             }
           else
             for (l=0; l < (ssize_t) resource_info.quantum; l++)
             {
-              display_image=GetNextImageInList(display_image);
-              if (display_image == (Image *) NULL)
+              if (GetNextImageInList(display_image) == (Image *) NULL)
                 break;
+              display_image=GetNextImageInList(display_image);
             }
         } while ((display_image != (Image *) NULL) && ((state & ExitState) == 0));
         /*
           Free image resources.
         */
-        display_image=GetFirstImageInList(display_image);
-        if (image_list != display_image)
-          image_list=DestroyImageList(image_list);
         display_image=DestroyImageList(display_image);
         if ((state & FormerImageState) == 0)
           {
@@ -1796,12 +1786,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
         if ((LocaleCompare("version",option+1) == 0) ||
             (LocaleCompare("-version",option+1) == 0))
           {
-            (void) FormatLocaleFile(stdout,"Version: %s\n",
-              GetMagickVersion((size_t *) NULL));
-            (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-              GetMagickCopyright());
-            (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-              GetMagickFeatures());
+            ListMagickVersion(stdout);
             break;
           }
         if (LocaleCompare("visual",option+1) == 0)

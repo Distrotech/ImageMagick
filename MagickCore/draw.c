@@ -1105,12 +1105,6 @@ MagickExport MagickBooleanType DrawAffineImage(Image *image,
   SegmentInfo
     edge;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  size_t
-    height,
-    width;
-#endif
-
   ssize_t
     start,
     stop,
@@ -1167,15 +1161,11 @@ MagickExport MagickBooleanType DrawAffineImage(Image *image,
   GetPixelInfo(image,&zero);
   start=(ssize_t) ceil(edge.y1-0.5);
   stop=(ssize_t) floor(edge.y2+0.5);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  height=(size_t) (floor(edge.y2+0.5)-ceil(edge.y1-0.5));
-  width=(size_t) (floor(edge.x2+0.5)-ceil(edge.x1-0.5));
-#endif
   source_view=AcquireVirtualCacheView(source,exception);
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,width,height,1)
+    magick_threads(source,image,1,1)
 #endif
   for (y=start; y <= stop; y++)
   {
@@ -1202,8 +1192,8 @@ MagickExport MagickBooleanType DrawAffineImage(Image *image,
     if (inverse_edge.x2 < inverse_edge.x1)
       continue;
     q=GetCacheViewAuthenticPixels(image_view,(ssize_t) ceil(inverse_edge.x1-
-      0.5),y,(size_t) ((ssize_t) floor(inverse_edge.x2+0.5)-(ssize_t) ceil(
-      inverse_edge.x1-0.5)),1,exception);
+      0.5),y,(size_t) (floor(inverse_edge.x2+0.5)-ceil(inverse_edge.x1-0.5)+1),
+      1,exception);
     if (q == (Quantum *) NULL)
       continue;
     pixel=zero;
@@ -2254,7 +2244,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
                 if (n <= 0)
                   {
                     (void) ThrowMagickException(exception,GetMagickModule(),
-                      DrawError,"UnbalancedGraphicContextPushPop","'%s'",token);
+                      DrawError,"UnbalancedGraphicContextPushPop","`%s'",token);
                     n=0;
                     break;
                   }
@@ -2419,7 +2409,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
                 if (graphic_context == (DrawInfo **) NULL)
                   {
                     (void) ThrowMagickException(exception,GetMagickModule(),
-                      ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                      ResourceLimitError,"MemoryAllocationFailed","`%s'",
                       image->filename);
                     break;
                   }
@@ -2562,7 +2552,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
                 if (graphic_context[n]->dash_pattern == (double *) NULL)
                   {
                     (void) ThrowMagickException(exception,GetMagickModule(),
-                      ResourceLimitError,"MemoryAllocationFailed","'%s'",
+                      ResourceLimitError,"MemoryAllocationFailed","`%s'",
                       image->filename);
                     break;
                   }
@@ -2794,7 +2784,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
       if (primitive_info == (PrimitiveInfo *) NULL)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+            ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
           break;
         }
     }
@@ -2841,7 +2831,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
       {
         if (primitive_info[j].coordinates > 107)
           (void) ThrowMagickException(exception,GetMagickModule(),DrawError,
-            "TooManyBezierCoordinates","'%s'",token);
+            "TooManyBezierCoordinates","`%s'",token);
         length=BezierQuantum*primitive_info[j].coordinates;
         break;
       }
@@ -2900,7 +2890,7 @@ MagickExport MagickBooleanType DrawImage(Image *image,const DrawInfo *draw_info,
         if (primitive_info == (PrimitiveInfo *) NULL)
           {
             (void) ThrowMagickException(exception,GetMagickModule(),
-              ResourceLimitError,"MemoryAllocationFailed","'%s'",
+              ResourceLimitError,"MemoryAllocationFailed","`%s'",
               image->filename);
             break;
           }
@@ -3222,26 +3212,20 @@ MagickExport MagickBooleanType DrawGradientImage(Image *image,
   const SegmentInfo
     *gradient_vector;
 
+  double
+    length;
+
   MagickBooleanType
     status;
 
   PixelInfo
     zero;
 
-  double
-    length;
-
   PointInfo
     point;
 
   RectangleInfo
     bounding_box;
-
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  size_t
-    height,
-    width;
-#endif
 
   ssize_t
     y;
@@ -3262,14 +3246,10 @@ MagickExport MagickBooleanType DrawGradientImage(Image *image,
   bounding_box=gradient->bounding_box;
   status=MagickTrue;
   GetPixelInfo(image,&zero);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  height=bounding_box.height-bounding_box.y;
-  width=bounding_box.width-bounding_box.x;
-#endif
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,width,height,1)
+    magick_threads(image,image,1,1)
 #endif
   for (y=bounding_box.y; y < (ssize_t) bounding_box.height; y++)
   {
@@ -3521,7 +3501,7 @@ MagickExport MagickBooleanType DrawPatternPath(Image *image,
   image_info->size=AcquireString(geometry);
   *pattern=AcquireImage(image_info,exception);
   image_info=DestroyImageInfo(image_info);
-  (void) QueryColorCompliance("#00000000",AllCompliance,
+  (void) QueryColorCompliance("#000000ff",AllCompliance,
     &(*pattern)->background_color,exception);
   (void) SetImageBackgroundColor(*pattern,exception);
   if (image->debug != MagickFalse)
@@ -3696,7 +3676,7 @@ static double GetFillAlpha(PolygonInfo *polygon_info,const double mid,
             }
           else
             {
-              alpha=PerceptibleReciprocal(alpha);
+              alpha=1.0/alpha;
               beta=delta.x*(y-q->y)-delta.y*(x-q->x);
               distance=alpha*beta*beta;
             }
@@ -3813,12 +3793,6 @@ static MagickBooleanType DrawPolygonPrimitive(Image *image,
   SegmentInfo
     bounds;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  size_t
-    height,
-    width;
-#endif
-
   ssize_t
     start,
     stop,
@@ -3873,10 +3847,6 @@ static MagickBooleanType DrawPolygonPrimitive(Image *image,
     image->rows ? (double) image->rows-1 : bounds.y2;
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  height=(size_t) (floor(bounds.y2+0.5)-ceil(bounds.y1-0.5));
-  width=(size_t) (floor(bounds.x2+0.5)-ceil(bounds.x1-0.5));
-#endif
   if (primitive_info->coordinates == 1)
     {
       /*
@@ -3886,7 +3856,7 @@ static MagickBooleanType DrawPolygonPrimitive(Image *image,
       stop=(ssize_t) floor(bounds.y2+0.5);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,width,height,1)
+        magick_threads(image,image,1,1)
 #endif
       for (y=start; y <= stop; y++)
       {
@@ -3949,7 +3919,7 @@ static MagickBooleanType DrawPolygonPrimitive(Image *image,
   stop=(ssize_t) floor(bounds.y2+0.5);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,width,height,1)
+    magick_threads(image,image,1,1)
 #endif
   for (y=start; y <= stop; y++)
   {
@@ -4176,9 +4146,9 @@ MagickExport MagickBooleanType DrawPrimitive(Image *image,
         draw_info->affine.tx,draw_info->affine.ty);
     }
   if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
-      ((IsPixelInfoGray(&draw_info->fill) == MagickFalse) ||
-       (IsPixelInfoGray(&draw_info->stroke) == MagickFalse)))
-    (void) SetImageColorspace(image,RGBColorspace,exception);
+      ((IsPixelGray(&draw_info->fill) == MagickFalse) ||
+       (IsPixelGray(&draw_info->stroke) == MagickFalse)))
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   status=MagickTrue;
   x=(ssize_t) ceil(primitive_info->point.x-0.5);
   y=(ssize_t) ceil(primitive_info->point.y-0.5);

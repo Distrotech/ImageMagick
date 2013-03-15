@@ -171,7 +171,7 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   GetPixelInfo(image,&zero);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -234,7 +234,7 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   image_view=DestroyCacheView(image_view);
   if ((bounds.width == 0) || (bounds.height == 0))
     (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
-      "GeometryDoesNotContainImage","'%s'",image->filename);
+      "GeometryDoesNotContainImage","`%s'",image->filename);
   else
     {
       bounds.width-=(bounds.x-1);
@@ -390,7 +390,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
       }
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
+        magick_threads(image,image,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -420,14 +420,8 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
             }
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (channel == IndexPixelChannel) || (channel == MaskPixelChannel))
               continue;
@@ -454,7 +448,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -938,7 +932,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,1,1)
+        magick_threads(image,image,1,1)
 #endif
       for (i=0; i < (ssize_t) image->colors; i++)
       {
@@ -978,7 +972,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
           range);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
+        magick_threads(image,image,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -1042,7 +1036,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {

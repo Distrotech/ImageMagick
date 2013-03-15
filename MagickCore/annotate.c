@@ -79,12 +79,10 @@
 #include "MagickCore/xwindow.h"
 #include "MagickCore/xwindow-private.h"
 #if defined(MAGICKCORE_FREETYPE_DELEGATE)
-#if defined(__MINGW32__)
+#if defined(__MINGW32__) || defined(__MINGW64__)
 #  undef interface
 #endif
-#if defined(MAGICKCORE_HAVE_FT2BUILD_H)
-#  include <ft2build.h>
-#endif
+#include <ft2build.h>
 #if defined(FT_FREETYPE_H)
 #  include FT_FREETYPE_H
 #else
@@ -293,7 +291,7 @@ MagickExport MagickBooleanType AnnotateImage(Image *image,
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace,exception);
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   status=MagickTrue;
   for (i=0; textlist[i] != (char *) NULL; i++)
   {
@@ -889,7 +887,7 @@ static MagickBooleanType RenderType(Image *image,const DrawInfo *draw_info,
       type_info=GetTypeInfo(draw_info->font,exception);
       if (type_info == (const TypeInfo *) NULL)
         (void) ThrowMagickException(exception,GetMagickModule(),TypeWarning,
-          "UnableToReadFont","'%s'",draw_info->font);
+          "UnableToReadFont","`%s'",draw_info->font);
     }
   if ((type_info == (const TypeInfo *) NULL) &&
       (draw_info->family != (const char *) NULL))
@@ -898,7 +896,7 @@ static MagickBooleanType RenderType(Image *image,const DrawInfo *draw_info,
         draw_info->stretch,draw_info->weight,exception);
       if (type_info == (const TypeInfo *) NULL)
         (void) ThrowMagickException(exception,GetMagickModule(),TypeWarning,
-          "UnableToReadFont","'%s'",draw_info->family);
+          "UnableToReadFont","`%s'",draw_info->family);
     }
   if (type_info == (const TypeInfo *) NULL)
     type_info=GetTypeInfoByFamily("Arial",draw_info->style,
@@ -1147,7 +1145,7 @@ static MagickBooleanType RenderFreetype(Image *image,const DrawInfo *draw_info,
     {
       (void) FT_Done_FreeType(library);
       (void) ThrowMagickException(exception,GetMagickModule(),TypeError,
-        "UnableToReadFont","'%s'",draw_info->font);
+        "UnableToReadFont","`%s'",draw_info->font);
       return(RenderPostscript(image,draw_info,offset,metrics,exception));
     }
   if ((draw_info->metrics != (char *) NULL) &&
@@ -1947,6 +1945,7 @@ static MagickBooleanType RenderX11(Image *image,const DrawInfo *draw_info,
       display=XOpenDisplay(draw_info->server_name);
       if (display == (Display *) NULL)
         {
+          UnlockSemaphoreInfo(annotate_semaphore);
           ThrowXWindowException(XServerError,"UnableToOpenXServer",
             draw_info->server_name);
           return(MagickFalse);
@@ -1968,6 +1967,7 @@ static MagickBooleanType RenderX11(Image *image,const DrawInfo *draw_info,
       map_info=XAllocStandardColormap();
       if (map_info == (XStandardColormap *) NULL)
         {
+          UnlockSemaphoreInfo(annotate_semaphore);
           ThrowXWindowException(ResourceLimitError,"MemoryAllocationFailed",
             image->filename);
           return(MagickFalse);
@@ -1978,6 +1978,7 @@ static MagickBooleanType RenderX11(Image *image,const DrawInfo *draw_info,
       visual_info=XBestVisualInfo(display,map_info,&resource_info);
       if (visual_info == (XVisualInfo *) NULL)
         {
+          UnlockSemaphoreInfo(annotate_semaphore);
           ThrowXWindowException(XServerError,"UnableToGetVisual",
             image->filename);
           return(MagickFalse);
@@ -1998,6 +1999,7 @@ static MagickBooleanType RenderX11(Image *image,const DrawInfo *draw_info,
       font_info=XBestFont(display,&resource_info,MagickFalse);
       if (font_info == (XFontStruct *) NULL)
         {
+          UnlockSemaphoreInfo(annotate_semaphore);
           ThrowXWindowException(XServerError,"UnableToLoadFont",
             draw_info->font);
           return(MagickFalse);
@@ -2006,6 +2008,7 @@ static MagickBooleanType RenderX11(Image *image,const DrawInfo *draw_info,
           (visual_info == (XVisualInfo *) NULL) ||
           (font_info == (XFontStruct *) NULL))
         {
+          UnlockSemaphoreInfo(annotate_semaphore);
           XFreeResources(display,visual_info,map_info,&pixel,font_info,
             &resource_info,(XWindowInfo *) NULL);
           ThrowXWindowException(XServerError,"UnableToLoadFont",

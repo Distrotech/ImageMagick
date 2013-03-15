@@ -62,7 +62,7 @@
 %  and outputs it as an image file. You can capture a single window, the
 %  entire screen, or any rectangular portion of the screen.  You can use the
 %  display utility for redisplay, printing, editing, formatting, archiving,
-%  image processing, etc. of the captured image.</dd>
+%  image processing, etc. of the captured image.
 %
 %  The target window can be specified by id, name, or may be selected by
 %  clicking the mouse in the desired window. If you press a button and then
@@ -184,9 +184,7 @@ static MagickBooleanType ImportUsage(void)
       (char *) NULL
     };
 
-  (void) printf("Version: %s\n",GetMagickVersion((size_t *) NULL));
-  (void) printf("Copyright: %s\n",GetMagickCopyright());
-  (void) printf("Features: %s\n\n",GetMagickFeatures());
+  ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] [ file ]\n",
     GetClientName());
   (void) printf("\nImage Settings:\n");
@@ -238,7 +236,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
 }
 #define ThrowImportException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
      option); \
   DestroyImport(); \
   return(MagickFalse); \
@@ -309,12 +307,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
       if ((LocaleCompare("version",option+1) == 0) ||
           (LocaleCompare("-version",option+1) == 0))
         {
-          (void) FormatLocaleFile(stdout,"Version: %s\n",
-            GetMagickVersion((size_t *) NULL));
-          (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-            GetMagickCopyright());
-          (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-            GetMagickFeatures());
+          ListMagickVersion(stdout);
           return(MagickFalse);
         }
     }
@@ -381,7 +374,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
   image_info->density=XGetResourceInstance(resource_database,GetClientName(),
     "density",(char *) NULL);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
-    "descend","True");
+    "descend","False");
   ximage_info.descend=IsStringTrue(resource_value);
   resource_value=XGetResourceInstance(resource_database,GetClientName(),
     "frame","False");
@@ -1274,12 +1267,7 @@ WandExport MagickBooleanType ImportImageCommand(ImageInfo *image_info,
         if ((LocaleCompare("version",option+1) == 0) ||
             (LocaleCompare("-version",option+1) == 0))
           {
-            (void) FormatLocaleFile(stdout,"Version: %s\n",
-              GetMagickVersion((size_t *) NULL));
-            (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-              GetMagickCopyright());
-            (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-              GetMagickFeatures());
+            ListMagickVersion(stdout);
             break;
           }
         ThrowImportException(OptionError,"UnrecognizedOption",option);

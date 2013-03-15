@@ -145,6 +145,8 @@ static MagickBooleanType ConvertUsage(void)
     *miscellaneous[]=
     {
       "-debug events        display copious debugging information",
+      "-distribute-cache port",
+      "                     distributed pixel cache spanning one or more servers",
       "-help                print program options",
       "-list type           print a list of supported option arguments",
       "-log format          format of debugging information",
@@ -377,6 +379,7 @@ static MagickBooleanType ConvertUsage(void)
       "-fuzz distance       colors within this distance are considered equal",
       "-gravity type        horizontal and vertical text placement",
       "-green-primary point chromaticity green primary point",
+      "-intensity method    method to generate an intensity value from a pixel",
       "-intent type         type of rendering intent when managing the image color",
       "-interlace type      type of image interlacing scheme",
       "-interline-spacing value",
@@ -445,9 +448,7 @@ static MagickBooleanType ConvertUsage(void)
   const char
     **p;
 
-  (void) printf("Version: %s\n",GetMagickVersion((size_t *) NULL));
-  (void) printf("Copyright: %s\n",GetMagickCopyright());
-  (void) printf("Features: %s\n\n",GetMagickFeatures());
+  ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] file [ [options ...] "
     "file ...] [options ...] file\n",GetClientName());
   (void) printf("\nImage Settings:\n");
@@ -493,7 +494,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
 }
 #define ThrowConvertException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
     option); \
   DestroyConvert(); \
   return(MagickFalse); \
@@ -548,12 +549,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
       if ((LocaleCompare("version",option+1) == 0) ||
           (LocaleCompare("-version",option+1) == 0))
         {
-          (void) FormatLocaleFile(stdout,"Version: %s\n",
-            GetMagickVersion((size_t *) NULL));
-          (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-            GetMagickCopyright());
-          (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-            GetMagickFeatures());
+          ListMagickVersion(stdout);
           return(MagickFalse);
         }
     }
@@ -1713,6 +1709,21 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
+        if (LocaleCompare("intensity",option+1) == 0)
+          {
+            ssize_t
+              intensity;
+
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            intensity=ParseCommandOption(MagickPixelIntensityOptions,MagickFalse,argv[i]);
+            if (intensity < 0)
+              ThrowConvertException(OptionError,"UnrecognizedPixelIntensityMethod",argv[i]);
+            break;
+          }
         if (LocaleCompare("intent",option+1) == 0)
           {
             ssize_t
@@ -1723,11 +1734,9 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) (argc-1))
               ThrowConvertException(OptionError,"MissingArgument",option);
-            intent=ParseCommandOption(MagickIntentOptions,MagickFalse,
-              argv[i]);
+            intent=ParseCommandOption(MagickIntentOptions,MagickFalse,argv[i]);
             if (intent < 0)
-              ThrowConvertException(OptionError,"UnrecognizedIntentType",
-                argv[i]);
+              ThrowConvertException(OptionError,"UnrecognizedIntentType",argv[i]);
             break;
           }
         if (LocaleCompare("interlace",option+1) == 0)
@@ -2951,12 +2960,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
         if ((LocaleCompare("version",option+1) == 0) ||
             (LocaleCompare("-version",option+1) == 0))
           {
-            (void) FormatLocaleFile(stdout,"Version: %s\n",
-              GetMagickVersion((size_t *) NULL));
-            (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-              GetMagickCopyright());
-            (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-              GetMagickFeatures());
+            ListMagickVersion(stdout);
             break;
           }
         if (LocaleCompare("view",option+1) == 0)

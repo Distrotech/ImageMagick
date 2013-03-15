@@ -75,16 +75,16 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  ClearBounds() Clear the area specified by the bounds in an image to
-%  transparency.  This typically used to handle Background Disposal
-%  for the previous frame in an animation sequence.
+%  transparency.  This typically used to handle Background Disposal for the
+%  previous frame in an animation sequence.
 %
-%  WARNING: no bounds checks are performed, except for the null or
-%  missed image, for images that don't change. in all other cases
-%  bound must fall within the image.
+%  Warning: no bounds checks are performed, except for the null or missed
+%  image, for images that don't change. in all other cases bound must fall
+%  within the image.
 %
 %  The format is:
 %
-%      void ClearBounds(Image *image,RectangleInfo *bounds
+%      void ClearBounds(Image *image,RectangleInfo *bounds,
 %        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
@@ -143,6 +143,10 @@ static void ClearBounds(Image *image,RectangleInfo *bounds,
 %  to check if a proposed disposal method will work successfully to generate
 %  the second frame image from the first disposed form of the previous frame.
 %
+%  Warning: no bounds checks are performed, except for the null or missed
+%  image, for images that don't change. in all other cases bound must fall
+%  within the image.
+%
 %  The format is:
 %
 %      MagickBooleanType IsBoundsCleared(const Image *image1,
@@ -156,20 +160,16 @@ static void ClearBounds(Image *image,RectangleInfo *bounds,
 %
 %    o exception: return any errors or warnings in this structure.
 %
-%  WARNING: no bounds checks are performed, except for the null or
-%  missed image, for images that don't change. in all other cases
-%  bound must fall within the image.
-%
 */
 static MagickBooleanType IsBoundsCleared(const Image *image1,
   const Image *image2,RectangleInfo *bounds,ExceptionInfo *exception)
 {
-  register ssize_t
-    x;
-
   register const Quantum
     *p,
     *q;
+
+  register ssize_t
+    x;
 
   ssize_t
     y;
@@ -178,10 +178,8 @@ static MagickBooleanType IsBoundsCleared(const Image *image1,
     return(MagickFalse);
   for (y=0; y < (ssize_t) bounds->height; y++)
   {
-    p=GetVirtualPixels(image1,bounds->x,bounds->y+y,bounds->width,1,
-      exception);
-    q=GetVirtualPixels(image2,bounds->x,bounds->y+y,bounds->width,1,
-      exception);
+    p=GetVirtualPixels(image1,bounds->x,bounds->y+y,bounds->width,1,exception);
+    q=GetVirtualPixels(image2,bounds->x,bounds->y+y,bounds->width,1,exception);
     if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (x=0; x < (ssize_t) bounds->width; x++)
@@ -328,9 +326,9 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     coalesce_image->next->previous=coalesce_image;
     previous=coalesce_image;
     coalesce_image=GetNextImageInList(coalesce_image);
-    (void) CompositeImage(coalesce_image,next,next->alpha_trait == BlendPixelTrait ?
-      OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
-      exception);
+    (void) CompositeImage(coalesce_image,next,
+      next->alpha_trait == BlendPixelTrait ? OverCompositeOp : CopyCompositeOp,
+      MagickTrue,next->page.x,next->page.y,exception);
     (void) CloneImageProfiles(coalesce_image,next);
     (void) CloneImageProperties(coalesce_image,next);
     (void) CloneImageArtifacts(coalesce_image,next);
@@ -338,7 +336,7 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     /*
       If a pixel goes opaque to transparent, use background dispose.
     */
-    if (IsBoundsCleared(previous,coalesce_image,&bounds,exception))
+    if (IsBoundsCleared(previous,coalesce_image,&bounds,exception) != MagickFalse)
       coalesce_image->dispose=BackgroundDispose;
     else
       coalesce_image->dispose=NoneDispose;
@@ -360,8 +358,8 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  DisposeImages() returns the coalesced frames of a GIF animation as it would
-%  appear after the GIF dispose method of that frame has been applied.  That
-%  is it returned the appearance of each frame before the next is overlaid.
+%  appear after the GIF dispose method of that frame has been applied.  That is
+%  it returned the appearance of each frame before the next is overlaid.
 %
 %  The format of the DisposeImages method is:
 %
@@ -380,12 +378,12 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
     *dispose_image,
     *dispose_images;
 
+  RectangleInfo
+    bounds;
+
   register Image
     *image,
     *next;
-
-  RectangleInfo
-    bounds;
 
   /*
     Run the image through the animation sequence
@@ -423,9 +421,9 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
         dispose_image=DestroyImage(dispose_image);
         return((Image *) NULL);
       }
-    (void) CompositeImage(current_image,next,next->alpha_trait == BlendPixelTrait ?
-      OverCompositeOp : CopyCompositeOp,MagickTrue,next->page.x,next->page.y,
-      exception);
+    (void) CompositeImage(current_image,next,
+      next->alpha_trait == BlendPixelTrait ? OverCompositeOp : CopyCompositeOp,
+      MagickTrue,next->page.x,next->page.y,exception);
     /*
       Handle Background dispose: image is displayed for the delay period.
     */
@@ -459,7 +457,7 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
       {
         dispose_image=DestroyImage(dispose_image);
         dispose_image=current_image;
-        current_image=(Image *)NULL;
+        current_image=(Image *) NULL;
       }
     /*
       Save the dispose image just calculated for return.
@@ -534,16 +532,14 @@ static MagickBooleanType ComparePixels(const LayerMethod method,
 
   o1 = (p->alpha_trait == BlendPixelTrait) ? p->alpha : OpaqueAlpha;
   o2 = (q->alpha_trait == BlendPixelTrait) ? q->alpha : OpaqueAlpha;
-
   /*
-    Pixel goes from opaque to transprency
+    Pixel goes from opaque to transprency.
   */
   if (method == CompareClearLayer)
     return((MagickBooleanType) ( (o1 <= ((double) QuantumRange/2.0)) &&
       (o2 > ((double) QuantumRange/2.0)) ) );
-
   /*
-    overlay would change first pixel by second
+    Overlay would change first pixel by second.
   */
   if (method == CompareOverlayLayer)
     {
@@ -589,8 +585,8 @@ static MagickBooleanType ComparePixels(const LayerMethod method,
 %
 */
 
-static RectangleInfo CompareImagesBounds(const Image *image1,const Image *image2,
-  const LayerMethod method,ExceptionInfo *exception)
+static RectangleInfo CompareImagesBounds(const Image *image1,
+  const Image *image2,const LayerMethod method,ExceptionInfo *exception)
 {
   RectangleInfo
     bounds;
@@ -814,7 +810,6 @@ MagickExport Image *CompareImagesLayers(const Image *image,
     (void) CompositeImage(image_a,next,CopyCompositeOp,MagickTrue,next->page.x,
       next->page.y,exception);
     bounds[i]=CompareImagesBounds(image_b,image_a,method,exception);
-
     image_b=DestroyImage(image_b);
     i++;
   }
@@ -947,13 +942,12 @@ static Image *OptimizeLayerFrames(const Image *image,
   assert(method == OptimizeLayer ||
          method == OptimizeImageLayer ||
          method == OptimizePlusLayer);
-
   /*
-    Are we allowed to add/remove frames from animation
+    Are we allowed to add/remove frames from animation?
   */
   add_frames=method == OptimizePlusLayer ? MagickTrue : MagickFalse;
   /*
-    Ensure  all the images are the same size
+    Ensure  all the images are the same size.
   */
   curr=GetFirstImageInList(image);
   for (; curr != (Image *) NULL; curr=GetNextImageInList(curr))
@@ -1681,7 +1675,7 @@ MagickExport void RemoveZeroDelayLayers(Image **images,
     if ( i->delay != 0L ) break;
   if ( i == (Image *) NULL ) {
     (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
-       "ZeroTimeAnimation","'%s'",GetFirstImageInList(*images)->filename);
+       "ZeroTimeAnimation","`%s'",GetFirstImageInList(*images)->filename);
     return;
   }
   i=GetFirstImageInList(*images);

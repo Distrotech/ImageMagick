@@ -399,7 +399,7 @@ static Image *SparseColorOption(const Image *image,
 %        arg2 is currently only used by "-limit"
 %
 */
-WandExport void CLISettingOptionInfo(MagickCLI *cli_wand,
+WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
      const char *option,const char *arg1, const char *arg2)
 {
   ssize_t
@@ -949,13 +949,22 @@ interpret Percent Escapes in Arguments, At least not yet */
     }
     case 'i':
     {
+      if (LocaleCompare("intensity",option+1) == 0)
+        {
+          arg1 = ArgOption("undefined");
+          parse = ParseCommandOption(MagickPixelIntensityOptions,MagickFalse,arg1);
+          if (parse < 0)
+            CLIWandExceptArgBreak(OptionError,"UnrecognizedIntentType",option,arg1);
+          (void) SetImageOption(_image_info,option+1,arg1);
+          break;
+        }
       if (LocaleCompare("intent",option+1) == 0)
         {
           /* Only used by coders: MIFF, MPC, BMP, PNG
              and for image profile call to AcquireTransformThreadSet()
              SyncImageSettings() used to set per-image attribute.
           */
-          arg1 = ArgOption("indefined");
+          arg1 = ArgOption("undefined");
           parse = ParseCommandOption(MagickIntentOptions,MagickFalse,arg1);
           if (parse < 0)
             CLIWandExceptArgBreak(OptionError,"UnrecognizedIntentType",
@@ -1310,8 +1319,8 @@ interpret Percent Escapes in Arguments, At least not yet */
           if (IfMagickFalse(IsGeometry(arg1)))
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           SetRandomSecretKey(
-               IfSetOption ? (const unsigned long) StringToUnsignedLong(arg1)
-                           : (const unsigned long) time((time_t *) NULL) );
+               IfSetOption ? (unsigned long) StringToUnsignedLong(arg1)
+                           : (unsigned long) time((time_t *) NULL) );
           break;
         }
       if (LocaleCompare("size",option+1) == 0)
@@ -1641,7 +1650,7 @@ interpret Percent Escapes in Arguments, At least not yet */
   also change.  GetFirstImageInList() should be used by caller if they wish
   return the Image pointer to the first image in list.
 */
-static void CLISimpleOperatorImage(MagickCLI *cli_wand,
+static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
   const char *option, const char *arg1n, const char *arg2n)
 {
   Image *
@@ -1768,7 +1777,7 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
 
           SetGeometryInfo(&geometry_info);
           flags=ParseGeometry(arg1,&geometry_info);
-          if ((flags & RhoValue) == 0)
+          if (flags == 0)
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           if ((flags & SigmaValue) == 0)
             geometry_info.sigma=geometry_info.rho;
@@ -1800,49 +1809,7 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
         }
       if (LocaleCompare("auto-orient",option+1) == 0)
         {
-          /* This should probably be a MagickCore function */
-          switch (_image->orientation)
-          {
-            case TopRightOrientation:
-            {
-              new_image=FlopImage(_image,_exception);
-              break;
-            }
-            case BottomRightOrientation:
-            {
-              new_image=RotateImage(_image,180.0,_exception);
-              break;
-            }
-            case BottomLeftOrientation:
-            {
-              new_image=FlipImage(_image,_exception);
-              break;
-            }
-            case LeftTopOrientation:
-            {
-              new_image=TransposeImage(_image,_exception);
-              break;
-            }
-            case RightTopOrientation:
-            {
-              new_image=RotateImage(_image,90.0,_exception);
-              break;
-            }
-            case RightBottomOrientation:
-            {
-              new_image=TransverseImage(_image,_exception);
-              break;
-            }
-            case LeftBottomOrientation:
-            {
-              new_image=RotateImage(_image,270.0,_exception);
-              break;
-            }
-            default:
-              break;
-          }
-          if (new_image != (Image *) NULL)
-            new_image->orientation=TopLeftOrientation;
+          new_image=AutoOrientImage(_image,_image->orientation,_exception);
           break;
         }
       CLIWandExceptionBreak(OptionError,"UnrecognizedOption",option);
@@ -1949,8 +1916,8 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
             geometry_info.sigma=1.0;
           if ((flags & XiValue) == 0)
             geometry_info.xi=1.0;
-          new_image=CharcoalImage(_image,geometry_info.rho,
-            geometry_info.sigma,_exception);
+          new_image=CharcoalImage(_image,geometry_info.rho,geometry_info.sigma,
+            _exception);
           break;
         }
       if (LocaleCompare("chop",option+1) == 0)
@@ -2013,7 +1980,7 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
               break;
             for (x=0; x < (ssize_t) mask_image->columns; x++)
             {
-              if (IfMagickFalse(mask_image->alpha_trait))
+              if (mask_image->alpha_trait != BlendPixelTrait)
                 SetPixelAlpha(mask_image,GetPixelIntensity(mask_image,q),q);
               SetPixelRed(mask_image,GetPixelAlpha(mask_image,q),q);
               SetPixelGreen(mask_image,GetPixelAlpha(mask_image,q),q);
@@ -3443,7 +3410,7 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
   if (new_image != (Image *) NULL)
     ReplaceImageInListReturnLast(&_image,new_image);
 
-  return;
+  return(MagickTrue);
 #undef _image_info
 #undef _draw_info
 #undef _quantize_info
@@ -3455,8 +3422,8 @@ static void CLISimpleOperatorImage(MagickCLI *cli_wand,
 #undef plus_alt_op
 }
 
-WandExport void CLISimpleOperatorImages(MagickCLI *cli_wand,
-  const char *option, const char *arg1, const char *arg2)
+WandPrivate MagickBooleanType CLISimpleOperatorImages(MagickCLI *cli_wand,
+  const char *option,const char *arg1,const char *arg2)
 {
 #if !USE_WAND_METHODS
   size_t
@@ -3491,7 +3458,7 @@ WandExport void CLISimpleOperatorImages(MagickCLI *cli_wand,
     CLISimpleOperatorImage(cli_wand, option, arg1, arg2);
   MagickResetIterator(&cli_wand->wand);
 #endif
-  return;
+  return(MagickTrue);
 }
 
 /*
@@ -3512,8 +3479,8 @@ WandExport void CLISimpleOperatorImages(MagickCLI *cli_wand,
 %
 %  The format of the MogrifyImage method is:
 %
-%    void CLIListOperatorImages(MagickCLI *cli_wand,
-%        const char *option, const char *arg1, const char *arg2)
+%    MagickBooleanType CLIListOperatorImages(MagickCLI *cli_wand,
+%      const char *option,const char *arg1,const char *arg2)
 %
 %  A description of each parameter follows:
 %
@@ -3525,18 +3492,21 @@ WandExport void CLISimpleOperatorImages(MagickCLI *cli_wand,
 %        arg2 is currently not used
 %
 */
-WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
-     const char *option,const char *arg1n, const char *arg2n)
+WandPrivate MagickBooleanType CLIListOperatorImages(MagickCLI *cli_wand,
+  const char *option,const char *arg1n,const char *arg2n)
 {
-  ssize_t
-    parse;
+  const char    /* For percent escape interpretImageProperties() */
+    *arg1,
+    *arg2;
 
   Image
     *new_images;
 
-  const char    /* For percent escape interpretImageProperties() */
-    *arg1,
-    *arg2;
+  MagickStatusType
+    status;
+
+  ssize_t
+    parse;
 
 #define _image_info     (cli_wand->wand.image_info)
 #define _images         (cli_wand->wand.images)
@@ -3586,7 +3556,7 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
     "CLIListOperatorImages: \"%s\" \"%s\" \"%s\"\n",option,arg1,arg2);
 #endif
 
-
+  status=MagickTrue;
   new_images=NewImageList();
 
   switch (*(option+1))
@@ -3640,6 +3610,9 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
         {
           /* FUTURE - this may be replaced by a 'channel' method */
           parse = ParseCommandOption(MagickColorspaceOptions,MagickFalse,arg1);
+          if (parse < 0)
+            CLIWandExceptArgBreak(OptionError,"UnrecognizedColorspace",option,
+              arg1);
           new_images=CombineImages(_images,(ColorspaceType) parse,_exception);
           break;
         }
@@ -3690,32 +3663,44 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
           /* FUTURE - this should not be here! - should be part of -geometry */
           (void) TransformImage(&source_image,(char *) NULL,
             source_image->geometry,_exception);
-
           SetGeometry(source_image,&geometry);
           (void) ParseAbsoluteGeometry(source_image->geometry,&geometry);
           GravityAdjustGeometry(new_images->columns,new_images->rows,
-               new_images->gravity, &geometry);
-
+            new_images->gravity, &geometry);
           mask_image=RemoveFirstImageFromList(&_images);
           if (mask_image != (Image *) NULL)
-            { /* handle a third write mask image */
+            {
               if ((compose == DisplaceCompositeOp) ||
-                  (compose == DistortCompositeOp)) {
-                /* Merge Y displacement into X displace/distort map. */
-                (void) CompositeImage(source_image,mask_image,
+                  (compose == DistortCompositeOp))
+                status&=CompositeImage(source_image,mask_image,
                   CopyGreenCompositeOp,MagickTrue,0,0,_exception);
-                mask_image=DestroyImage(mask_image);
-              }
-              else {
-                /* Set a blending mask for the composition.  */
-                (void) NegateImage(mask_image,MagickFalse,_exception);
-                (void) SetImageMask(source_image,mask_image,_exception);
-                mask_image=DestroyImage(mask_image);
-              }
+              else
+                {
+                  Image
+                    *image;
+
+                  RectangleInfo
+                    source_geometry;
+
+                  source_geometry.width=mask_image->columns;
+                  source_geometry.height=mask_image->rows;
+                  source_geometry.x=(-geometry.x);
+                  source_geometry.y=(-geometry.y);
+                  geometry.x=0;
+                  geometry.y=0;
+                  image=ExtentImage(source_image,&source_geometry,_exception);
+                  if (image != (Image *) NULL)
+                    {
+                      source_image=DestroyImage(source_image);
+                      source_image=image;
+                    }
+                  status&=CompositeImage(source_image,mask_image,
+                    IntensityCompositeOp,MagickTrue,0,0,_exception);
+                }
+              mask_image=DestroyImage(mask_image);
             }
-          (void) CompositeImage(new_images,source_image,compose,clip_to_self,
+          status&=CompositeImage(new_images,source_image,compose,clip_to_self,
             geometry.x,geometry.y,_exception);
-          (void) SetImageMask(new_images,(Image *) NULL,_exception);
           source_image=DestroyImage(source_image);
           break;
         }
@@ -4236,8 +4221,8 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
           index,
           swap_index;
 
-        index=-1;
-        swap_index=-2;
+        index=(-1);
+        swap_index=(-2);
         if (IfNormalOp) {
           GeometryInfo
             geometry_info;
@@ -4247,7 +4232,7 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
 
           swap_index=(-1);
           flags=ParseGeometry(arg1,&geometry_info);
-          if ((flags & RhoValue) != 0)
+          if ((flags & RhoValue) == 0)
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           index=(ssize_t) geometry_info.rho;
           if ((flags & SigmaValue) != 0)
@@ -4283,10 +4268,10 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
 
   /* if new image list generated, replace existing image list */
   if (new_images == (Image *) NULL)
-    return;
+    return(status);
   _images=DestroyImageList(_images);
   _images=GetFirstImageInList(new_images);
-  return;
+  return(status);
 
 #undef _image_info
 #undef _images
@@ -4334,8 +4319,8 @@ WandExport void CLIListOperatorImages(MagickCLI *cli_wand,
 %                   Currently arg2 is not used.
 %
 */
-WandExport void CLINoImageOperator(MagickCLI *cli_wand,
-  const char *option, const char *arg1, const char *arg2)
+WandPrivate void CLINoImageOperator(MagickCLI *cli_wand,
+  const char *option,const char *arg1,const char *arg2)
 {
 #if 0
   const char    /* For percent escape interpretImageProperties() */
@@ -4641,7 +4626,7 @@ WandExport void CLINoImageOperator(MagickCLI *cli_wand,
             value=InterpretImageProperties(_image_info,_images,arg2,_exception);
             if (value == (char *) NULL)
               CLIWandExceptionBreak(OptionWarning,"InterpretPropertyFailure",
-                    option);
+                option);
             (void) SetImageOption(_image_info,arg1+7,value);
             value=DestroyString(value);
             break;
@@ -4651,6 +4636,9 @@ WandExport void CLINoImageOperator(MagickCLI *cli_wand,
         MagickResetIterator(&cli_wand->wand);
         while ( IfMagickTrue(MagickNextImage(&cli_wand->wand)) )
           {
+            Image
+              *next;
+
             if (IfPlusOp) {
               if (LocaleNCompare(arg1,"artifact:",9) == 0)
                 (void) DeleteImageArtifact(_images,arg1+9);
@@ -4660,17 +4648,22 @@ WandExport void CLINoImageOperator(MagickCLI *cli_wand,
                 (void) DeleteImageProperty(_images,arg1);
               break;
             }
-            value=InterpretImageProperties(_image_info,_images,arg2,_exception);
-            if (value == (char *) NULL)
-              CLIWandExceptionBreak(OptionWarning,"InterpretPropertyFailure",
-                    option);
-            if (LocaleNCompare(arg1,"artifact:",9) == 0)
-              (void) SetImageArtifact(_images,arg1+9,value);
-            else if (LocaleNCompare(arg1,"property:",9) == 0)
-              (void) SetImageProperty(_images,arg1+9,value,_exception);
-            else
-              (void) SetImageProperty(_images,arg1,value,_exception);
-            value=DestroyString(value);
+            next=_images;
+            for ( ; next != (Image *) NULL; next=GetNextImageInList(next))
+            {
+              value=InterpretImageProperties(_image_info,next,arg2,_exception);
+              if (value == (char *) NULL)
+                CLIWandExceptionBreak(OptionWarning,"InterpretPropertyFailure",
+                  option);
+              if (LocaleNCompare(arg1,"artifact:",9) == 0)
+                (void) SetImageArtifact(next,arg1+9,value);
+              else
+                if (LocaleNCompare(arg1,"property:",9) == 0)
+                  (void) SetImageProperty(next,arg1+9,value,_exception);
+                else
+                  (void) SetImageProperty(next,arg1,value,_exception);
+              value=DestroyString(value);
+            }
             break;
           }
         MagickResetIterator(&cli_wand->wand);
@@ -4696,20 +4689,16 @@ WandExport void CLINoImageOperator(MagickCLI *cli_wand,
         break;
       }
     /*
-       Informational Operations
+       Informational Operations.
 
        Note that these do not require either a cli-wand or images!
        Though currently a cli-wand much be provided regardless.
     */
-    if (LocaleCompare("version",option+1) == 0) {
-      (void) FormatLocaleFile(stdout,"Version: %s\n",
-        GetMagickVersion((size_t *) NULL));
-      (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-        GetMagickCopyright());
-      (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-        GetMagickFeatures());
-      break;
-    }
+    if (LocaleCompare("version",option+1) == 0)
+      {
+        ListMagickVersion(stdout);
+        break;
+      }
     if (LocaleCompare("list",option+1) == 0) {
       /*
          FUTURE: This 'switch' should really be part of MagickCore

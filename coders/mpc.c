@@ -71,6 +71,7 @@
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/version-private.h"
 
 /*
   Forward declarations.
@@ -177,14 +178,16 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   size_t
     depth,
-    length,
-    quantum_depth;
+    length;
 
   ssize_t
     count;
 
   StringInfo
     *profile;
+
+  unsigned int
+    signature;
 
   /*
     Open image file.
@@ -222,7 +225,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
     profiles=(LinkedListInfo *) NULL;
     length=MaxTextExtent;
     options=AcquireString((char *) NULL);
-    quantum_depth=MAGICKCORE_QUANTUM_DEPTH;
+    signature=GetMagickSignature((const StringInfo *) NULL);
     image->depth=8;
     image->compression=NoCompression;
     while ((isgraph(c) != MagickFalse) && (c != (int) ':'))
@@ -406,7 +409,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
                       MagickFalse,options);
                     if (colorspace < 0)
                       break;
-                    (void) SetImageColorspace(image,(ColorspaceType) colorspace,                      exception);
+                    image->colorspace=(ColorspaceType) colorspace;
                     break;
                   }
                 if (LocaleCompare(keyword,"compression") == 0)
@@ -521,6 +524,11 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
               case 'm':
               case 'M':
               {
+                if (LocaleCompare(keyword,"magick-signature") == 0)
+                  {
+                    signature=(unsigned int) StringToUnsignedLong(options);
+                    break;
+                  }
                 if (LocaleCompare(keyword,"matte-color") == 0)
                   {
                     (void) QueryColorCompliance(options,AllCompliance,
@@ -603,11 +611,6 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 if (LocaleCompare(keyword,"quality") == 0)
                   {
                     image->quality=StringToUnsignedLong(options);
-                    break;
-                  }
-                if (LocaleCompare(keyword,"quantum-depth") == 0)
-                  {
-                    quantum_depth=StringToUnsignedLong(options);
                     break;
                   }
                 (void) SetImageProperty(image,keyword,options,exception);
@@ -752,8 +755,8 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
         (image->compression == UndefinedCompression) || (image->columns == 0) ||
         (image->rows == 0))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
-    if (quantum_depth != MAGICKCORE_QUANTUM_DEPTH)
-      ThrowReaderException(CacheError,"InconsistentPersistentCacheDepth");
+    if (signature != GetMagickSignature((const StringInfo *) NULL))
+      ThrowReaderException(CacheError,"IncompatibleAPI");
     if (image->montage != (char *) NULL)
       {
         register char
@@ -1091,8 +1094,8 @@ static MagickBooleanType WriteMPCImage(const ImageInfo *image_info,Image *image,
         (image->colors > (one << depth)))
       image->storage_class=DirectClass;
     (void) WriteBlobString(image,"id=MagickCache\n");
-    (void) FormatLocaleString(buffer,MaxTextExtent,"quantum-depth=%d\n",
-      MAGICKCORE_QUANTUM_DEPTH);
+    (void) FormatLocaleString(buffer,MaxTextExtent,"magick-signature=%u\n",
+      GetMagickSignature((const StringInfo *) NULL));
     (void) WriteBlobString(image,buffer);
     (void) FormatLocaleString(buffer,MaxTextExtent,
       "class=%s  colors=%.20g  alpha-trait=%s\n",CommandOptionToMnemonic(

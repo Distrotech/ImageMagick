@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-#include <MagickCore/color.h>
-#include <MagickCore/pixel.h>
+#include "MagickCore/color.h"
+#include "MagickCore/pixel.h"
 
 #define OpaqueAlpha  ((Quantum) QuantumRange)
 #define TransparentAlpha  ((Quantum) 0)
@@ -216,6 +216,9 @@ struct _Image
   FilterTypes
     filter;         /* resize/distort filter to apply */
 
+  PixelIntensityMethod
+    intensity;      /* method to generate an intensity value from a pixel */
+
   InterlaceType
     interlace;
 
@@ -304,6 +307,10 @@ struct _Image
   ProfileInfo
     *generic_profile;
 
+  void
+    *properties,       /* general settings, to save with image */
+    *artifacts;        /* general operational/coder settings, not saved */
+
   char
     filename[MaxTextExtent],        /* images input filename */
     magick_filename[MaxTextExtent], /* given image filename (with read mods) */
@@ -316,6 +323,9 @@ struct _Image
   BlobInfo
     *blob;             /* image file as in-memory string of 'extent' */
 
+  time_t
+    timestamp;
+
   MagickBooleanType
     debug;             /* debug output attribute */
 
@@ -324,10 +334,6 @@ struct _Image
 
   SemaphoreInfo
     *semaphore;
-
-  void
-    *properties,       /* general settings, to save with iamge */
-    *artifacts;        /* general operational/coder settings, not saved */
 
   const struct _ImageInfo
     *image_info;       /* (Optional) Image belongs to this ImageInfo 'list'

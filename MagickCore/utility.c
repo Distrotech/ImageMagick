@@ -699,16 +699,13 @@ MagickPrivate void ExpandFilename(char *path)
 %  Expansion is ignored for coders "label:" "caption:" "pango:" and "vid:".
 %  Which provide their own '@' meta-character handling.
 %
-%  You can see the results of the expansion using "Configure" log
-%  events.
-%
+%  You can see the results of the expansion using "Configure" log events.
 %
 %  The returned list should be freed using  DestroyStringList().
 %
 %  However the strings in the original pointed to argv are not
 %  freed  (TO BE CHECKED).  So a copy of the original pointer (and count)
 %  should be kept separate if they need to be freed later.
-%
 %
 %  The format of the ExpandFilenames function is:
 %
@@ -1810,13 +1807,20 @@ MagickExport int SystemCommand(const MagickBooleanType asynchronous,
   arguments=StringToArgv(command,&number_arguments);
   if (arguments == (char **) NULL)
     return(status);
+  if (*arguments[1] == '\0')
+    {
+      for (i=0; i < (ssize_t) number_arguments; i++)
+        arguments[i]=DestroyString(arguments[i]);
+      arguments=(char **) RelinquishMagickMemory(arguments);
+      return(-1);
+    }
   rights=ExecutePolicyRights;
   domain=DelegatePolicyDomain;
   if (IsRightsAuthorized(domain,rights,arguments[1]) == MagickFalse)
     {
       errno=EPERM;
       (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
-        "NotAuthorized","'%s'",arguments[1]);
+        "NotAuthorized","`%s'",arguments[1]);
       for (i=0; i < (ssize_t) number_arguments; i++)
         arguments[i]=DestroyString(arguments[i]);
       arguments=(char **) RelinquishMagickMemory(arguments);

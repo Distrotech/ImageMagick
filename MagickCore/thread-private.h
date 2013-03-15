@@ -22,21 +22,22 @@
 extern "C" {
 #endif
 
-#include <MagickCore/cache.h>
-#include <MagickCore/resource_.h>
-#include <MagickCore/thread_.h>
+#include "MagickCore/cache.h"
+#include "MagickCore/resource_.h"
+#include "MagickCore/thread_.h"
 
 /*
   Single threaded unless workload justifies the threading overhead.
 */
-#define WorkloadThreshold()  (16*GetMagickResourceLimit(ThreadResource))
-#define dynamic_number_threads(image,columns,rows,expression) \
-  if (((((columns) > WorkloadThreshold()) || \
-      ((rows) > WorkloadThreshold()))) && ((MagickSizeType) \
-      ((columns)*(rows)) > (WorkloadThreshold()*WorkloadThreshold())) && \
-      (expression)) \
-    num_threads(GetMagickResourceLimit(ThreadResource)/ \
-      (GetImagePixelCacheType(image) == DiskCache ? 2 : 1))
+#define magick_threads(source,destination,chunk,expression) \
+  num_threads((expression) == 0 ? 1 : \
+    ((chunk) > (16*GetMagickResourceLimit(ThreadResource))) && \
+     ((GetImagePixelCacheType(source) == MemoryCache) || \
+      (GetImagePixelCacheType(source) == MapCache)) && \
+     ((GetImagePixelCacheType(destination) == MemoryCache) || \
+      (GetImagePixelCacheType(destination) == MapCache)) ? \
+      GetMagickResourceLimit(ThreadResource) : \
+      GetMagickResourceLimit(ThreadResource) < 2 ? 1 : 2)
 
 #if (__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ > 10))
 #define MagickCachePrefetch(address,mode,locality) \

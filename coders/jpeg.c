@@ -84,7 +84,7 @@
 #include <setjmp.h>
 #if defined(MAGICKCORE_JPEG_DELEGATE)
 #define JPEG_INTERNAL_OPTIONS
-#if defined(__MINGW32__)
+#if defined(__MINGW32__) || defined(__MINGW64__)
 # define XMD_H 1  /* Avoid conflicting typedef for INT32 */
 #endif
 #undef HAVE_STDLIB_H
@@ -2107,8 +2107,6 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
       break;
     }
     case GRAYColorspace:
-    case Rec601LumaColorspace:
-    case Rec709LumaColorspace:
     {
       jpeg_info.input_components=1;
       jpeg_info.in_color_space=JCS_GRAYSCALE;
@@ -2128,6 +2126,8 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
       jpeg_info.in_color_space=JCS_GRAYSCALE;
     }
   jpeg_set_defaults(&jpeg_info);
+  if (jpeg_info.in_color_space == JCS_CMYK)
+    jpeg_set_colorspace(&jpeg_info,JCS_YCCK);
   if ((jpeg_info.data_precision != 12) && (image->depth <= 8))
     jpeg_info.data_precision=8;
   else
@@ -2491,8 +2491,6 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
           break;
         }
         case GRAYColorspace:
-        case Rec601LumaColorspace:
-        case Rec709LumaColorspace:
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "Colorspace: GRAY");
@@ -2648,11 +2646,11 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
                 Convert DirectClass packets to contiguous CMYK scanlines.
               */
               *q++=(JSAMPLE) (ScaleQuantumToChar((Quantum) (QuantumRange-
-                GetPixelRed(image,p))));
+                GetPixelCyan(image,p))));
               *q++=(JSAMPLE) (ScaleQuantumToChar((Quantum) (QuantumRange-
-                GetPixelGreen(image,p))));
+                GetPixelMagenta(image,p))));
               *q++=(JSAMPLE) (ScaleQuantumToChar((Quantum) (QuantumRange-
-                GetPixelBlue(image,p))));
+                GetPixelYellow(image,p))));
               *q++=(JSAMPLE) (ScaleQuantumToChar((Quantum) (QuantumRange-
                 GetPixelBlack(image,p))));
               p+=GetPixelChannels(image);

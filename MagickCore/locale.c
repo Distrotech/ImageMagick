@@ -70,7 +70,8 @@
   Typedef declarations.
 */
 #if defined(__CYGWIN__)
-typedef struct _locale_t *locale_t;
+typedef struct _locale_t
+  *locale_t;
 #endif
 
 /*
@@ -1168,7 +1169,7 @@ static MagickBooleanType LoadLocaleList(const char *xml,const char *filename,
             {
               if (depth > 200)
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ConfigureError,"IncludeElementNestedTooDeeply","'%s'",token);
+                  ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
               else
                 {
                   char
@@ -1256,7 +1257,7 @@ static MagickBooleanType LoadLocaleList(const char *xml,const char *filename,
         status=AddValueToSplayTree(locale_list,locale_info->tag,locale_info);
         if (status == MagickFalse)
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","'%s'",
+            ResourceLimitError,"MemoryAllocationFailed","`%s'",
             locale_info->tag);
         (void) ConcatenateMagickString(tag,message,MaxTextExtent);
         (void) ConcatenateMagickString(tag,"\n",MaxTextExtent);

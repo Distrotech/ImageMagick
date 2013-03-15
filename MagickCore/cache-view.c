@@ -95,6 +95,7 @@ struct _CacheView
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  AcquireAuthenticCacheView() acquires an authentic view into the pixel cache.
+%  It always succeeds but may return a warning or informational exception.
 %
 %  The format of the AcquireAuthenticCacheView method is:
 %
@@ -114,13 +115,8 @@ MagickExport CacheView *AcquireAuthenticCacheView(const Image *image,
   CacheView
     *cache_view;
 
-  MagickBooleanType
-    status;
-
   cache_view=AcquireVirtualCacheView(image,exception);
-  status=SyncImagePixelCache(cache_view->image,exception);
-  if (status == MagickFalse)
-    ThrowFatalException(CacheFatalError,"UnableToAcquireCacheView");
+  (void) SyncImagePixelCache(cache_view->image,exception);
   return(cache_view);
 }
 
@@ -137,6 +133,7 @@ MagickExport CacheView *AcquireAuthenticCacheView(const Image *image,
 %
 %  AcquireVirtualCacheView() acquires a virtual view into the pixel cache,
 %  using the VirtualPixelMethod that is defined within the given image itself.
+%  It always succeeds but may return a warning or informational exception.
 %
 %  The format of the AcquireVirtualCacheView method is:
 %
@@ -743,10 +740,7 @@ MagickExport MagickBooleanType GetOneCacheViewAuthenticPixel(
     }
   for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
   {
-    PixelChannel
-      channel;
-
-    channel=GetPixelChannelChannel(cache_view->image,i);
+    PixelChannel channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);
@@ -819,10 +813,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualPixel(
     }
   for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
   {
-    PixelChannel
-      channel;
-
-    channel=GetPixelChannelChannel(cache_view->image,i);
+    PixelChannel channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);
@@ -953,10 +944,7 @@ MagickExport MagickBooleanType GetOneCacheViewVirtualMethodPixel(
     }
   for (i=0; i < (ssize_t) GetPixelChannels(cache_view->image); i++)
   {
-    PixelChannel
-      channel;
-
-    channel=GetPixelChannelChannel(cache_view->image,i);
+    PixelChannel channel=GetPixelChannelChannel(cache_view->image,i);
     pixel[channel]=p[i];
   }
   return(MagickTrue);

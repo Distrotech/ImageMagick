@@ -188,13 +188,12 @@ MagickExport MagickBooleanType CloneImageProperties(Image *image,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  DefineImageProperty() associates an assignment string of the form
-%  "key=value" with per-image artifact. It is equivelent to
-%  SetImageProperity().
+%  "key=value" with per-image artifact. It is equivelent to SetImageProperty().
 %
 %  The format of the DefineImageProperty method is:
 %
-%      MagickBooleanType DefineImageProperty(Image *image,
-%        const char *property,ExceptionInfo *exception)
+%      MagickBooleanType DefineImageProperty(Image *image,const char *property,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %
@@ -2242,6 +2241,7 @@ static const char *GetMagickPropertyLetter(const ImageInfo *image_info,
     case 'f': /* Filename without directory component */
     {
       GetPathComponent(image->magick_filename,TailPath,value);
+      string=value;
       break;
     }
     case 'g': /* Image geometry, canvas and offset  %Wx%H+%X+%Y */
@@ -3010,7 +3010,7 @@ MagickExport char *InterpretImageProperties(const ImageInfo *image_info,
   if( IfMagickTrue(image->debug) )
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
 
-  if ((embed_text == (const char *) NULL))
+  if (embed_text == (const char *) NULL)
     return((char *) NULL);
   p=embed_text;
 
@@ -3110,12 +3110,13 @@ MagickExport char *InterpretImageProperties(const ImageInfo *image_info,
         continue;
       }
       value=GetMagickPropertyLetter(image_info,image,*p, exception);
-      if (value != (char *) NULL) {
-        AppendString2Text(value);
-        continue;
-      }
-      (void) ThrowMagickException(exception,GetMagickModule(),
-          OptionWarning,"UnknownImageProperty","\"%%%c\"",*p);
+      if (value != (char *) NULL)
+        {
+          AppendString2Text(value);
+          continue;
+        }
+      (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
+        "UnknownImageProperty","\"%%%c\"",*p);
       continue;
     }
 
@@ -3438,7 +3439,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       RelinquishMagickMemory,RelinquishMagickMemory);
 
   /* Delete property if NULL --  empty string values are valid! */
-  if ((value == (const char *) NULL))
+  if (value == (const char *) NULL)
     return(DeleteImageProperty(image,property));
   status=MagickTrue;
 
@@ -3446,7 +3447,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
   if (strlen(property) <= 1)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),
-          OptionError,"SetReadOnlyProperty","'%s'",property);
+          OptionError,"SetReadOnlyProperty","`%s'",property);
       return(MagickFalse);
     }
 
@@ -3462,7 +3463,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("8bim:",property,5) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break;
@@ -3486,7 +3487,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("channels",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       if (LocaleCompare("colorspace",property) == 0)
@@ -3547,7 +3548,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("copyright",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3582,7 +3583,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("delay_units",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       if (LocaleCompare("density",property) == 0)
@@ -3623,7 +3624,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("exif:",property,5) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3634,7 +3635,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("fx:",property,3) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3667,7 +3668,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("height",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3675,6 +3676,18 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
     case 'I':
     case 'i':
     {
+      if (LocaleCompare("intensity",property) == 0)
+        {
+          ssize_t
+            intensity;
+
+          intensity=ParseCommandOption(MagickIntentOptions,MagickFalse,
+            value);
+          if (intensity < 0)
+            return(MagickFalse);
+          image->intensity=(PixelIntensityMethod) intensity;
+          return(MagickTrue);
+        }
       if (LocaleCompare("intent",property) == 0)
         {
           ssize_t
@@ -3704,7 +3717,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("iptc:",property,5) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
 #endif
@@ -3715,7 +3728,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("kurtosis",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3738,7 +3751,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
            (LocaleCompare("min",property) == 0) )
         {
           (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-             "SetReadOnlyProperty","'%s'",property);
+             "SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3747,7 +3760,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("opaque",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3769,7 +3782,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("pixel:",property,6) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
 #endif
@@ -3817,7 +3830,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
            (LocaleCompare("standard-deviation",property) == 0) )
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3858,7 +3871,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("version",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3869,7 +3882,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleCompare("width",property) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */
@@ -3882,7 +3895,7 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
       if (LocaleNCompare("xmp:",property,4) == 0)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-               OptionError,"SetReadOnlyProperty","'%s'",property);
+               OptionError,"SetReadOnlyProperty","`%s'",property);
           return(MagickFalse);
         }
       break; /* add to properties splay tree */

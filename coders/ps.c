@@ -171,6 +171,8 @@ static MagickBooleanType InvokePostscriptDelegate(
     }
   code=0;
   argv=StringToArgv(command,&argc);
+  if (argv == (char **) NULL)
+    return(MagickFalse);
   status=(ghost_info->init_with_args)(interpreter,argc-1,argv+1);
   if (status == 0)
     status=(ghost_info->run_string)(interpreter,"systemdict /start get exec\n",
@@ -768,7 +770,7 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
         pages[MaxTextExtent];
 
       (void) FormatLocaleString(pages,MaxTextExtent,"-dFirstPage=%.20g "
-        "-dLastPage=%.20g",(double) read_info->scene+1,(double)
+        "-dLastPage=%.20g ",(double) read_info->scene+1,(double)
         (read_info->scene+read_info->number_scenes));
       (void) ConcatenateMagickString(options,pages,MaxTextExtent);
       read_info->number_scenes=0;
@@ -781,6 +783,7 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
     (void) ConcatenateMagickString(options,"-dEPSCrop ",MaxTextExtent);
   (void) CopyMagickString(filename,read_info->filename,MaxTextExtent);
   (void) AcquireUniqueFilename(filename);
+  (void) ConcatenateMagickString(filename,"%d",MaxTextExtent);
   (void) FormatLocaleString(command,MaxTextExtent,
     GetDelegateCommands(delegate_info),
     read_info->antialias != MagickFalse ? 4 : 1,
@@ -920,7 +923,6 @@ ModuleExport size_t RegisterPSImage(void)
   entry->adjoin=MagickFalse;
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
-  entry->thread_support=EncoderThreadSupport;
   entry->description=ConstantString(
    "Encapsulated PostScript Interchange format");
   entry->module=ConstantString("PS");
@@ -932,7 +934,6 @@ ModuleExport size_t RegisterPSImage(void)
   entry->adjoin=MagickFalse;
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
-  entry->thread_support=EncoderThreadSupport;
   entry->description=ConstantString("Encapsulated PostScript");
   entry->module=ConstantString("PS");
   (void) RegisterMagickInfo(entry);
@@ -953,7 +954,6 @@ ModuleExport size_t RegisterPSImage(void)
   entry->adjoin=MagickFalse;
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
-  entry->thread_support=EncoderThreadSupport;
   entry->description=ConstantString(
     "Encapsulated PostScript Interchange format");
   entry->module=ConstantString("PS");
@@ -965,7 +965,6 @@ ModuleExport size_t RegisterPSImage(void)
   entry->module=ConstantString("PS");
   entry->blob_support=MagickFalse;
   entry->seekable_stream=MagickTrue;
-  entry->thread_support=EncoderThreadSupport;
   entry->description=ConstantString("PostScript");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);

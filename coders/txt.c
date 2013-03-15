@@ -648,7 +648,11 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
     colorspace[MaxTextExtent],
     tuple[MaxTextExtent];
 
+  const char
+    *option;
+
   MagickBooleanType
+    sparse_color,
     status;
 
   MagickOffsetType
@@ -678,6 +682,8 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBlobMode,exception);
   if (status == MagickFalse)
     return(status);
+  option=GetImageOption(image_info,"txt:sparse-color");
+  sparse_color=IsStringTrue(option);
   scene=0;
   do
   {
@@ -687,11 +693,14 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
     image->depth=GetImageQuantumDepth(image,MagickTrue);
     if (image->alpha_trait == BlendPixelTrait)
       (void) ConcatenateMagickString(colorspace,"a",MaxTextExtent);
-    (void) FormatLocaleString(buffer,MaxTextExtent,
-      "# ImageMagick pixel enumeration: %.20g,%.20g,%.20g,%s\n",(double)
-      image->columns,(double) image->rows,(double)
-      GetQuantumRange(image->depth),colorspace);
-    (void) WriteBlobString(image,buffer);
+    if (sparse_color == MagickFalse)
+      {
+        (void) FormatLocaleString(buffer,MaxTextExtent,
+          "# ImageMagick pixel enumeration: %.20g,%.20g,%.20g,%s\n",(double)
+          image->columns,(double) image->rows,(double)
+          GetQuantumRange(image->depth),colorspace);
+        (void) WriteBlobString(image,buffer);
+      }
     GetPixelInfo(image,&pixel);
     for (y=0; y < (ssize_t) image->rows; y++)
     {
@@ -700,15 +709,33 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
       {
-        (void) FormatLocaleString(buffer,MaxTextExtent,"%.20g,%.20g: ",(double)
-          x,(double) y);
-        (void) WriteBlobString(image,buffer);
         GetPixelInfoPixel(image,p,&pixel);
         if (pixel.colorspace == LabColorspace)
           {
             pixel.green-=(QuantumRange+1)/2.0;
             pixel.blue-=(QuantumRange+1)/2.0;
           }
+        if (sparse_color != MagickFalse)
+          {
+            /*
+              Sparse-color format.
+            */
+            if (GetPixelAlpha(image,p) == (Quantum) OpaqueAlpha)
+              {
+                (void) QueryColorname(image,&pixel,SVGCompliance,tuple,
+                  exception);
+                (void) FormatLocaleString(buffer,MaxTextExtent,"%.20g,%.20g,",
+                  (double) x,(double) y);
+                (void) WriteBlobString(image,buffer);
+                (void) WriteBlobString(image,tuple);
+                (void) WriteBlobString(image," ");
+              }
+            p+=GetPixelChannels(image);
+            continue;
+          }
+        (void) FormatLocaleString(buffer,MaxTextExtent,"%.20g,%.20g: ",(double)
+          x,(double) y);
+        (void) WriteBlobString(image,buffer);
         (void) CopyMagickString(tuple,"(",MaxTextExtent);
         if (pixel.colorspace == GRAYColorspace)
           ConcatenateColorComponent(&pixel,GrayPixelChannel,X11Compliance,

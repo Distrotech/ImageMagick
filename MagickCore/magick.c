@@ -1152,10 +1152,6 @@ static void MagickSignalHandler(int signal_number)
   AsynchronousResourceComponentTerminus();
   instantiate_magick=MagickFalse;
   (void) SetMagickSignalHandler(signal_number,signal_handlers[signal_number]);
-#if defined(MAGICKCORE_HAVE_RAISE)
-  if (signal_handlers[signal_number] != MagickSignalHandler)
-    raise(signal_number);
-#endif
 #if defined(SIGQUIT)
   if (signal_number == SIGQUIT)
     abort();
@@ -1194,6 +1190,10 @@ static void MagickSignalHandler(int signal_number)
 #if defined(SIGTERM)
   if (signal_number == SIGTERM)
     exit(signal_number);
+#endif
+#if defined(MAGICKCORE_HAVE_RAISE)
+  if (signal_handlers[signal_number] != MagickSignalHandler)
+    raise(signal_number);
 #endif
   _exit(signal_number);  /* do not invoke registered atexit() methods */
 #endif
@@ -1243,7 +1243,7 @@ MagickExport void MagickCoreGenesis(const char *path,
       events=DestroyString(events);
     }
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#if defined(_DEBUG) && !defined(__BORLANDC__) && !defined(__MINGW32__)
+#if defined(_DEBUG) && !defined(__BORLANDC__) && !defined(__MINGW32__) && !defined(__MINGW64__)
   if (IsEventLogging() != MagickFalse)
     {
       int

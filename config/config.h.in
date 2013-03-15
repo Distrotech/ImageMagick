@@ -58,7 +58,7 @@
 /* Define if you have FlashPIX library */
 #undef FPX_DELEGATE
 
-/* Define if you have FreeType (TrueType font) library */
+/* Define if you have FREETYPE library */
 #undef FREETYPE_DELEGATE
 
 /* Define if you have Ghostscript library or framework */
@@ -72,6 +72,9 @@
 
 /* Define to 1 if you have the <arm/limits.h> header file. */
 #undef HAVE_ARM_LIMITS_H
+
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#undef HAVE_ARPA_INET_H
 
 /* Define to 1 if you have the `asinh' function. */
 #undef HAVE_ASINH
@@ -181,9 +184,6 @@
 
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 #undef HAVE_FSEEKO
-
-/* Define to 1 if you have the <ft2build.h> header file. */
-#undef HAVE_FT2BUILD_H
 
 /* Define to 1 if you have the `ftime' function. */
 #undef HAVE_FTIME
@@ -324,6 +324,9 @@
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
 
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
 /* Define to 1 if you have the `newlocale' function. */
 #undef HAVE_NEWLOCALE
 
@@ -416,6 +419,9 @@
 
 /* Define to 1 if you have the `sigemptyset' function. */
 #undef HAVE_SIGEMPTYSET
+
+/* Define to 1 if you have the `socket' function. */
+#undef HAVE_SOCKET
 
 /* Define to 1 if you have the `spawnvp' function. */
 #undef HAVE_SPAWNVP
@@ -697,11 +703,14 @@
 /* define if your compiler has __attribute__ */
 #undef HAVE___ATTRIBUTE__
 
-/* accurately represent the wide range of intensity levels in real scenes */
-#undef HDRI_SUPPORT
+/* Whether hdri is enabled or not */
+#undef HDRI_ENABLE_OBSOLETE_IN_H
 
 /* Define if you have umem memory allocation library */
 #undef HasUMEM
+
+/* Directory where ImageMagick architecture headers live. */
+#undef INCLUDEARCH_PATH
 
 /* Directory where ImageMagick headers live. */
 #undef INCLUDE_PATH
@@ -727,6 +736,10 @@
 /* Subdirectory of lib where ImageMagick architecture dependent files are
    installed. */
 #undef LIBRARY_RELATIVE_PATH
+
+/* Binaries in libraries path base name (will be during install linked to bin)
+   */
+#undef LIB_BIN_BASEDIRNAME
 
 /* Define if you have LQR library */
 #undef LQR_DELEGATE
@@ -809,7 +822,7 @@
 #undef PixelCacheThreshold
 
 /* Number of bits in a pixel Quantum (8/16/32/64) */
-#undef QUANTUM_DEPTH
+#undef QUANTUM_DEPTH_OBSOLETE_IN_H
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
@@ -826,10 +839,10 @@
 /* Define to the type of arg 5 for `select'. */
 #undef SELECT_TYPE_ARG5
 
-/* Configure directory name without ABI part. */
+/* Sharearch directory name without ABI part. */
 #undef SHAREARCH_BASEDIRNAME
 
-/* Configure directory dirname */
+/* Sharearch directory dirname */
 #undef SHAREARCH_DIRNAME
 
 /* Directory where architecture-independent configuration files live. */
@@ -1033,6 +1046,9 @@
 
 /* Define to appropriate substitue if compiler does not have __func__ */
 #undef __func__
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef gid_t

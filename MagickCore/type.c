@@ -17,7 +17,7 @@
 %                                 May 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2007 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -398,7 +398,7 @@ MagickExport const TypeInfo *GetTypeInfoByFamily(const char *family,
   if (type_info != (const TypeInfo *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),TypeError,
-        "FontSubstitutionRequired","'%s'",type_info->family);
+        "FontSubstitutionRequired","`%s'",type_info->family);
       return(type_info);
     }
   if (family != (const char *) NULL)
@@ -1040,7 +1040,7 @@ static MagickBooleanType LoadTypeList(const char *xml,const char *filename,
             {
               if (depth > 200)
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  ConfigureError,"IncludeNodeNestedTooDeeply","'%s'",token);
+                  ConfigureError,"IncludeNodeNestedTooDeeply","`%s'",token);
               else
                 {
                   char
@@ -1092,7 +1092,7 @@ static MagickBooleanType LoadTypeList(const char *xml,const char *filename,
         status=AddValueToSplayTree(type_list,type_info->name,type_info);
         if (status == MagickFalse)
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","'%s'",type_info->name);
+            ResourceLimitError,"MemoryAllocationFailed","`%s'",type_info->name);
         type_info=(TypeInfo *) NULL;
       }
     GetMagickToken(q,(const char **) NULL,token);

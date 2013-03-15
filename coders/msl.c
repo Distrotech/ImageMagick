@@ -93,7 +93,7 @@
 #include "MagickCore/utility.h"
 #if defined(MAGICKCORE_XML_DELEGATE)
 #  if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#    if defined(__MINGW32__)
+#    if defined(__MINGW32__) || defined(__MINGW64__)
 #      define _MSC_VER
 #    else
 #      include <win32config.h>
@@ -1955,8 +1955,7 @@ static void MSLStartElement(void *context,const xmlChar *tag,
                       if (composite_image->alpha_trait == UndefinedPixelTrait)
                         (void) SetImageAlpha(composite_image,OpaqueAlpha,
                           &exception);
-                      composite_view=AcquireAuthenticCacheView(composite_image,
-                        &exception);
+                      composite_view=AcquireAuthenticCacheView(composite_image,&exception);
                       for (y=0; y < (ssize_t) composite_image->rows ; y++)
                       {
                         q=GetCacheViewAuthenticPixels(composite_view,0,y,

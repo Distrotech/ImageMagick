@@ -56,7 +56,7 @@
 #include "MagickCore/utility-private.h"
 
 /*
- Constant declaration.
+  Constant declaration.
 */
 static const char
   MogrifyBackgroundColor[] = "#ffffff",  /* white */
@@ -152,6 +152,11 @@ WandExport MagickBooleanType MagickCommandGenesis(ImageInfo *image_info,
       concurrent=MagickTrue;
     if (LocaleCompare("-debug",option) == 0)
       (void) SetLogEventMask(argv[++i]);
+    if (LocaleCompare("-distribute-cache",option) == 0)
+      {
+        DistributePixelCacheServer(StringToInteger(argv[++i]),exception);
+        exit(0);
+      }
     if (LocaleCompare("-duration",option) == 0)
       duration=StringToDouble(argv[++i],(char **) NULL);
     if (LocaleCompare("-regard-warnings",option) == 0)
@@ -874,48 +879,8 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
         if (LocaleCompare("auto-orient",option+1) == 0)
           {
             (void) SyncImageSettings(mogrify_info,*image,exception);
-            switch ((*image)->orientation)
-            {
-              case TopRightOrientation:
-              {
-                mogrify_image=FlopImage(*image,exception);
-                break;
-              }
-              case BottomRightOrientation:
-              {
-                mogrify_image=RotateImage(*image,180.0,exception);
-                break;
-              }
-              case BottomLeftOrientation:
-              {
-                mogrify_image=FlipImage(*image,exception);
-                break;
-              }
-              case LeftTopOrientation:
-              {
-                mogrify_image=TransposeImage(*image,exception);
-                break;
-              }
-              case RightTopOrientation:
-              {
-                mogrify_image=RotateImage(*image,90.0,exception);
-                break;
-              }
-              case RightBottomOrientation:
-              {
-                mogrify_image=TransverseImage(*image,exception);
-                break;
-              }
-              case LeftBottomOrientation:
-              {
-                mogrify_image=RotateImage(*image,270.0,exception);
-                break;
-              }
-              default:
-                break;
-            }
-            if (mogrify_image != (Image *) NULL)
-              mogrify_image->orientation=TopLeftOrientation;
+            mogrify_image=AutoOrientImage(*image,(*image)->orientation,
+              exception);
             break;
           }
         break;
@@ -3254,6 +3219,8 @@ static MagickBooleanType MogrifyUsage(void)
     *miscellaneous[]=
     {
       "-debug events        display copious debugging information",
+      "-distribute-cache port",
+      "                     distributed pixel cache spanning one or more servers",
       "-help                print program options",
       "-list type           print a list of supported option arguments",
       "-log format          format of debugging information",
@@ -3485,6 +3452,7 @@ static MagickBooleanType MogrifyUsage(void)
       "-fuzz distance       colors within this distance are considered equal",
       "-gravity type        horizontal and vertical text placement",
       "-green-primary point chromaticity green primary point",
+      "-intensity method    method to generate an intensity value from a pixel",
       "-intent type         type of rendering intent when managing the image color",
       "-interlace type      type of image interlacing scheme",
       "-interline-spacing value",
@@ -3552,9 +3520,7 @@ static MagickBooleanType MogrifyUsage(void)
   const char
     **p;
 
-  (void) printf("Version: %s\n",GetMagickVersion((size_t *) NULL));
-  (void) printf("Copyright: %s\n",GetMagickCopyright());
-  (void) printf("Features: %s\n\n",GetMagickFeatures());
+  ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] file [ [options ...] file ...]\n",
     GetClientName());
   (void) printf("\nImage Settings:\n");
@@ -3603,7 +3569,7 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
 }
 #define ThrowMogrifyException(asperity,tag,option) \
 { \
-  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"'%s'", \
+  (void) ThrowMagickException(exception,GetMagickModule(),asperity,tag,"`%s'", \
     option); \
   DestroyMogrify(); \
   return(MagickFalse); \
@@ -3659,12 +3625,7 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
       if ((LocaleCompare("version",option+1) == 0) ||
           (LocaleCompare("-version",option+1) == 0))
         {
-          (void) FormatLocaleFile(stdout,"Version: %s\n",
-            GetMagickVersion((size_t *) NULL));
-          (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-            GetMagickCopyright());
-          (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-            GetMagickFeatures());
+          ListMagickVersion(stdout);
           return(MagickFalse);
         }
     }
@@ -4815,6 +4776,22 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
               ThrowMogrifyException(OptionError,"MissingArgument",option);
             if (IsGeometry(argv[i]) == MagickFalse)
               ThrowMogrifyInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("intensity",option+1) == 0)
+          {
+            ssize_t
+              intensity;
+
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) (argc-1))
+              ThrowMogrifyException(OptionError,"MissingArgument",option);
+            intensity=ParseCommandOption(MagickPixelIntensityOptions,MagickFalse,argv[i]);
+            if (intensity < 0)
+              ThrowMogrifyException(OptionError,"UnrecognizedPixelIntensityMethod",
+                argv[i]);
             break;
           }
         if (LocaleCompare("intent",option+1) == 0)
@@ -6022,12 +5999,7 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
         if ((LocaleCompare("version",option+1) == 0) ||
             (LocaleCompare("-version",option+1) == 0))
           {
-            (void) FormatLocaleFile(stdout,"Version: %s\n",
-              GetMagickVersion((size_t *) NULL));
-            (void) FormatLocaleFile(stdout,"Copyright: %s\n",
-              GetMagickCopyright());
-            (void) FormatLocaleFile(stdout,"Features: %s\n\n",
-              GetMagickFeatures());
+            ListMagickVersion(stdout);
             break;
           }
         if (LocaleCompare("view",option+1) == 0)
@@ -6626,6 +6598,16 @@ WandExport MagickBooleanType MogrifyImageInfo(ImageInfo *image_info,
       }
       case 'i':
       {
+        if (LocaleCompare("intensity",option+1) == 0)
+          {
+            if (*option == '+')
+              {
+                (void) SetImageOption(image_info,option+1,"undefined");
+                break;
+              }
+            (void) SetImageOption(image_info,option+1,argv[i+1]);
+            break;
+          }
         if (LocaleCompare("intent",option+1) == 0)
           {
             if (*option == '+')
@@ -7507,27 +7489,36 @@ WandExport MagickBooleanType MogrifyImageList(ImageInfo *image_info,
               {
                 if ((image->compose == DisplaceCompositeOp) ||
                     (image->compose == DistortCompositeOp))
-                  {
-                    /*
-                      Merge Y displacement into X displacement image.
-                    */
-                    (void) CompositeImage(composite_image,mask_image,
-                      CopyGreenCompositeOp,MagickTrue,0,0,exception);
-                    mask_image=DestroyImage(mask_image);
-                  }
+                  status&=CompositeImage(composite_image,mask_image,
+                    CopyGreenCompositeOp,MagickTrue,0,0,exception);
                 else
                   {
-                    /*
-                      Set a blending mask for the composition.
-                    */
-                    (void) NegateImage(mask_image,MagickFalse,exception);
-                    (void) SetImageMask(composite_image,mask_image,exception);
-                    mask_image=DestroyImage(mask_image);
+                    Image
+                      *image;
+
+                    RectangleInfo
+                      composite_geometry;
+
+                    composite_geometry.width=mask_image->columns;
+                    composite_geometry.height=mask_image->rows;
+                    composite_geometry.x=(-geometry.x);
+                    composite_geometry.y=(-geometry.y);
+                    geometry.x=0;
+                    geometry.y=0;
+                    image=ExtentImage(composite_image,&composite_geometry,
+                     exception);
+                    if (image != (Image *) NULL)
+                      {
+                        composite_image=DestroyImage(composite_image);
+                        composite_image=image;
+                      }
+                    status&=CompositeImage(composite_image,mask_image,
+                      IntensityCompositeOp,MagickTrue,0,0,exception);
                   }
+                mask_image=DestroyImage(mask_image);
               }
             (void) CompositeImage(image,composite_image,image->compose,
               clip_to_self,geometry.x,geometry.y,exception);
-            (void) SetImageMask(image,(Image *) NULL,exception);
             composite_image=DestroyImage(composite_image);
             *images=DestroyImageList(*images);
             *images=image;
@@ -7745,7 +7736,7 @@ WandExport MagickBooleanType MogrifyImageList(ImageInfo *image_info,
             if (p == (Image *) NULL)
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  OptionError,"NoSuchImage","'%s'",argv[i+1]);
+                  OptionError,"NoSuchImage","`%s'",argv[i+1]);
                 status=MagickFalse;
                 break;
               }
@@ -7761,7 +7752,7 @@ WandExport MagickBooleanType MogrifyImageList(ImageInfo *image_info,
                    if (q == (Image *) NULL)
                      {
                        (void) ThrowMagickException(exception,GetMagickModule(),
-                         OptionError,"NoSuchImage","'%s'",argv[i+1]);
+                         OptionError,"NoSuchImage","`%s'",argv[i+1]);
                        status=MagickFalse;
                        break;
                      }
@@ -8247,7 +8238,7 @@ WandExport MagickBooleanType MogrifyImageList(ImageInfo *image_info,
             if ((p == (Image *) NULL) || (q == (Image *) NULL))
               {
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  OptionError,"NoSuchImage","'%s'",(*images)->filename);
+                  OptionError,"NoSuchImage","`%s'",(*images)->filename);
                 status=MagickFalse;
                 break;
               }

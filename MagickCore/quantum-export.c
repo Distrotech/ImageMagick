@@ -22,7 +22,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2008 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2013 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -889,7 +889,7 @@ static void ExportBlackQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","'%s'",image->filename);
+        "ColorSeparatedImageRequired","`%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -1211,7 +1211,7 @@ static void ExportCMYKQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","'%s'",image->filename);
+        "ColorSeparatedImageRequired","`%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -1356,7 +1356,7 @@ static void ExportCMYKAQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->colorspace != CMYKColorspace)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColorSeparatedImageRequired","'%s'",image->filename);
+        "ColorSeparatedImageRequired","`%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -2090,7 +2090,7 @@ static void ExportIndexQuantum(const Image *image,QuantumInfo *quantum_info,
   if (image->storage_class != PseudoClass)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColormappedImageRequired","'%s'",image->filename);
+        "ColormappedImageRequired","`%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -2257,7 +2257,7 @@ static void ExportIndexAlphaQuantum(const Image *image,
   if (image->storage_class != PseudoClass)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),ImageError,
-        "ColormappedImageRequired","'%s'",image->filename);
+        "ColormappedImageRequired","`%s'",image->filename);
       return;
     }
   switch (quantum_info->depth)
@@ -3248,14 +3248,8 @@ MagickExport size_t ExportQuantumPixels(const Image *image,
         Sa=QuantumScale*GetPixelAlpha(image,q);
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
-          PixelChannel
-            channel;
-
-          PixelTrait
-            traits;
-
-          channel=GetPixelChannelChannel(image,i);
-          traits=GetPixelChannelTraits(image,channel);
+          PixelChannel channel=GetPixelChannelChannel(image,i);
+          PixelTrait traits=GetPixelChannelTraits(image,channel);
           if ((traits & UpdatePixelTrait) == 0)
             continue;
           q[i]=ClampToQuantum(Sa*q[i]);

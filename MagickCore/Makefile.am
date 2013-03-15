@@ -16,46 +16,50 @@
 # 
 
 MagickCoreincdir = $(INCLUDE_PATH)/MagickCore
+MagickCoreincarchdir = $(INCLUDEARCH_PATH)/MagickCore
 
 # Headers which are installed
 MagickCoreinc_HEADERS = \
 	$(MAGICKCORE_INCLUDE_HDRS)
+MagickCoreincarch_HEADERS = \
+	$(MAGICKCORE_INCLUDEARCH_HDRS)
 
 MAGICKCORE_BIN_SCRPTS = \
   MagickCore/MagickCore-config
 
 MAGICKCORE_PKGCONFIG = \
   MagickCore/ImageMagick.pc \
-  MagickCore/MagickCore.pc
+	MagickCore/MagickCore.pc \
+	MagickCore/ImageMagick-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc \
+	MagickCore/MagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc 
 
 OSX_GCOV_LDFLAG = @OSX_GCOV_LDFLAG@
 
 MAGICKCORE_MANS = \
   MagickCore/MagickCore-config.1
 
-MAGICKCORE_LIBS = MagickCore/libMagickCore.la
+MAGICKCORE_LIBS = MagickCore/libMagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.la
 
 if WITH_MODULES
-MagickCore_libMagickCore_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS)
-MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS)
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS)
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_LIBADD = $(MAGICK_DEP_LIBS)
 else
-MagickCore_libMagickCore_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS) $(MAGICKCORE_CODER_SRCS) $(MAGICKCORE_FILTER_SRCS)
-MagickCore_libMagickCore_la_LIBADD = $(MAGICK_DEP_LIBS)
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_SOURCES = $(MAGICKCORE_BASE_SRCS) $(MAGICKCORE_PLATFORM_SRCS) $(MAGICKCORE_CODER_SRCS) $(MAGICKCORE_FILTER_SRCS)
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_LIBADD = $(MAGICK_DEP_LIBS)
 endif # WITH_MODULES
-MagickCore_libMagickCore_la_CPPFLAGS = -I$(top_builddir)/ltdl -I$(top_srcdir)/ltdl $(LIBRARY_EXTRA_CPPFLAGS)
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_CPPFLAGS = -I$(top_builddir)/ltdl -I$(top_srcdir)/ltdl $(LIBRARY_EXTRA_CPPFLAGS)
 
 if HAVE_LD_VERSION_SCRIPT
-MagickCore_libMagickCore_la_LDFLAGS_VERSION =  -Wl,--version-script=$(top_srcdir)/MagickCore/libMagickCore.map
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_LDFLAGS_VERSION =  -Wl,--version-script=$(top_srcdir)/MagickCore/libMagickCore.map
 else
-MagickCore_libMagickCore_la_LDFLAGS_VERSION = -export-symbols-regex ".*"
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_LDFLAGS_VERSION = -export-symbols-regex ".*"
 endif
 
-MagickCore_libMagickCore_la_LDFLAGS = -no-undefined \
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_LDFLAGS = -no-undefined \
   $(MagickCore_libMagickCore_la_LDFLAGS_VERSION) \
-  $(OSX_GCOV_LDFLAG) $(MAGICK_LT_RELEASE_OPTS) \
-  -release $(MAGICK_ABI_SUFFIX) -version-info \
+  $(OSX_GCOV_LDFLAG) $(MAGICK_LT_RELEASE_OPTS) -version-info \
   $(MAGICK_LIBRARY_CURRENT):$(MAGICK_LIBRARY_REVISION):$(MAGICK_LIBRARY_AGE)
-MagickCore_libMagickCore_la_DEPENDENCIES =
+MagickCore_libMagickCore_@MAGICK_MAJOR_VERSION@_@MAGICK_ABI_SUFFIX@_la_DEPENDENCIES =
 
 # Library base sources
 MAGICKCORE_BASE_SRCS = \
@@ -119,6 +123,9 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/display-private.h \
 	MagickCore/distort.c \
 	MagickCore/distort.h \
+	MagickCore/distribute-cache.c \
+	MagickCore/distribute-cache.h \
+	MagickCore/distribute-cache-private.h \
 	MagickCore/draw.c \
 	MagickCore/draw.h \
 	MagickCore/draw-private.h \
@@ -164,6 +171,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/magic.c \
 	MagickCore/magic.h \
 	MagickCore/magick.c \
+	MagickCore/magick-baseconfig.h \
 	MagickCore/magick-config.h \
 	MagickCore/magick-type.h \
 	MagickCore/magick.h \
@@ -272,6 +280,7 @@ MAGICKCORE_BASE_SRCS = \
 	MagickCore/utility-private.h \
 	MagickCore/version.c \
 	MagickCore/version.h \
+	MagickCore/version-private.h \
 	MagickCore/vms.h \
 	MagickCore/widget.c \
 	MagickCore/widget.h \
@@ -327,6 +336,7 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/deprecate.h \
 	MagickCore/display.h \
 	MagickCore/distort.h \
+	MagickCore/distribute-cache.h \
 	MagickCore/draw.h \
 	MagickCore/effect.h \
 	MagickCore/enhance.h \
@@ -349,7 +359,6 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/magic-private.h \
 	MagickCore/magick.h \
 	MagickCore/magick-config.h \
-	MagickCore/magick-baseconfig.h \
 	MagickCore/magick-type.h \
 	MagickCore/matrix.h \
 	MagickCore/memory_.h \
@@ -412,6 +421,7 @@ MAGICKCORE_NOINST_HDRS = \
  	MagickCore/delegate-private.h \
 	MagickCore/delegate-private.h \
 	MagickCore/display-private.h \
+	MagickCore/distribute-cache-private.h \
 	MagickCore/draw-private.h \
 	MagickCore/exception-private.h \
 	MagickCore/fx-private.h \
@@ -455,10 +465,14 @@ MAGICKCORE_NOINST_HDRS = \
 	MagickCore/token-private.h \
  	MagickCore/type-private.h \
 	MagickCore/utility-private.h \
+	MagickCore/version-private.h \
 	MagickCore/vms.h \
  	MagickCore/widget-private.h \
 	MagickCore/xml-tree-private.h \
 	MagickCore/xwindow-private.h
+
+MAGICKCORE_INCLUDEARCH_HDRS = \
+	MagickCore/magick-baseconfig.h
 
 MAGICKCORE_EXTRA_DIST = \
 	MagickCore/MagickCore-config.in \

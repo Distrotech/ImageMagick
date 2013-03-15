@@ -534,7 +534,7 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1006,7 +1006,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
           histogram[i]=(ssize_t *) RelinquishMagickMemory(histogram[i]);
         }
         (void) ThrowMagickException(exception,GetMagickModule(),
-          ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+          ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
         return(MagickFalse);
       }
   }
@@ -1053,7 +1053,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
         if (cluster == (Cluster *) NULL)
           {
             (void) ThrowMagickException(exception,GetMagickModule(),
-              ResourceLimitError,"MemoryAllocationFailed","'%s'",
+              ResourceLimitError,"MemoryAllocationFailed","`%s'",
               image->filename);
             return(MagickFalse);
           }
@@ -1077,7 +1077,7 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
       if (cluster == (Cluster *) NULL)
         {
           (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","'%s'",image->filename);
+            ResourceLimitError,"MemoryAllocationFailed","`%s'",image->filename);
           return(MagickFalse);
         }
       /*

@@ -22,10 +22,10 @@
 extern "C" {
 #endif
 
-#include <MagickCore/image.h>
-#include <MagickCore/image-private.h>
-#include <MagickCore/pixel.h>
-#include <MagickCore/pixel-accessor.h>
+#include "MagickCore/image.h"
+#include "MagickCore/image-private.h"
+#include "MagickCore/pixel.h"
+#include "MagickCore/pixel-accessor.h"
 
 static inline void ConvertRGBToCMYK(PixelInfo *pixel)
 {
@@ -46,9 +46,9 @@ static inline void ConvertRGBToCMYK(PixelInfo *pixel)
     }
   else
     {
-      red=DecodesRGBGamma(pixel->red);
-      green=DecodesRGBGamma(pixel->green);
-      blue=DecodesRGBGamma(pixel->blue);
+      red=DecodePixelGamma(pixel->red);
+      green=DecodePixelGamma(pixel->green);
+      blue=DecodePixelGamma(pixel->blue);
     }
   if ((fabs(red) < MagickEpsilon) && (fabs(green) < MagickEpsilon) &&
       (fabs(blue) < MagickEpsilon))
@@ -85,8 +85,7 @@ static inline MagickBooleanType IsCMYKColorspace(
 static inline MagickBooleanType IsGrayColorspace(
   const ColorspaceType colorspace)
 {
-  if ((colorspace == GRAYColorspace) || (colorspace == Rec601LumaColorspace) ||
-      (colorspace == Rec709LumaColorspace))
+  if (colorspace == GRAYColorspace)
     return(MagickTrue);
   return(MagickFalse);
 }

@@ -200,6 +200,7 @@ MagickPrivate FxInfo *AcquireFxInfo(const Image *image,const char *expression,
     Force right-to-left associativity for unary negation.
   */
   (void) SubstituteString(&fx_info->expression,"-","-1.0*");
+  (void) SubstituteString(&fx_info->expression,"^-1.0*","^-");
   (void) SubstituteString(&fx_info->expression,"E-1.0*","E-");
   (void) SubstituteString(&fx_info->expression,"e-1.0*","e-");
   /*
@@ -306,7 +307,7 @@ MagickExport Image *AddNoiseImage(const Image *image,const NoiseType noise_type,
       return((Image *) NULL);
     }
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(noise_image,RGBColorspace,exception);
+    (void) TransformImageColorspace(noise_image,sRGBColorspace,exception);
   /*
     Add noise in each row.
   */
@@ -318,7 +319,7 @@ MagickExport Image *AddNoiseImage(const Image *image,const NoiseType noise_type,
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   key=GetRandomSecretKey(random_info[0]);
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+    magick_threads(image,noise_image,image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -354,16 +355,9 @@ MagickExport Image *AddNoiseImage(const Image *image,const NoiseType noise_type,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          noise_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        noise_traits=GetPixelChannelTraits(noise_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait noise_traits=GetPixelChannelTraits(noise_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (noise_traits == UndefinedPixelTrait))
           continue;
@@ -480,7 +474,7 @@ MagickExport Image *BlueShiftImage(const Image *image,const double factor,
   shift_view=AcquireAuthenticCacheView(shift_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,shift_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -707,8 +701,8 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
       return((Image *) NULL);
     }
   if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
-      (IsPixelInfoGray(colorize) != MagickFalse))
-    (void) SetImageColorspace(colorize_image,RGBColorspace,exception);
+      (IsPixelGray(&colorize) != MagickFalse))
+    (void) SetImageColorspace(colorize_image,sRGBColorspace,exception);
   if ((colorize_image->alpha_trait != BlendPixelTrait) &&
       (colorize->alpha_trait == BlendPixelTrait))
     (void) SetImageAlpha(colorize_image,OpaqueAlpha,exception);
@@ -743,7 +737,7 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
   colorize_view=AcquireAuthenticCacheView(colorize_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,colorize_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -776,16 +770,10 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          colorize_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        colorize_traits=GetPixelChannelTraits(colorize_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait colorize_traits=GetPixelChannelTraits(colorize_image,
+          channel);
         if ((traits == UndefinedPixelTrait) ||
             (colorize_traits == UndefinedPixelTrait))
           continue;
@@ -795,9 +783,9 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
             SetPixelChannel(colorize_image,channel,p[i],q);
             continue;
           }
-        SetPixelChannel(colorize_image,channel,
-          ClampToQuantum(Colorize(p[i],GetPixelInfoChannel(&blend_percentage,
-          channel),GetPixelInfoChannel(colorize,channel))),q);
+        SetPixelChannel(colorize_image,channel,ClampToQuantum(Colorize(p[i],
+          GetPixelInfoChannel(&blend_percentage,channel),GetPixelInfoChannel(
+          colorize,channel))),q);
       }
       p+=GetPixelChannels(image);
       q+=GetPixelChannels(colorize_image);
@@ -961,7 +949,7 @@ MagickExport Image *ColorMatrixImage(const Image *image,
   color_view=AcquireAuthenticCacheView(color_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,color_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -1281,7 +1269,7 @@ static inline const char *FxSubexpression(const char *expression,
   }
   if (*subexpression == '\0')
     (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-      "UnbalancedParenthesis","'%s'",expression);
+      "UnbalancedParenthesis","`%s'",expression);
   return(subexpression);
 }
 
@@ -1429,7 +1417,7 @@ static double FxGetSymbol(FxInfo *fx_info,const PixelChannel channel,
   if (image == (Image *) NULL)
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "NoSuchImage","'%s'",expression);
+        "NoSuchImage","`%s'",expression);
       return(0.0);
     }
   GetPixelInfo(image,&pixel);
@@ -1496,7 +1484,7 @@ static double FxGetSymbol(FxInfo *fx_info,const PixelChannel channel,
           if (image->colorspace != CMYKColorspace)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                ImageError,"ColorSeparatedImageRequired","'%s'",
+                ImageError,"ColorSeparatedImageRequired","`%s'",
                 image->filename);
               return(0.0);
             }
@@ -1522,7 +1510,7 @@ static double FxGetSymbol(FxInfo *fx_info,const PixelChannel channel,
           break;
       }
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "UnableToParseExpression","'%s'",p);
+        "UnableToParseExpression","`%s'",p);
       return(0.0);
     }
   switch (*symbol)
@@ -1654,7 +1642,7 @@ static double FxGetSymbol(FxInfo *fx_info,const PixelChannel channel,
           if (image->colorspace != CMYKColorspace)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionError,"ColorSeparatedImageRequired","'%s'",
+                OptionError,"ColorSeparatedImageRequired","`%s'",
                 image->filename);
               return(0.0);
             }
@@ -1844,7 +1832,7 @@ static double FxGetSymbol(FxInfo *fx_info,const PixelChannel channel,
   if (value != (const char *) NULL)
     return((double) StringToDouble(value,(char **) NULL));
   (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-    "UnableToParseExpression","'%s'",symbol);
+    "UnableToParseExpression","`%s'",symbol);
   return(0.0);
 }
 
@@ -2127,7 +2115,7 @@ static double FxEvaluateSubexpression(FxInfo *fx_info,
   if (*expression == '\0')
     {
       (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
-        "MissingExpression","'%s'",expression);
+        "MissingExpression","`%s'",expression);
       return(0.0);
     }
   *subexpression='\0';
@@ -2170,7 +2158,7 @@ static double FxEvaluateSubexpression(FxInfo *fx_info,
             {
               if (exception->severity == UndefinedException)
                 (void) ThrowMagickException(exception,GetMagickModule(),
-                  OptionError,"DivideByZero","'%s'",expression);
+                  OptionError,"DivideByZero","`%s'",expression);
               return(0.0);
             }
           return(alpha/(*beta));
@@ -2182,7 +2170,7 @@ static double FxEvaluateSubexpression(FxInfo *fx_info,
           if (*beta == 0.0)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionError,"DivideByZero","'%s'",expression);
+                OptionError,"DivideByZero","`%s'",expression);
               return(0.0);
             }
           return(fmod((double) alpha,(double) *beta));
@@ -2274,7 +2262,7 @@ static double FxEvaluateSubexpression(FxInfo *fx_info,
           if (q == (char *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionError,"UnableToParseExpression","'%s'",subexpression);
+                OptionError,"UnableToParseExpression","`%s'",subexpression);
               return(0.0);
             }
           if (fabs((double) alpha) >= MagickEpsilon)
@@ -2294,7 +2282,7 @@ static double FxEvaluateSubexpression(FxInfo *fx_info,
           if (*q != '\0')
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionError,"UnableToParseExpression","'%s'",subexpression);
+                OptionError,"UnableToParseExpression","`%s'",subexpression);
               return(0.0);
             }
           ClearMagickException(exception);
@@ -3073,7 +3061,7 @@ MagickExport Image *FxImage(const Image *image,const char *expression,
   fx_view=AcquireAuthenticCacheView(fx_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,fx_image,fx_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) fx_image->rows; y++)
   {
@@ -3108,16 +3096,9 @@ MagickExport Image *FxImage(const Image *image,const char *expression,
         double
           alpha;
 
-        PixelChannel
-          channel;
-
-        PixelTrait
-          fx_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        fx_traits=GetPixelChannelTraits(fx_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait fx_traits=GetPixelChannelTraits(fx_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (fx_traits == UndefinedPixelTrait))
           continue;
@@ -3267,7 +3248,7 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
   implode_view=AcquireAuthenticCacheView(implode_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,implode_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -3316,16 +3297,10 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
       if (distance >= (radius*radius))
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
-          PixelChannel
-            channel;
-
-          PixelTrait
-            implode_traits,
-            traits;
-
-          channel=GetPixelChannelChannel(image,i);
-          traits=GetPixelChannelTraits(image,channel);
-          implode_traits=GetPixelChannelTraits(implode_image,channel);
+          PixelChannel channel=GetPixelChannelChannel(image,i);
+          PixelTrait traits=GetPixelChannelTraits(image,channel);
+          PixelTrait implode_traits=GetPixelChannelTraits(implode_image,
+            channel);
           if ((traits == UndefinedPixelTrait) ||
               (implode_traits == UndefinedPixelTrait))
             continue;
@@ -3402,10 +3377,14 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-MagickExport Image *MorphImages(const Image *image,
-  const size_t number_frames,ExceptionInfo *exception)
+MagickExport Image *MorphImages(const Image *image,const size_t number_frames,
+  ExceptionInfo *exception)
 {
 #define MorphImageTag  "Morph/Image"
+
+  double
+    alpha,
+    beta;
 
   Image
     *morph_image,
@@ -3416,10 +3395,6 @@ MagickExport Image *MorphImages(const Image *image,
 
   MagickOffsetType
     scene;
-
-  double
-    alpha,
-    beta;
 
   register const Image
     *next;
@@ -3512,7 +3487,7 @@ MagickExport Image *MorphImages(const Image *image,
       morph_view=AcquireAuthenticCacheView(morph_images,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static,4) shared(status) \
-        dynamic_number_threads(image,image->columns,image->rows,1)
+        magick_threads(morph_image,morph_image,morph_image->rows,1)
 #endif
       for (y=0; y < (ssize_t) morph_images->rows; y++)
       {
@@ -3546,16 +3521,9 @@ MagickExport Image *MorphImages(const Image *image,
 
           for (i=0; i < (ssize_t) GetPixelChannels(morph_image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              morph_traits,
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
-            morph_traits=GetPixelChannelTraits(morph_image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
+            PixelTrait morph_traits=GetPixelChannelTraits(morph_image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (morph_traits == UndefinedPixelTrait))
               continue;
@@ -3668,12 +3636,6 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
   double
     plasma;
 
-  PixelChannel
-    channel;
-
-  PixelTrait
-    traits;
-
   register const Quantum
     *restrict u,
     *restrict v;
@@ -3750,8 +3712,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
         return(MagickTrue);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         q[i]=PlasmaPixel(random_info,(u[channel]+v[channel])/2.0,plasma);
@@ -3773,8 +3735,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
             return(MagickTrue);
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             q[i]=PlasmaPixel(random_info,(u[channel]+v[channel])/2.0,plasma);
@@ -3800,8 +3762,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
             return(MagickTrue);
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             q[i]=PlasmaPixel(random_info,(u[channel]+v[channel])/2.0,plasma);
@@ -3824,8 +3786,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
             return(MagickTrue);
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
             if (traits == UndefinedPixelTrait)
               continue;
             q[i]=PlasmaPixel(random_info,(u[channel]+v[channel])/2.0,plasma);
@@ -3850,8 +3812,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
         return(MagickTrue);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         q[i]=PlasmaPixel(random_info,(u[channel]+v[channel])/2.0,plasma);
@@ -4163,7 +4125,7 @@ MagickExport Image *SepiaToneImage(const Image *image,const double threshold,
   sepia_view=AcquireAuthenticCacheView(sepia_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,sepia_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -4304,7 +4266,7 @@ MagickExport Image *ShadowImage(const Image *image,const double alpha,
   if (clone_image == (Image *) NULL)
     return((Image *) NULL);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(clone_image,RGBColorspace,exception);
+    (void) TransformImageColorspace(clone_image,sRGBColorspace,exception);
   (void) SetImageVirtualPixelMethod(clone_image,TransparentVirtualPixelMethod,
     exception);
   border_info.width=(size_t) floor(2.0*sigma+0.5);
@@ -4458,7 +4420,7 @@ MagickExport Image *SketchImage(const Image *image,const double radius,
   random_view=AcquireAuthenticCacheView(random_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(status) \
-    dynamic_number_threads(image,image->columns,image->rows,key == ~0UL)
+    magick_threads(random_image,random_image,random_image->rows,key == ~0UL)
 #endif
   for (y=0; y < (ssize_t) random_image->rows; y++)
   {
@@ -4496,14 +4458,8 @@ MagickExport Image *SketchImage(const Image *image,const double radius,
       value=GetPseudoRandomValue(random_info[id]);
       for (i=0; i < (ssize_t) GetPixelChannels(random_image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         q[i]=ClampToQuantum(QuantumRange*value);
@@ -4604,6 +4560,8 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
   if (image->storage_class == PseudoClass)
     {
       register ssize_t
@@ -4632,7 +4590,7 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -4662,14 +4620,8 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
         if ((traits == UndefinedPixelTrait) ||
             ((traits & CopyPixelTrait) != 0))
           continue;
@@ -4864,10 +4816,7 @@ MagickExport Image *SteganoImage(const Image *image,const Image *watermark,
   stegano_view=DestroyCacheView(stegano_view);
   watermark_view=DestroyCacheView(watermark_view);
   if (status == MagickFalse)
-    {
-      stegano_image=DestroyImage(stegano_image);
-      return((Image *) NULL);
-    }
+    stegano_image=DestroyImage(stegano_image);
   return(stegano_image);
 }
 
@@ -5010,10 +4959,7 @@ MagickExport Image *StereoAnaglyphImage(const Image *left_image,
       }
   }
   if (status == MagickFalse)
-    {
-      stereo_image=DestroyImage(stereo_image);
-      return((Image *) NULL);
-    }
+    stereo_image=DestroyImage(stereo_image);
   return(stereo_image);
 }
 
@@ -5118,7 +5064,7 @@ MagickExport Image *SwirlImage(const Image *image,double degrees,
   swirl_view=AcquireAuthenticCacheView(swirl_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,swirl_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -5168,16 +5114,9 @@ MagickExport Image *SwirlImage(const Image *image,double degrees,
 
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
-            PixelChannel
-              channel;
-
-            PixelTrait
-              swirl_traits,
-              traits;
-
-            channel=GetPixelChannelChannel(image,i);
-            traits=GetPixelChannelTraits(image,channel);
-            swirl_traits=GetPixelChannelTraits(swirl_image,channel);
+            PixelChannel channel=GetPixelChannelChannel(image,i);
+            PixelTrait traits=GetPixelChannelTraits(image,channel);
+            PixelTrait swirl_traits=GetPixelChannelTraits(swirl_image,channel);
             if ((traits == UndefinedPixelTrait) ||
                 (swirl_traits == UndefinedPixelTrait))
               continue;
@@ -5308,8 +5247,8 @@ MagickExport Image *TintImage(const Image *image,const char *blend,
       return((Image *) NULL);
     }
   if ((IsGrayColorspace(image->colorspace) != MagickFalse) &&
-      (IsPixelInfoGray(tint) == MagickFalse))
-    (void) SetImageColorspace(tint_image,RGBColorspace,exception);
+      (IsPixelGray(&tint) == MagickFalse))
+    (void) SetImageColorspace(tint_image,sRGBColorspace,exception);
   if (blend == (const char *) NULL)
     return(tint_image);
   /*
@@ -5320,7 +5259,7 @@ MagickExport Image *TintImage(const Image *image,const char *blend,
   color_vector.red=geometry_info.rho;
   color_vector.green=geometry_info.rho;
   color_vector.blue=geometry_info.rho;
-  color_vector.alpha=OpaqueAlpha;
+  color_vector.alpha=(MagickRealType) OpaqueAlpha;
   if ((flags & SigmaValue) != 0)
     color_vector.green=geometry_info.sigma;
   if ((flags & XiValue) != 0)
@@ -5355,7 +5294,7 @@ MagickExport Image *TintImage(const Image *image,const char *blend,
   tint_view=AcquireAuthenticCacheView(tint_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,tint_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -5391,16 +5330,9 @@ MagickExport Image *TintImage(const Image *image,const char *blend,
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel
-          channel;
-
-        PixelTrait
-          tint_traits,
-          traits;
-
-        channel=GetPixelChannelChannel(image,i);
-        traits=GetPixelChannelTraits(image,channel);
-        tint_traits=GetPixelChannelTraits(tint_image,channel);
+        PixelChannel channel=GetPixelChannelChannel(image,i);
+        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelTrait tint_traits=GetPixelChannelTraits(tint_image,channel);
         if ((traits == UndefinedPixelTrait) ||
             (tint_traits == UndefinedPixelTrait))
           continue;
@@ -5656,7 +5588,7 @@ MagickExport Image *WaveImage(const Image *image,const double amplitude,
     BackgroundVirtualPixelMethod);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    dynamic_number_threads(image,image->columns,image->rows,1)
+    magick_threads(image,wave_image,wave_image->rows,1)
 #endif
   for (y=0; y < (ssize_t) wave_image->rows; y++)
   {

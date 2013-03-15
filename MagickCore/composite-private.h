@@ -74,30 +74,35 @@ static inline void CompositePixelOver(const Image *image,const PixelInfo *p,
     traits=GetPixelChannelTraits(image,channel);
     if (traits == UndefinedPixelTrait)
       continue;
+    if (fabs(alpha-TransparentAlpha) < MagickEpsilon)
+      {
+        composite[i]=q[i];
+        continue;
+      }
     switch (channel)
     {
       case RedPixelChannel:
       {
-        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->red,
-          alpha,(double) q[i],beta));
+        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->red,alpha,
+          (double) q[i],beta));
         break;
       }
       case GreenPixelChannel:
       {
-        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->green,
-          alpha,(double) q[i],beta));
+        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->green,alpha,
+          (double) q[i],beta));
         break;
       }
       case BluePixelChannel:
       {
-        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->blue,
-          alpha,(double) q[i],beta));
+        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->blue,alpha,
+          (double) q[i],beta));
         break;
       }
       case BlackPixelChannel:
       {
-        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->black,
-          alpha,(double) q[i],beta));
+        composite[i]=ClampToQuantum(gamma*MagickOver_((double) p->black,alpha,
+          (double) q[i],beta));
         break;
       }
       case AlphaPixelChannel:
@@ -106,7 +111,10 @@ static inline void CompositePixelOver(const Image *image,const PixelInfo *p,
         break;
       }
       default:
+      {
+        composite[i]=q[i];
         break;
+      }
     }
   }
 }
@@ -122,7 +130,7 @@ static inline void CompositePixelInfoOver(const PixelInfo *p,
   /*
     Compose pixel p over pixel q with the given opacities.
   */
-  if (fabs(alpha-OpaqueAlpha) < MagickEpsilon)
+  if (fabs(alpha-TransparentAlpha) < MagickEpsilon)
     {
       *composite=(*p);
       return;
