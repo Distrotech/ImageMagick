@@ -230,7 +230,7 @@ MagickExport Image *FrameImage(const Image *image,const FrameInfo *frame_info,
     }
   if ((IsPixelGray(&frame_image->border_color) == MagickFalse) &&
       (IsGrayColorspace(frame_image->colorspace) != MagickFalse))
-    (void) SetImageColorspace(frame_image,RGBColorspace);
+    (void) SetImageColorspace(frame_image,sRGBColorspace);
   if ((frame_image->border_color.opacity != OpaqueOpacity) &&
       (frame_image->matte == MagickFalse))
     (void) SetImageAlphaChannel(frame_image,OpaqueAlphaChannel);

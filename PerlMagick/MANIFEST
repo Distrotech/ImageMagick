@@ -1,5 +1,4 @@
 Changelog
-check.sh
 check.sh.in
 demo/annotate.pl
 demo/button.pl
@@ -26,9 +25,6 @@ demo/tile.gif
 demo/tree.pl
 demo/Turtle.pm
 demo/yellow-flower.gif
-Magick.pm
-Magick.pm.in
-Magick.xs
 Makefile.am
 Makefile.nt
 Makefile.PL

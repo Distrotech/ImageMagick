@@ -22,7 +22,7 @@ AC_PREREQ(2.69)
 
 m4_define([magick_major_version], [6])
 m4_define([magick_minor_version], [8])
-m4_define([magick_micro_version], [2])
+m4_define([magick_micro_version], [3])
 m4_define([magick_patchlevel_version], [10])
 m4_define([magick_version],
           [magick_major_version.magick_minor_version.magick_micro_version-magick_patchlevel_version])
@@ -58,9 +58,14 @@ AC_CONFIG_FILES([\
     magick/version.h \
     Makefile \
     magick.sh \
-    PerlMagick/Magick.pm \
-    PerlMagick/Makefile.PL \
     PerlMagick/check.sh \
+    PerlMagick/default/Magick.pm \
+    PerlMagick/Makefile.PL \
+    PerlMagick/default/Makefile.PL \
+    PerlMagick/quantum/Makefile.PL \
+    PerlMagick/quantum/quantum.pm \
+    PerlMagick/quantum/quantum.xs \
+    PerlMagick/quantum/typemap \
     utilities/animate.1 \
     utilities/compare.1 \
     utilities/composite.1 \
@@ -283,6 +288,7 @@ AX_COMPILER_VENDOR
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
+AC_PROG_SED
 AC_PROG_AWK
 AM_WITH_DMALLOC
 AX_C___ATTRIBUTE__
@@ -383,25 +389,27 @@ fi
 
 dnl Platform-specific stuff
 case "$host" in
-*darwin* | *-macos10*)
-  dnl OS X universal binary support, requires --disable-dependency-tracking
-  AC_ARG_ENABLE([osx-universal-binary],
+  *darwin* | *-macos10*)
+    dnl Disable FORTIFY_SOURCE to fix a bug in LVVM / OpenMP support
+    CFLAGS="${CFLAGS} -D_FORTIFY_SOURCE=0"
+    dnl OS X universal binary support, requires --disable-dependency-tracking
+    AC_ARG_ENABLE([osx-universal-binary],
         AC_HELP_STRING([--enable-osx-universal-binary],
            [build universal binary on OS X [[default=no]]]),
         [build_osxuniversal="${enableval}"], [build_osxuniversal=no])
 
-  if test "${build_osxuniversal}" != no ; then
-    if test "$enable_dependency_tracking" != no ; then
-      AC_MSG_ERROR([--enable-osx-universal-binary requires --disable-dependency-tracking.
+    if test "${build_osxuniversal}" != no ; then
+      if test "$enable_dependency_tracking" != no ; then
+        AC_MSG_ERROR([--enable-osx-universal-binary requires --disable-dependency-tracking.
 Please re-run configure with these options:
   --disable-dependency-tracking --enable-osx-universal-binary
         ])
+      fi
+      CFLAGS="$CFLAGS -isysroot /Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
+      CXXFLAGS="$CXXFLAGS -isysroot /Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
+      LDFLAGS="$LDFLAGS -Wl,-syslibroot,/Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
     fi
-    CFLAGS="$CFLAGS -isysroot /Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
-    CXXFLAGS="$CXXFLAGS -isysroot /Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
-    LDFLAGS="$LDFLAGS -Wl,-syslibroot,/Developer/SDKs/MacOSX10.5.sdk -arch ppc -arch i386"
-  fi
-  ;;
+    ;;
 esac
 
 #
@@ -427,6 +435,12 @@ AC_ARG_WITH([sharearch-dir],
 
 eval "eval SHAREARCH_DIR=$sharearch_dir"
 AC_SUBST(SHAREARCH_DIR)
+
+# Path to the pkgconfig folder 
+AC_ARG_WITH([pkgconfigdir], AS_HELP_STRING([--with-pkgconfigdir=DIR],
+            [Path to the pkgconfig directory @<:@LIBDIR/pkgconfig@:>@]),
+            [pkgconfigdir="$withval"], [pkgconfigdir='${libdir}/pkgconfig'])
+AC_SUBST([pkgconfigdir])
 
 # Enable support for threads
 AC_ARG_WITH([threads],
@@ -1259,7 +1273,7 @@ fi
 
 # Assume that delegate headers reside under same directory as ImageMagick
 # installation prefix.
-MAGICK_CPPFLAGS="-I$INCLUDE_DIR/ImageMagick $MAGICK_CPPFLAGS"
+MAGICK_CPPFLAGS="-I$INCLUDE_DIR/${PACKAGE_NAME}-$MAGICK_MAJOR_VERSION $MAGICK_CPPFLAGS"
 
 #
 # Find the X11 RGB database
@@ -1973,7 +1987,7 @@ dnl ===========================================================================
 # or -framework Ghostscript
 
 AC_ARG_WITH([gslib],
-    [AC_HELP_STRING([--without-gslib],
+    [AC_HELP_STRING([--with-gslib],
                     [enable Ghostscript library support])],
     [with_gslib=$withval],
     [with_gslib='no'])
@@ -2057,7 +2071,7 @@ dnl ===========================================================================
 #
 AC_ARG_WITH(gvc,
     [AC_HELP_STRING([--with-gvc],
-                    [disable GVC support])],
+                    [enable GVC support])],
     [with_gvc=$withval],
     [with_gvc='no'])
 
@@ -2753,7 +2767,7 @@ AC_ARG_WITH(webp,
     [AC_HELP_STRING([--without-webp],
                     [disable WEBP support])],
     [with_webp=$withval],
-    [with_webp='yes'])
+    [with_webp='no'])
 
 if test "$with_webp" != 'yes'; then
     DISTCHECK_CONFIG_FLAGS="${DISTCHECK_CONFIG_FLAGS} --with-webp=$with_webp "
@@ -2768,7 +2782,7 @@ if test "$with_webp" != 'no'; then
     failed=0
     passed=0
     AC_CHECK_HEADER(webp/decode.h,passed=`expr $passed + 1`,failed=`expr $failed + 1`,)
-    AC_CHECK_LIB(webp,WebPDecodeRGB,passed=`expr $passed + 1`,failed=`expr $failed + 1`,)
+    AC_CHECK_LIB(webp,WebPPictureInit,passed=`expr $passed + 1`,failed=`expr $failed + 1`,)
     AC_MSG_CHECKING([if WEBP package is complete])
     if test $passed -gt 0; then
         if test $failed -gt 0; then
@@ -2947,7 +2961,7 @@ AC_SUBST(PERLMAINCC)
 #
 
 # Path to ImageMagick header files
-INCLUDE_RELATIVE_PATH="ImageMagick"
+INCLUDE_RELATIVE_PATH="${PACKAGE_NAME}-${MAGICK_MAJOR_VERSION}"
 INCLUDE_PATH="${INCLUDE_DIR}/${INCLUDE_RELATIVE_PATH}"
 DEFINE_INCLUDE_PATH="${INCLUDE_DIR}/${INCLUDE_RELATIVE_PATH}/"
 case "${build_os}" in
@@ -2994,6 +3008,24 @@ case "${build_os}" in
 esac
 AC_DEFINE_UNQUOTED(LIBRARY_PATH,"$DEFINE_LIBRARY_PATH",[Directory where architecture-dependent files live.])
 AC_SUBST(LIBRARY_PATH)
+
+#
+# path to local binaries
+if test "x$LIB_BIN_BASEDIRNAME" = "x"; then
+   LIB_BIN_BASEDIRNAME="bin"
+fi
+AC_DEFINE_UNQUOTED(LIB_BIN_BASEDIRNAME,"$LIB_BIN_BASEDIRNAME",[Binaries in libraries path base name (will be during install linked to bin)])
+AC_SUBST(LIB_BIN_BASEDIRNAME)
+
+if test "x$LIB_BIN_DIR" = "x"; then
+   LIB_BIN_DIR=${LIB_BIN_BASEDIRNAME}-${MAGICK_ABI_SUFFIX}
+fi
+AC_SUBST(LIB_BIN_DIR)
+
+LIB_BIN_DIR_RELATIVE_PATH=$LIB_BIN_DIR
+AC_SUBST(LIB_BIN_DIR_RELATIVE_PATH)
+LIB_BIN_DIR_PATH="${LIBRARY_PATH}/${LIB_BIN_DIR_RELATIVE_PATH}"
+AC_SUBST(LIB_BIN_DIR_PATH)
 
 #
 # path to modules lib
@@ -3043,7 +3075,7 @@ AC_SUBST(FILTER_PATH)
 
 #
 # Path to ImageMagick documentation files
-DOCUMENTATION_RELATIVE_PATH="${PACKAGE_NAME}-${PACKAGE_VERSION}"
+DOCUMENTATION_RELATIVE_PATH="${PACKAGE_NAME}-${MAGICK_MAJOR_VERSION}"
 DOCUMENTATION_PATH="${DOC_DIR}/${DOCUMENTATION_RELATIVE_PATH}"
 DEFINE_DOCUMENTATION_PATH="${DOC_DIR}/${DOCUMENTATION_RELATIVE_PATH}/"
 case "${build_os}" in
@@ -3055,7 +3087,7 @@ AC_DEFINE_UNQUOTED(DOCUMENTATION_PATH,"$DEFINE_DOCUMENTATION_PATH",[Directory wh
 AC_SUBST(DOCUMENTATION_PATH)
 
 # Subdirectory to place architecture-dependent configuration files
-CONFIGURE_RELATIVE_PATH="${PACKAGE_NAME}"
+CONFIGURE_RELATIVE_PATH="${PACKAGE_NAME}-${MAGICK_MAJOR_VERSION}"
 AC_DEFINE_UNQUOTED(CONFIGURE_RELATIVE_PATH,"$CONFIGURE_RELATIVE_PATH",[Subdirectory of lib where architecture-dependent configuration files live.])
 CONFIGURE_PATH="${SYSCONF_DIR}/${CONFIGURE_RELATIVE_PATH}/"
 DEFINE_CONFIGURE_PATH="${SYSCONF_DIR}/${CONFIGURE_RELATIVE_PATH}/"
@@ -3068,7 +3100,7 @@ AC_DEFINE_UNQUOTED(CONFIGURE_PATH,"$DEFINE_CONFIGURE_PATH",[Directory where arch
 AC_SUBST(CONFIGURE_PATH)
 
 # Subdirectory to place architecture-independent configuration files
-SHARE_RELATIVE_PATH="${LIBRARY_RELATIVE_PATH}"
+SHARE_RELATIVE_PATH="${PACKAGE_NAME}-${MAGICK_MAJOR_VERSION}"
 AC_DEFINE_UNQUOTED(SHARE_RELATIVE_PATH,"$SHARE_RELATIVE_PATH",[Subdirectory of lib where architecture-independent configuration files live.])
 SHARE_PATH="${DATA_DIR}/${SHARE_RELATIVE_PATH}"
 DEFINE_SHARE_PATH="${DATA_DIR}/${SHARE_RELATIVE_PATH}/"

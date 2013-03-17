@@ -327,6 +327,8 @@ static const OptionInfo
     { "-display", 1L, ImageInfoOptionFlag | DrawInfoOptionFlag, MagickFalse },
     { "+dispose", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-dispose", 1L, ImageInfoOptionFlag, MagickFalse },
+    { "+dissimilarity-threshold", 0L, NonConvertOptionFlag | ImageInfoOptionFlag, MagickFalse },
+    { "-dissimilarity-threshold", 1L, NonConvertOptionFlag | ImageInfoOptionFlag, MagickFalse },
     { "+dissolve", 0L, NonConvertOptionFlag, MagickFalse },
     { "-dissolve", 1L, NonConvertOptionFlag, MagickFalse },
     { "+distort", 2L, SimpleOperatorOptionFlag, MagickFalse },
@@ -423,6 +425,8 @@ static const OptionInfo
     { "-implode", 1L, SimpleOperatorOptionFlag, MagickFalse },
     { "+insert", 0L, ListOperatorOptionFlag | FireOptionFlag, MagickFalse },
     { "-insert", 1L, ListOperatorOptionFlag | FireOptionFlag, MagickFalse },
+    { "+intensity", 0L, ImageInfoOptionFlag, MagickFalse },
+    { "-intensity", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+intent", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-intent", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+interlace", 0L, ImageInfoOptionFlag, MagickFalse },
@@ -631,6 +635,8 @@ static const OptionInfo
     { "-sigmoidal-contrast", 1L, SimpleOperatorOptionFlag, MagickFalse },
     { "+silent", 0L, NonConvertOptionFlag, MagickFalse },
     { "-silent", 1L, NonConvertOptionFlag, MagickFalse },
+    { "+similarity-threshold", 0L, NonConvertOptionFlag | ImageInfoOptionFlag, MagickFalse },
+    { "-similarity-threshold", 1L, NonConvertOptionFlag | ImageInfoOptionFlag, MagickFalse },
     { "+size", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-size", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+sketch", 1L, DeprecateOptionFlag, MagickFalse },
@@ -870,9 +876,9 @@ static const OptionInfo
     { "Log", LogColorspace, UndefinedOptionFlag, MagickFalse },
     { "Luv", LuvColorspace, UndefinedOptionFlag, MagickFalse },
     { "OHTA", OHTAColorspace, UndefinedOptionFlag, MagickFalse },
-    { "Rec601Luma", Rec601LumaColorspace, UndefinedOptionFlag, MagickFalse },
+    { "Rec601Luma", Rec601LumaColorspace, DeprecateOptionFlag, MagickFalse },
     { "Rec601YCbCr", Rec601YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
-    { "Rec709Luma", Rec709LumaColorspace, UndefinedOptionFlag, MagickFalse },
+    { "Rec709Luma", Rec709LumaColorspace, DeprecateOptionFlag, MagickFalse },
     { "Rec709YCbCr", Rec709YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
     { "RGB", RGBColorspace, UndefinedOptionFlag, MagickFalse },
     { "sRGB", sRGBColorspace, UndefinedOptionFlag, MagickFalse },
@@ -1227,6 +1233,7 @@ static const OptionInfo
     { "Format", MagickFormatOptions, UndefinedOptionFlag, MagickFalse },
     { "Function", MagickFunctionOptions, UndefinedOptionFlag, MagickFalse },
     { "Gravity", MagickGravityOptions, UndefinedOptionFlag, MagickFalse },
+    { "Intensity", MagickPixelIntensityOptions, UndefinedOptionFlag, MagickFalse },
     { "Intent", MagickIntentOptions, UndefinedOptionFlag, MagickFalse },
     { "Interlace", MagickInterlaceOptions, UndefinedOptionFlag, MagickFalse },
     { "Interpolate", MagickInterpolateOptions, UndefinedOptionFlag, MagickFalse },
@@ -1463,6 +1470,19 @@ static const OptionInfo
     { "Signed", SignedQuantumFormat, UndefinedOptionFlag, MagickFalse },
     { "Unsigned", UnsignedQuantumFormat, UndefinedOptionFlag, MagickFalse },
     { (char *) NULL, FloatingPointQuantumFormat, UndefinedOptionFlag, MagickFalse }
+  },
+  PixelIntensityOptions[] =
+  {
+    { "Undefined", UndefinedPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Average", AveragePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Brightness", BrightnessPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Lightness", LightnessPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec601Luma", Rec601LumaPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec601Luminance", Rec601LuminancePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec709Luma", Rec709LumaPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "Rec709Luminance", Rec709LuminancePixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { "RMS", RMSPixelIntensityMethod, UndefinedOptionFlag, MagickTrue },
+    { (char *) NULL, UndefinedPixelIntensityMethod, UndefinedOptionFlag, MagickFalse }
   },
   ResolutionOptions[] =
   {
@@ -1863,7 +1883,6 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
     case MagickFilterOptions: return(FilterOptions);
     case MagickFunctionOptions: return(FunctionOptions);
     case MagickGravityOptions: return(GravityOptions);
-/*  case MagickImageListOptions: return(ImageListOptions); */
     case MagickIntentOptions: return(IntentOptions);
     case MagickInterlaceOptions: return(InterlaceOptions);
     case MagickInterpolateOptions: return(InterpolateOptions);
@@ -1879,6 +1898,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
     case MagickMorphologyOptions: return(MorphologyOptions);
     case MagickNoiseOptions: return(NoiseOptions);
     case MagickOrientationOptions: return(OrientationOptions);
+    case MagickPixelIntensityOptions: return(PixelIntensityOptions);
     case MagickPolicyDomainOptions: return(PolicyDomainOptions);
     case MagickPolicyRightsOptions: return(PolicyRightsOptions);
     case MagickPreviewOptions: return(PreviewOptions);

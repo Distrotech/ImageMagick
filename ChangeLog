@@ -1,3 +1,110 @@
+2013-03-18  6.8.3-10 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-10, SVN revision 11413.
+
+2013-03-15  6.8.3-10 Glenn Randers-Pehrson <glennrp@image...>
+  * Added IM, libpng, and zlib version info to debug output.
+
+2013-03-10  6.8.3-10 Bastien Roucaries  <roucaries.basti...>
+  * Move PerlMagick arch independant part to 'default' folder.
+  * Move binaries to lib subdirectory and link are created from binary package.
+
+2013-03-10  6.8.3-10 Cristy  <quetzlzacatenango@image...>
+  * The TXT image format can now generate output compatible with the
+    -sparse-color option (e.g. -define txt:sparse-color=true txt:-).
+  * Support -intensity option: method to generate an intensity value from a
+    pixel.
+  * Add -similarity-threshold option to the compare utility, the minimum
+    distortion for a (sub)image match.
+  * Avoid seq-fault in AcquireQuantumInfo() (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=22973).
+  * Comment resource initializers in magick/resource.c.
+
+2013-03-10  6.8.3-9 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-9, SVN revision 11294.
+
+2013-03-09  6.8.3-9 Cristy  <quetzlzacatenango@image...>
+  * Add a space after the LastPage option in coders/ps.c (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=22940).
+
+2013-03-08  6.8.3-8 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-8, SVN revision 11283.
+
+2013-03-05  6.8.3-8 Cristy  <quetzlzacatenango@image...>
+  * GIF comments are no longer displaced by 1 for animated GIFs (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=22901).
+  * A blur kernel with a zero sigma is unity.
+
+2013-03-03  6.8.3-7 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-7, SVN revision 11249.
+
+2013-03-02  6.8.3-7 Glenn Randers-Pehrson <glennrp@image...>
+  * Do not replace gAMA found in input with 1/2.2
+  * Avoid a libpng16 warning about storing unknown chunks.
+
+2013-03-01  6.8.3-7 Cristy  <quetzlzacatenango@image...>
+  * Improve performance when rendering a caption.
+  * The compare 'map' image should not be transparent.
+  * Use only major version for decorating include path.
+
+2013-02-28  6.8.3-6 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-6, SVN revision 11210.
+
+2013-02-25  6.8.3-6 Cristy  <quetzlzacatenango@image...>
+   * Support built-in 1x1 and 2x1 threshold maps (reference
+     http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=22861).
+   * Check for webp version (reference
+     http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=22867).
+
+2013-02-25  6.8.3-6 Glenn Randers-Pehrson <glennrp@image...>
+  * Relocated png_set_bKGD(), etc., after png_set_IHDR() because they
+    might depend on members of info_ptr that are set by png_set_IHDR().
+
+2013-02-25  6.8.3-5 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-5, SVN revision 11170.
+
+2013-02-23  6.8.3-5 Cristy  <quetzlzacatenango@image...>
+  * Read the WebP extended file format (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=22809).
+  * Add arch annotation to include path to distinquish ImageMagick versions
+    6 & 7.
+
+2013-02-22  6.8.3-4 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-4, SVN revision 11127.
+
+2013-02-22  6.8.3-4 Cristy  <quetzlzacatenango@image...>
+  * Reduce default memory resource limit under Windows.
+
+2013-02-19  6.8.3-3 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-3, SVN revision 11105.
+
+2013-02-19  6.8.3-3 Cristy  <quetzlzacatenango@image...>
+  * Set WEBP lossless / lossy property properly (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=22809).
+
+2013-02-18  6.8.3-2 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-2, SVN revision 11087.
+
+2013-02-17  6.8.3-2 Cristy  <quetzlzacatenango@image...>
+  * Semaphore is now unlocked when an X11 annotation exception is thrown.
+  * WEBP coder enhancement and memory leak patch (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=22809).
+
+2013-02-16  6.8.3-1 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-1, SVN revision 11060.
+
+2013-02-16  6.8.3-1 Cristy  <quetzlzacatenango@image...>
+   * Disable FORTIFY_SOURCE to fix a bug in LVVM / OpenMP support.
+
+2013-02-15  6.8.3-0 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.3-0, SVN revision 11045.
+
+2013-02-14  6.8.3-0 Cristy  <quetzlzacatenango@image...>
+   * Webp requires alpha, not opacity (reference
+     http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=22793).
+
+2013-02-12  6.8.3-0 Bastien Roucaries  <roucaries.basti...>
+  * Allow PerlMagick to be multi-quantum (e.g. Image::Magick::Q16).
+
 2013-02-11  6.8.2-10 Cristy  <quetzlzacatenango@image...>
   * New version 6.8.2-10, SVN revision 11004.
 

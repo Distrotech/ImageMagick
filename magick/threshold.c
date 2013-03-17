@@ -109,6 +109,28 @@ struct _ThresholdMap
 };
 
 /*
+ *   Static declarations.
+ *   */
+static const char
+  *MinimalThresholdMap =
+    "<?xml version=\"1.0\"?>"
+    "<thresholds>"
+    "  <threshold map=\"threshold\" alias=\"1x1\">"
+    "    <description>Threshold 1x1 (non-dither)</description>"
+    "    <levels width=\"1\" height=\"1\" divisor=\"2\">"
+    "        1"
+    "    </levels>"
+    "  </threshold>"
+    "  <threshold map=\"checks\" alias=\"2x1\">"
+    "    <description>Checkerboard 2x1 (dither)</description>"
+    "    <levels width=\"2\" height=\"2\" divisor=\"3\">"
+    "       1 2"
+    "       2 1"
+    "    </levels>"
+    "  </threshold>"
+    "</thresholds>";
+
+/*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
@@ -420,7 +442,7 @@ MagickExport MagickBooleanType BilevelImageChannel(Image *image,
   if (SetImageStorageClass(image,DirectClass) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace);
   /*
     Bilevel threshold image.
   */
@@ -467,28 +489,27 @@ MagickExport MagickBooleanType BilevelImageChannel(Image *image,
       for (x=0; x < (ssize_t) image->columns; x++)
       {
         if ((channel & RedChannel) != 0)
-          SetPixelRed(q,(MagickRealType) GetPixelRed(q) <=
-            threshold ? 0 : QuantumRange);
+          SetPixelRed(q,(MagickRealType) GetPixelRed(q) <= threshold ? 0 :
+            QuantumRange);
         if ((channel & GreenChannel) != 0)
-          SetPixelGreen(q,(MagickRealType) GetPixelGreen(q) <=
-            threshold ? 0 : QuantumRange);
+          SetPixelGreen(q,(MagickRealType) GetPixelGreen(q) <= threshold ? 0 :
+            QuantumRange);
         if ((channel & BlueChannel) != 0)
-          SetPixelBlue(q,(MagickRealType) GetPixelBlue(q) <=
-            threshold ? 0 : QuantumRange);
+          SetPixelBlue(q,(MagickRealType) GetPixelBlue(q) <= threshold ? 0 :
+            QuantumRange);
         if ((channel & OpacityChannel) != 0)
           {
             if (image->matte == MagickFalse)
-              SetPixelOpacity(q,(MagickRealType)
-                GetPixelOpacity(q) <= threshold ? 0 : QuantumRange);
+              SetPixelOpacity(q,(MagickRealType) GetPixelOpacity(q) <=
+                threshold ? 0 : QuantumRange);
             else
-              SetPixelOpacity(q,(MagickRealType)
-                GetPixelOpacity(q) <= threshold ? OpaqueOpacity :
-                TransparentOpacity);
+              SetPixelOpacity(q,(MagickRealType) GetPixelOpacity(q) <=
+                threshold ? OpaqueOpacity : TransparentOpacity);
           }
         if (((channel & IndexChannel) != 0) &&
             (image->colorspace == CMYKColorspace))
-          SetPixelIndex(indexes+x,(MagickRealType)
-            GetPixelIndex(indexes+x) <= threshold ? 0 : QuantumRange);
+          SetPixelIndex(indexes+x,(MagickRealType) GetPixelIndex(indexes+x) <=
+            threshold ? 0 : QuantumRange);
         q++;
       }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -618,7 +639,7 @@ MagickExport MagickBooleanType BlackThresholdImageChannel(Image *image,
   intensity=MagickPixelIntensity(&threshold);
   if ((IsMagickGray(&threshold) == MagickFalse) &&
       (IsGrayColorspace(image->colorspace) != MagickFalse))
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace);
   /*
     Black threshold image.
   */
@@ -1138,14 +1159,21 @@ MagickExport ThresholdMap *GetThresholdMap(const char *map_id,
   ThresholdMap
     *map;
 
-  map=(ThresholdMap *)NULL;
+  map=GetThresholdMapFile(MinimalThresholdMap,"built-in",map_id,exception);
+  if (map != (ThresholdMap *) NULL)
+    return(map);
   options=GetConfigureOptions(ThresholdsFilename,exception);
-  while (( option=(const StringInfo *) GetNextValueInLinkedList(options) )
-          != (const StringInfo *) NULL && map == (ThresholdMap *)NULL )
+  option=(const StringInfo *) GetNextValueInLinkedList(options);
+  while (option != (const StringInfo *) NULL)
+  {
     map=GetThresholdMapFile((const char *) GetStringInfoDatum(option),
       GetStringInfoPath(option),map_id,exception);
+    if (map != (ThresholdMap *) NULL)
+      return(map);
+    option=(const StringInfo *) GetNextValueInLinkedList(options);
+  }
   options=DestroyConfigureOptions(options);
-  return(map);
+  return((ThresholdMap *) NULL);
 }
 
 /*
@@ -1272,15 +1300,15 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
   if ( file == (FILE *)NULL )
     file = stdout;
   options=GetConfigureOptions(ThresholdsFilename,exception);
-
   (void) FormatLocaleFile(file,
     "\n   Threshold Maps for Ordered Dither Operations\n");
-  while ( ( option=(const StringInfo *) GetNextValueInLinkedList(options) )
-          != (const StringInfo *) NULL)
+  option=(const StringInfo *) GetNextValueInLinkedList(options);
+  while (option != (const StringInfo *) NULL)
   {
-    (void) FormatLocaleFile(file,"\nPATH: %s\n\n",GetStringInfoPath(option));
+    (void) FormatLocaleFile(file,"\nPath: %s\n\n",GetStringInfoPath(option));
     status|=ListThresholdMapFile(file,(const char *) GetStringInfoDatum(option),
       GetStringInfoPath(option),exception);
+    option=(const StringInfo *) GetNextValueInLinkedList(options);
   }
   options=DestroyConfigureOptions(options);
   return(status != 0 ? MagickTrue : MagickFalse);
@@ -2251,9 +2279,6 @@ MagickExport MagickBooleanType WhiteThresholdImageChannel(Image *image,
       threshold.index*=(MagickRealType) (QuantumRange/100.0);
     }
   intensity=MagickPixelIntensity(&threshold);
-  if ((IsMagickGray(&threshold) == MagickFalse) &&
-      (IsGrayColorspace(image->colorspace) != MagickFalse))
-    (void) TransformImageColorspace(image,RGBColorspace);
   /*
     White threshold image.
   */

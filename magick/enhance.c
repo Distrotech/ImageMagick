@@ -773,7 +773,7 @@ MagickExport MagickBooleanType ClutImageChannel(Image *image,
   if (SetImageStorageClass(image,DirectClass) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace);
   clut_map=(MagickPixelPacket *) AcquireQuantumMemory(MaxMap+1UL,
     sizeof(*clut_map));
   if (clut_map == (MagickPixelPacket *) NULL)
@@ -1129,7 +1129,6 @@ MagickExport MagickBooleanType ContrastStretchImageChannel(Image *image,
     *exception;
 
   MagickBooleanType
-    linear,
     status;
 
   MagickOffsetType
@@ -1167,12 +1166,6 @@ MagickExport MagickBooleanType ContrastStretchImageChannel(Image *image,
   /*
     Form histogram.
   */
-  linear=MagickFalse;
-  if (image->colorspace == sRGBColorspace)
-    {
-      linear=MagickTrue;
-      (void) TransformImageColorspace(image,RGBColorspace);
-    }
   status=MagickTrue;
   exception=(&image->exception);
   (void) ResetMagickMemory(histogram,0,(MaxMap+1)*sizeof(*histogram));
@@ -1525,8 +1518,6 @@ MagickExport MagickBooleanType ContrastStretchImageChannel(Image *image,
   }
   image_view=DestroyCacheView(image_view);
   stretch_map=(QuantumPixelPacket *) RelinquishMagickMemory(stretch_map);
-  if (linear != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace);
   return(status);
 }
 
@@ -1770,7 +1761,6 @@ MagickExport MagickBooleanType EqualizeImageChannel(Image *image,
     *exception;
 
   MagickBooleanType
-    linear,
     status;
 
   MagickOffsetType
@@ -1821,12 +1811,6 @@ MagickExport MagickBooleanType EqualizeImageChannel(Image *image,
   /*
     Form histogram.
   */
-  linear=MagickFalse;
-  if (image->colorspace == sRGBColorspace)
-    {
-      linear=MagickTrue;
-      (void) TransformImageColorspace(image,RGBColorspace);
-    }
   (void) ResetMagickMemory(histogram,0,(MaxMap+1)*sizeof(*histogram));
   exception=(&image->exception);
   image_view=AcquireVirtualCacheView(image,exception);
@@ -2051,8 +2035,6 @@ MagickExport MagickBooleanType EqualizeImageChannel(Image *image,
   }
   image_view=DestroyCacheView(image_view);
   equalize_map=(QuantumPixelPacket *) RelinquishMagickMemory(equalize_map);
-  if (linear != MagickFalse)
-    (void) TransformImageColorspace(image,sRGBColorspace);
   return(status);
 }
 
@@ -2387,7 +2369,7 @@ MagickExport MagickBooleanType HaldClutImageChannel(Image *image,
   if (SetImageStorageClass(image,DirectClass) == MagickFalse)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) TransformImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace);
   if (image->matte == MagickFalse)
     (void) SetImageAlphaChannel(image,OpaqueAlphaChannel);
   /*
@@ -2679,6 +2661,8 @@ MagickExport MagickBooleanType LevelImageChannel(Image *image,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace);
   if (image->storage_class == PseudoClass)
     for (i=0; i < (ssize_t) image->colors; i++)
     {
@@ -2686,22 +2670,20 @@ MagickExport MagickBooleanType LevelImageChannel(Image *image,
         Level colormap.
       */
       if ((channel & RedChannel) != 0)
-        image->colormap[i].red=(Quantum) ClampToQuantum(LevelPixel(
-          black_point,white_point,gamma,(MagickRealType)
-          image->colormap[i].red));
+        image->colormap[i].red=(Quantum) ClampToQuantum(LevelPixel(black_point,
+          white_point,gamma,(MagickRealType) image->colormap[i].red));
       if ((channel & GreenChannel) != 0)
         image->colormap[i].green=(Quantum) ClampToQuantum(LevelPixel(
           black_point,white_point,gamma,(MagickRealType)
           image->colormap[i].green));
       if ((channel & BlueChannel) != 0)
-        image->colormap[i].blue=(Quantum) ClampToQuantum(LevelPixel(
-          black_point,white_point,gamma,(MagickRealType)
-          image->colormap[i].blue));
+        image->colormap[i].blue=(Quantum) ClampToQuantum(LevelPixel(black_point,
+          white_point,gamma,(MagickRealType) image->colormap[i].blue));
       if ((channel & OpacityChannel) != 0)
         image->colormap[i].opacity=(Quantum) (QuantumRange-(Quantum)
           ClampToQuantum(LevelPixel(black_point,white_point,gamma,
           (MagickRealType) (QuantumRange-image->colormap[i].opacity))));
-      }
+    }
   /*
     Level image.
   */
@@ -2862,7 +2844,7 @@ MagickExport MagickBooleanType LevelizeImageChannel(Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,RGBColorspace);
+    (void) TransformImageColorspace(image,sRGBColorspace);
   if (image->storage_class == PseudoClass)
     for (i=0; i < (ssize_t) image->colors; i++)
     {

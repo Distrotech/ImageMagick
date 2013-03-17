@@ -58,6 +58,7 @@
 #include "magick/quantum-private.h"
 #include "magick/static.h"
 #include "magick/string_.h"
+#include "magick/string-private.h"
 #include "magick/module.h"
 #include "magick/utility.h"
 #include "magick/xwindow.h"
@@ -74,6 +75,40 @@
 static MagickBooleanType
   WriteWEBPImage(const ImageInfo *,Image *);
 #endif
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   I s W E B P                                                               %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  IsWEBP() returns MagickTrue if the image format type, identified by the
+%  magick string, is WebP.
+%
+%  The format of the IsWEBP method is:
+%
+%      MagickBooleanType IsWEBP(const unsigned char *magick,const size_t length)
+%
+%  A description of each parameter follows:
+%
+%    o magick: compare image format pattern against these bytes.
+%
+%    o length: Specifies the length of the magick string.
+%
+*/
+static MagickBooleanType IsWEBP(const unsigned char *magick,const size_t length)
+{
+  if (length < 12)
+    return(MagickFalse);
+  if (LocaleNCompare((const char *) magick+8,"WEBP",4) == 0)
+    return(MagickTrue);
+  return(MagickFalse);
+}
 
 #if defined(MAGICKCORE_WEBP_DELEGATE)
 /*
@@ -101,24 +136,76 @@ static MagickBooleanType
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static inline uint32_t ReadWebPLSBWord(const unsigned char *restrict data)
+{
+  register const unsigned char
+    *p;
+
+  register uint32_t
+    value;
+
+  p=data;
+  value=(uint32_t) (*p++);
+  value|=((uint32_t) (*p++)) << 8;
+  value|=((uint32_t) (*p++)) << 16;
+  value|=((uint32_t) (*p++)) << 24;
+  return(value);
+}
+
+static MagickBooleanType IsWEBPImageLossless(const unsigned char *stream,
+  const size_t length)
+{
+#define VP8_CHUNK_INDEX  15
+#define LOSSLESS_FLAG  'L'
+#define EXTENDED_HEADER  'X'
+#define VP8_CHUNK_HEADER  "VP8"
+#define VP8_CHUNK_HEADER_SIZE  3
+#define RIFF_HEADER_SIZE  12
+#define VP8X_CHUNK_SIZE  10
+#define TAG_SIZE  4
+#define CHUNK_SIZE_BYTES  4
+#define CHUNK_HEADER_SIZE  8
+#define MAX_CHUNK_PAYLOAD  (~0U-CHUNK_HEADER_SIZE-1)
+
+  ssize_t
+    offset;
+
+  /*
+    Read simple header.
+  */
+  if (stream[VP8_CHUNK_INDEX] != EXTENDED_HEADER)
+   return(stream[VP8_CHUNK_INDEX] == LOSSLESS_FLAG ? MagickTrue : MagickFalse);
+  /*
+    Read extended header.
+  */
+  offset=RIFF_HEADER_SIZE+TAG_SIZE+CHUNK_SIZE_BYTES+VP8X_CHUNK_SIZE;
+  while (offset <= length)
+  {
+    uint32_t
+      chunk_size,
+      chunk_size_pad;
+
+    chunk_size=ReadWebPLSBWord(stream+offset+TAG_SIZE);
+    if (chunk_size > MAX_CHUNK_PAYLOAD)
+      break;
+    chunk_size_pad=(CHUNK_HEADER_SIZE+chunk_size+1) & ~1;
+    if (memcmp(stream+offset,VP8_CHUNK_HEADER,VP8_CHUNK_HEADER_SIZE) == 0)
+      return(*(stream+offset+VP8_CHUNK_HEADER_SIZE) == LOSSLESS_FLAG ?
+        MagickTrue : MagickFalse);
+    offset+=chunk_size_pad;
+  }
+  return(MagickFalse);
+}
+
 static Image *ReadWEBPImage(const ImageInfo *image_info,
   ExceptionInfo *exception)
 {
-  int
-    height,
-    width;
-
   Image
     *image;
 
   MagickBooleanType
     status;
-
-  register PixelPacket
-    *q;
-
-  register ssize_t
-    x;
 
   register unsigned char
     *p;
@@ -131,8 +218,16 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
     y;
 
   unsigned char
-    *stream,
-    *pixels;
+    *stream;
+
+  WebPDecoderConfig
+    configure;
+
+  WebPDecBuffer
+    *restrict webp_image = &configure.output;
+
+  WebPBitstreamFeatures
+    *restrict features = &configure.input;
 
   /*
     Open image file.
@@ -151,6 +246,8 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
+  if (WebPInitDecoderConfig(&configure) == 0)
+    ThrowReaderException(ResourceLimitError,"UnableToDecodeImageFile");
   length=(size_t) GetBlobSize(image);
   stream=(unsigned char *) AcquireQuantumMemory(length,sizeof(*stream));
   if (stream == (unsigned char *) NULL)
@@ -158,14 +255,31 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
   count=ReadBlob(image,length,stream);
   if (count != (ssize_t) length)
     ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
-  pixels=(unsigned char *) WebPDecodeRGBA(stream,length,&width,&height);
-  if (pixels == (unsigned char *) NULL)
-    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-  image->columns=(size_t) width;
-  image->rows=(size_t) height;
-  p=pixels;
+  if (WebPGetFeatures(stream,length,features) != 0)
+    {
+      stream=(unsigned char*) RelinquishMagickMemory(stream);
+      ThrowReaderException(ResourceLimitError,"UnableToDecodeImageFile");
+    }
+  webp_image->colorspace=MODE_RGBA;
+  if (WebPDecode(stream,length,&configure) != 0)
+    {
+      stream=(unsigned char*) RelinquishMagickMemory(stream);
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    }
+  image->columns=(size_t) webp_image->width;
+  image->rows=(size_t) webp_image->height;
+  image->matte=features->has_alpha != 0 ? MagickTrue : MagickFalse;
+  if (IsWEBPImageLossless(stream,length) != MagickFalse)
+    image->quality=100;
+  p=webp_image->u.RGBA.rgba;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    register PixelPacket
+      *q;
+
+    register ssize_t
+      x;
+
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
     if (q == (PixelPacket *) NULL)
       break;
@@ -175,8 +289,6 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       SetPixelGreen(q,ScaleCharToQuantum(*p++));
       SetPixelBlue(q,ScaleCharToQuantum(*p++));
       SetPixelAlpha(q,ScaleCharToQuantum(*p++));
-      if (q->opacity != OpaqueOpacity)
-        image->matte=MagickTrue;
       q++;
     }
     if (SyncAuthenticPixels(image,exception) == MagickFalse)
@@ -186,8 +298,8 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
     if (status == MagickFalse)
       break;
   }
-  free(pixels);
-  pixels=(unsigned char *) NULL;
+  WebPFreeDecBuffer(webp_image);
+  stream=(unsigned char*) RelinquishMagickMemory(stream);
   return(image);
 }
 #endif
@@ -217,17 +329,28 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
 */
 ModuleExport size_t RegisterWEBPImage(void)
 {
+  char
+    version[MaxTextExtent];
+
   MagickInfo
     *entry;
 
+  *version='\0';
   entry=SetMagickInfo("WEBP");
 #if defined(MAGICKCORE_WEBP_DELEGATE)
   entry->decoder=(DecodeImageHandler *) ReadWEBPImage;
   entry->encoder=(EncodeImageHandler *) WriteWEBPImage;
+  (void) FormatLocaleString(version,MaxTextExtent,"libwebp %d.%d.%d",
+    (WebPGetDecoderVersion() >> 16) & 0xff,
+    (WebPGetDecoderVersion() >> 8) & 0xff,
+    (WebPGetDecoderVersion() >> 0) & 0xff);
 #endif
   entry->description=ConstantString("WebP Image Format");
   entry->adjoin=MagickFalse;
   entry->module=ConstantString("WEBP");
+  entry->magick=(IsImageFormatHandler *) IsWEBP;
+  if (*version != '\0')
+    entry->version=ConstantString(version);
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -296,25 +419,22 @@ static int WebPWriter(const unsigned char *stream,size_t length,
 static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   Image *image)
 {
+  const char
+    *value;
+
   int
     webp_status;
 
   MagickBooleanType
     status;
 
-  register const PixelPacket
-    *restrict p;
-
-  register ssize_t
-    x;
-
-  register unsigned char
+  register uint32_t
     *restrict q;
 
   ssize_t
     y;
 
-  unsigned char
+  uint32_t
     *pixels;
 
   WebPConfig
@@ -335,30 +455,98 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   assert(image->signature == MagickSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  if ((image->columns > 16383) || (image->rows > 16383))
+  if ((image->columns > 16383UL) || (image->rows > 16383UL))
     ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,&image->exception);
   if (status == MagickFalse)
     return(status);
-  if (WebPPictureInit(&picture) == 0)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+  if ((WebPPictureInit(&picture) == 0) || (WebPConfigInit(&configure) == 0))
+    ThrowWriterException(ResourceLimitError,"UnableToEncodeImageFile");
   picture.writer=WebPWriter;
   picture.custom_ptr=(void *) image;
   picture.stats=(&statistics);
   picture.width=(int) image->columns;
   picture.height=(int) image->rows;
-  if (WebPConfigInit(&configure) == 0)
-    ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
+  picture.argb_stride=(int) image->columns;
+  picture.use_argb=1;
   if (image->quality != UndefinedCompressionQuality)
     configure.quality=(float) image->quality;
+  if (image->quality >= 100)
+    configure.lossless=1;
+  value=GetImageOption(image_info,"webp:lossless");
+  if (value != (char *) NULL)
+    configure.lossless=ParseCommandOption(MagickBooleanOptions,MagickFalse,
+      value);
+  value=GetImageOption(image_info,"webp:method");
+  if (value != (char *) NULL)
+    configure.method=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:image-hint");
+  if (value != (char *) NULL)
+    {
+      if (LocaleCompare(value,"graph") == 0)
+        configure.image_hint=WEBP_HINT_GRAPH;
+      if (LocaleCompare(value,"photo") == 0)
+        configure.image_hint=WEBP_HINT_PHOTO;
+      if (LocaleCompare(value,"picture") == 0)
+        configure.image_hint=WEBP_HINT_PICTURE;
+    }
+  value=GetImageOption(image_info,"webp:target-size");
+  if (value != (char *) NULL)
+    configure.target_size=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:target-psnr");
+  if (value != (char *) NULL)
+    configure.target_PSNR=(float) StringToDouble(value,(char **) NULL);
+  value=GetImageOption(image_info,"webp:segments");
+  if (value != (char *) NULL)
+    configure.segments=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:sns-strength");
+  if (value != (char *) NULL)
+    configure.sns_strength=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:filter-strength");
+  if (value != (char *) NULL)
+    configure.filter_strength=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:filter-sharpness");
+  if (value != (char *) NULL)
+    configure.filter_sharpness=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:filter-type");
+  if (value != (char *) NULL)
+    configure.filter_type=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:auto-filter");
+  if (value != (char *) NULL)
+    configure.autofilter=ParseCommandOption(MagickBooleanOptions,MagickFalse,
+      value);
+  value=GetImageOption(image_info,"webp:alpha-compression");
+  if (value != (char *) NULL)
+    configure.alpha_compression=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:alpha-filtering");
+  if (value != (char *) NULL)
+    configure.alpha_filtering=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:alpha-quality");
+  if (value != (char *) NULL)
+    configure.alpha_quality=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:pass");
+  if (value != (char *) NULL)
+    configure.pass=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:show-compressed");
+  if (value != (char *) NULL)
+    configure.show_compressed=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:preprocessing");
+  if (value != (char *) NULL)
+    configure.preprocessing=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:partitions");
+  if (value != (char *) NULL)
+    configure.partitions=StringToInteger(value);
+  value=GetImageOption(image_info,"webp:partition-limit");
+  if (value != (char *) NULL)
+    configure.partition_limit=StringToInteger(value);
   if (WebPValidateConfig(&configure) == 0)
     ThrowWriterException(ResourceLimitError,"UnableToEncodeImageFile");
   /*
     Allocate memory for pixels.
   */
-  pixels=(unsigned char *) AcquireQuantumMemory(image->columns,
-    (image->matte != MagickFalse ? 4 : 3)*image->rows*sizeof(*pixels));
-  if (pixels == (unsigned char *) NULL)
+  pixels=(uint32_t *) AcquireQuantumMemory(image->columns,image->rows*
+    sizeof(*pixels));
+  if (pixels == (uint32_t *) NULL)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
   /*
     Convert image to WebP raster pixels.
@@ -366,16 +554,22 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   q=pixels;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    register const PixelPacket
+      *restrict p;
+
+    register ssize_t
+      x;
+
     p=GetVirtualPixels(image,0,y,image->columns,1,&image->exception);
     if (p == (PixelPacket *) NULL)
       break;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      *q++=ScaleQuantumToChar(GetPixelRed(p));
-      *q++=ScaleQuantumToChar(GetPixelGreen(p));
-      *q++=ScaleQuantumToChar(GetPixelBlue(p));
-      if (image->matte != MagickFalse)
-        *q++=ScaleQuantumToChar(GetPixelOpacity(p));
+      *q++=(uint32_t) (image->matte != MagickFalse ?
+        ScaleQuantumToChar(GetPixelAlpha(p)) << 24 : 0xff000000u) |
+        (ScaleQuantumToChar(GetPixelRed(p)) << 16) |
+        (ScaleQuantumToChar(GetPixelGreen(p)) << 8) |
+        (ScaleQuantumToChar(GetPixelBlue(p)));
       p++;
     }
     status=SetImageProgress(image,SaveImageTag,(MagickOffsetType) y,
@@ -383,13 +577,10 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
     if (status == MagickFalse)
       break;
   }
-  if (image->matte == MagickFalse)
-    webp_status=WebPPictureImportRGB(&picture,pixels,3*picture.width);
-  else
-    webp_status=WebPPictureImportRGBA(&picture,pixels,4*picture.width);
-  pixels=(unsigned char *) RelinquishMagickMemory(pixels);
+  picture.argb=pixels;
   webp_status=WebPEncode(&configure,&picture);
   WebPPictureFree(&picture);
+  pixels=(uint32_t *) RelinquishMagickMemory(pixels);
   (void) CloseBlob(image);
   return(webp_status == 0 ? MagickFalse : MagickTrue);
 }

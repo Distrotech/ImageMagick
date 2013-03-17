@@ -497,7 +497,7 @@ static double *GenerateCoefficients(const Image *image,
       number_coeff=10;
       break;
     default:
-      assert(! "Unknown Method Given"); /* just fail assertion */
+      perror("unknown method given"); /* just fail assertion */
   }
 
   /* allocate the array of coefficients needed */
@@ -1435,7 +1435,7 @@ static double *GenerateCoefficients(const Image *image,
       break;
   }
   /* you should never reach this point */
-  assert(! "No Method Handler"); /* just fail assertion */
+  perror("no method handler"); /* just fail assertion */
   return((double *) NULL);
 }
 
@@ -2298,7 +2298,7 @@ MagickExport Image *DistortImage(const Image *image,DistortImageMethod method,
     }
   if ((IsPixelGray(&distort_image->background_color) == MagickFalse) &&
       (IsGrayColorspace(distort_image->colorspace) != MagickFalse))
-    (void) TransformImageColorspace(distort_image,RGBColorspace);
+    (void) TransformImageColorspace(distort_image,sRGBColorspace);
   if (distort_image->background_color.opacity != OpaqueOpacity)
     distort_image->matte=MagickTrue;
   distort_image->page.x=geometry.x;

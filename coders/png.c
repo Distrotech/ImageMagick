@@ -1923,6 +1923,9 @@ static int read_vpag_chunk_callback(png_struct *ping, png_unknown_chunkp chunk)
      Note that libpng has already taken care of the CRC handling.
   */
 
+  LogMagickEvent(CoderEvent,GetMagickModule(),
+     " read_vpag_chunk: found %c%c%c%c chunk",
+       chunk->name[0],chunk->name[1],chunk->name[2],chunk->name[3]);
 
   if (chunk->name[0] != 118 || chunk->name[1] != 112 ||
       chunk->name[2] != 65 ||chunk-> name[3] != 103)
@@ -1995,6 +1998,13 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
   Image
     *image;
 
+  char
+    im_vers[32],
+    libpng_runv[32],
+    libpng_vers[32],
+    zlib_runv[32],
+    zlib_vers[32];
+
   int
     intent, /* "PNG Rendering intent", which is ICC intent + 1 */
     num_raw_profiles,
@@ -2024,6 +2034,7 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
     ping_found_gAMA,
     ping_found_iCCP,
     ping_found_sRGB,
+    ping_found_sRGB_cHRM,
     status;
 
   png_bytep
@@ -2097,6 +2108,49 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
   logging=LogMagickEvent(CoderEvent,GetMagickModule(),
     "  Enter ReadOnePNGImage()");
 
+  /* Define these outside of the following "if logging()" block so they will
+   * show in debuggers.
+   */
+  *im_vers='\0';
+  (void) ConcatenateMagickString(im_vers,
+         MagickLibVersionText,32);
+  (void) ConcatenateMagickString(im_vers,
+         MagickLibAddendum,32);
+
+  *libpng_vers='\0';
+  (void) ConcatenateMagickString(libpng_vers,
+         PNG_LIBPNG_VER_STRING,32);
+  *libpng_runv='\0';
+  (void) ConcatenateMagickString(libpng_runv,
+         png_get_libpng_ver(NULL),32);
+
+  *zlib_vers='\0';
+  (void) ConcatenateMagickString(zlib_vers,
+         ZLIB_VERSION,32);
+  *zlib_runv='\0';
+  (void) ConcatenateMagickString(zlib_runv,
+         zlib_version,32);
+
+  if (logging)
+    {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    IM version     = %s",
+           im_vers);
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    Libpng version = %s",
+           libpng_vers);
+       if (LocaleCompare(libpng_vers,libpng_runv) != 0)
+       {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"      running with   %s",
+           libpng_runv);
+       }
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    Zlib version   = %s",
+           zlib_vers);
+       if (LocaleCompare(zlib_vers,zlib_runv) != 0)
+       {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"      running with   %s",
+           zlib_runv);
+       }
+    }
+
 #if (PNG_LIBPNG_VER < 10200)
   if (image_info->verbose)
     printf("Your PNG library (libpng-%s) is rather old.\n",
@@ -2119,13 +2173,19 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
   if (logging != MagickFalse)
   {
     (void)LogMagickEvent(CoderEvent,GetMagickModule(),
-      "  image->matte=%d",(int) image->matte);
+      "    Before reading:");
 
     (void)LogMagickEvent(CoderEvent,GetMagickModule(),
-      "  image->rendering_intent=%d",(int) image->rendering_intent);
+      "      image->matte=%d",(int) image->matte);
 
     (void)LogMagickEvent(CoderEvent,GetMagickModule(),
-      "  image->colorspace=%d",(int) image->colorspace);
+      "      image->rendering_intent=%d",(int) image->rendering_intent);
+
+    (void)LogMagickEvent(CoderEvent,GetMagickModule(),
+      "      image->colorspace=%d",(int) image->colorspace);
+
+    (void)LogMagickEvent(CoderEvent,GetMagickModule(),
+      "      image->gamma=%f", image->gamma);
   }
   intent=Magick_RenderingIntent_to_PNG_RenderingIntent(image->rendering_intent);
 
@@ -2244,7 +2304,11 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
 
 #if defined(PNG_UNKNOWN_CHUNKS_SUPPORTED)
   /* Ignore unused chunks and all unknown chunks except for vpAg */
+#if PNG_LIBPNG_VER < 10700 /* Avoid libpng16 warning */
+  png_set_keep_unknown_chunks(ping, 2, NULL, 0);
+#else
   png_set_keep_unknown_chunks(ping, 1, NULL, 0);
+#endif
   png_set_keep_unknown_chunks(ping, 2, mng_vpAg, 1);
   png_set_keep_unknown_chunks(ping, 1, unused_chunks,
      (int)sizeof(unused_chunks)/5);
@@ -2491,19 +2555,44 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
         &image->chromaticity.blue_primary.y);
 
        ping_found_cHRM=MagickTrue;
+
+       if (image->chromaticity.red_primary.x>0.6399f &&
+           image->chromaticity.red_primary.x<0.6401f &&
+           image->chromaticity.red_primary.y>0.3299f &&
+           image->chromaticity.red_primary.y<0.3301f &&
+           image->chromaticity.green_primary.x>0.2999f &&
+           image->chromaticity.green_primary.x<0.3001f &&
+           image->chromaticity.green_primary.y>0.5999f &&
+           image->chromaticity.green_primary.y<0.6001f &&
+           image->chromaticity.blue_primary.x>0.1499f &&
+           image->chromaticity.blue_primary.x<0.1501f &&
+           image->chromaticity.blue_primary.y>0.0599f &&
+           image->chromaticity.blue_primary.y<0.0601f &&
+           image->chromaticity.white_point.x>0.3126f &&
+           image->chromaticity.white_point.x<0.3128f &&
+           image->chromaticity.white_point.y>0.3289f &&
+           image->chromaticity.white_point.y<0.3291f)
+          ping_found_sRGB_cHRM=MagickTrue;
     }
 
   if (image->rendering_intent != UndefinedIntent)
     {
-      if (ping_found_sRGB != MagickTrue)
+      if (ping_found_sRGB != MagickTrue &&
+          (ping_found_gAMA != MagickTrue ||
+          (image->gamma > .45 && image->gamma < .46)) &&
+          (ping_found_cHRM != MagickTrue ||
+          ping_found_sRGB_cHRM == MagickTrue) &&
+          ping_found_iCCP != MagickTrue)
       {
          png_set_sRGB(ping,ping_info,
             Magick_RenderingIntent_to_PNG_RenderingIntent
             (image->rendering_intent));
-         png_set_gAMA(ping,ping_info,1.000f/2.200f);
+         if (ping_found_gAMA != MagickTrue)
+            png_set_gAMA(ping,ping_info,1.000f/2.200f);
          file_gamma=1.000f/2.200f;
          ping_found_sRGB=MagickTrue;
-         ping_found_cHRM=MagickTrue;
+         (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+           "    Setting sRGB and gAMA as if in input");
       }
     }
 #if defined(PNG_oFFs_SUPPORTED)
@@ -3412,8 +3501,7 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
       (ping_color_type == PNG_COLOR_TYPE_GRAY_ALPHA))
     {
       if ((!png_get_valid(ping,ping_info,PNG_INFO_gAMA) ||
-          image->gamma == 1.0) &&
-          ping_found_cHRM != MagickTrue && ping_found_sRGB != MagickTrue)
+          image->gamma == 1.0) && ping_found_sRGB != MagickTrue)
         {
           /* Set image->gamma to 1.0, image->rendering_intent to Undefined,
            * image->colorspace to GRAY, and reset image->chromaticity.
@@ -3816,7 +3904,23 @@ static Image *ReadPNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     }
 
   if ((IssRGBColorspace(image->colorspace) != MagickFalse) &&
-      ((image->gamma < .45) || (image->gamma > .46)))
+      ((image->gamma < .45) || (image->gamma > .46)) &&
+           !(image->chromaticity.red_primary.x>0.6399f &&
+           image->chromaticity.red_primary.x<0.6401f &&
+           image->chromaticity.red_primary.y>0.3299f &&
+           image->chromaticity.red_primary.y<0.3301f &&
+           image->chromaticity.green_primary.x>0.2999f &&
+           image->chromaticity.green_primary.x<0.3001f &&
+           image->chromaticity.green_primary.y>0.5999f &&
+           image->chromaticity.green_primary.y<0.6001f &&
+           image->chromaticity.blue_primary.x>0.1499f &&
+           image->chromaticity.blue_primary.x<0.1501f &&
+           image->chromaticity.blue_primary.y>0.0599f &&
+           image->chromaticity.blue_primary.y<0.0601f &&
+           image->chromaticity.white_point.x>0.3126f &&
+           image->chromaticity.white_point.x<0.3128f &&
+           image->chromaticity.white_point.y>0.3289f &&
+           image->chromaticity.white_point.y<0.3291f))
     SetImageColorspace(image,RGBColorspace);
 
   if (logging != MagickFalse)
@@ -7274,7 +7378,8 @@ ModuleExport size_t RegisterPNGImage(void)
 
   entry->magick=(IsImageFormatHandler *) IsPNG;
   entry->adjoin=MagickFalse;
-  entry->description=ConstantString("PNG inheriting subformat from original");
+  entry->description=ConstantString(
+     "PNG inheriting bit-depth and color-type from original");
   entry->module=ConstantString("PNG");
   (void) RegisterMagickInfo(entry);
 
@@ -7643,6 +7748,13 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
   unsigned char
     *volatile ping_pixels;
 
+  char
+    im_vers[32],
+    libpng_runv[32],
+    libpng_vers[32],
+    zlib_runv[32],
+    zlib_vers[32];
+
   volatile int
     image_colors,
     ping_bit_depth,
@@ -7675,6 +7787,49 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
 
   logging=LogMagickEvent(CoderEvent,GetMagickModule(),
     "  Enter WriteOnePNGImage()");
+
+  /* Define these outside of the following "if logging()" block so they will
+   * show in debuggers.
+   */
+  *im_vers='\0';
+  (void) ConcatenateMagickString(im_vers,
+         MagickLibVersionText,MaxTextExtent);
+  (void) ConcatenateMagickString(im_vers,
+         MagickLibAddendum,MaxTextExtent);
+
+  *libpng_vers='\0';
+  (void) ConcatenateMagickString(libpng_vers,
+         PNG_LIBPNG_VER_STRING,32);
+  *libpng_runv='\0';
+  (void) ConcatenateMagickString(libpng_runv,
+         png_get_libpng_ver(NULL),32);
+
+  *zlib_vers='\0';
+  (void) ConcatenateMagickString(zlib_vers,
+         ZLIB_VERSION,32);
+  *zlib_runv='\0';
+  (void) ConcatenateMagickString(zlib_runv,
+         zlib_version,32);
+
+  if (logging)
+    {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    IM version     = %s",
+           im_vers);
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    Libpng version = %s",
+           libpng_vers);
+       if (LocaleCompare(libpng_vers,libpng_runv) != 0)
+       {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"      running with   %s",
+           libpng_runv);
+       }
+       LogMagickEvent(CoderEvent,GetMagickModule(),"    Zlib version   = %s",
+           zlib_vers);
+       if (LocaleCompare(zlib_vers,zlib_runv) != 0)
+       {
+       LogMagickEvent(CoderEvent,GetMagickModule(),"      running with   %s",
+           zlib_runv);
+       }
+    }
 
   /* Initialize some stuff */
   ping_bit_depth=0,
@@ -9730,16 +9885,7 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
             */
             ping_color_type=(png_byte) PNG_COLOR_TYPE_PALETTE;
 
-            if (mng_info->have_write_global_plte && matte == MagickFalse)
-              {
-                png_set_PLTE(ping,ping_info,NULL,0);
-
-                if (logging != MagickFalse)
-                  (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-                    "  Setting up empty PLTE chunk");
-              }
-
-            else
+            if (!(mng_info->have_write_global_plte && matte == MagickFalse))
               {
                 for (i=0; i < (ssize_t) number_colors; i++)
                 {
@@ -10098,128 +10244,6 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
     png_set_compression_strategy(ping,
        mng_info->write_png_compression_strategy-1);
 
-  /* Only write the iCCP chunk if we are not writing the sRGB chunk. */
-  if (ping_exclude_sRGB != MagickFalse ||
-     (image->rendering_intent == UndefinedIntent))
-  {
-    if ((ping_exclude_tEXt == MagickFalse ||
-       ping_exclude_zTXt == MagickFalse) &&
-       (ping_exclude_iCCP == MagickFalse || ping_exclude_zCCP == MagickFalse))
-    {
-      ResetImageProfileIterator(image);
-      for (name=GetNextImageProfile(image); name != (const char *) NULL; )
-      {
-        profile=GetImageProfile(image,name);
-
-        if (profile != (StringInfo *) NULL)
-          {
-#ifdef PNG_WRITE_iCCP_SUPPORTED
-            if ((LocaleCompare(name,"ICC") == 0) ||
-                (LocaleCompare(name,"ICM") == 0))
-             {
-
-               if (ping_exclude_iCCP == MagickFalse)
-                 {
-                       png_set_iCCP(ping,ping_info,(const png_charp) name,0,
-#if (PNG_LIBPNG_VER < 10500)
-                         (png_charp) GetStringInfoDatum(profile),
-#else
-                         (png_const_bytep) GetStringInfoDatum(profile),
-#endif
-                         (png_uint_32) GetStringInfoLength(profile));
-                 }
-             }
-
-            else
-#endif
-              if (ping_exclude_zCCP == MagickFalse)
-                {
-                  Magick_png_write_raw_profile(image_info,ping,ping_info,
-                    (unsigned char *) name,(unsigned char *) name,
-                    GetStringInfoDatum(profile),
-                    (png_uint_32) GetStringInfoLength(profile));
-                }
-          }
-
-          if (logging != MagickFalse)
-            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-              "  Setting up text chunk with %s profile",name);
-
-        name=GetNextImageProfile(image);
-      }
-    }
-  }
-
-#if defined(PNG_WRITE_sRGB_SUPPORTED)
-  if ((mng_info->have_write_global_srgb == 0) &&
-      (image->rendering_intent != UndefinedIntent))
-    {
-      if (ping_exclude_sRGB == MagickFalse)
-        {
-          /*
-            Note image rendering intent.
-          */
-          if (logging != MagickFalse)
-            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-                "  Setting up sRGB chunk");
-
-          (void) png_set_sRGB(ping,ping_info,(
-            Magick_RenderingIntent_to_PNG_RenderingIntent(
-              image->rendering_intent)));
-        }
-    }
-
-  if ((!mng_info->write_mng) || (!png_get_valid(ping,ping_info,PNG_INFO_sRGB)))
-#endif
-    {
-      if (ping_exclude_gAMA == MagickFalse &&
-          (ping_exclude_sRGB == MagickFalse ||
-          (image->gamma < .45 || image->gamma > .46)))
-      {
-      if ((mng_info->have_write_global_gama == 0) && (image->gamma != 0.0))
-        {
-          /*
-            Note image gamma.
-            To do: check for cHRM+gAMA == sRGB, and write sRGB instead.
-          */
-          if (logging != MagickFalse)
-            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-              "  Setting up gAMA chunk");
-
-          png_set_gAMA(ping,ping_info,image->gamma);
-        }
-      }
-
-      if (ping_exclude_cHRM == MagickFalse)
-        {
-          if ((mng_info->have_write_global_chrm == 0) &&
-              (image->chromaticity.red_primary.x != 0.0))
-            {
-              /*
-                Note image chromaticity.
-                To do: check for cHRM+gAMA == sRGB, and write sRGB instead.
-              */
-               PrimaryInfo
-                 bp,
-                 gp,
-                 rp,
-                 wp;
-
-               wp=image->chromaticity.white_point;
-               rp=image->chromaticity.red_primary;
-               gp=image->chromaticity.green_primary;
-               bp=image->chromaticity.blue_primary;
-
-               if (logging != MagickFalse)
-                 (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-                   "  Setting up cHRM chunk");
-
-               png_set_cHRM(ping,ping_info,wp.x,wp.y,rp.x,rp.y,gp.x,gp.y,
-                   bp.x,bp.y);
-           }
-        }
-    }
-
   ping_interlace_method=image_info->interlace != NoInterlace;
 
   if (mng_info->write_mng)
@@ -10313,7 +10337,17 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
 
   if (ping_color_type == 3 && ping_have_PLTE != MagickFalse)
     {
-      png_set_PLTE(ping,ping_info,palette,number_colors);
+      if (mng_info->have_write_global_plte && matte == MagickFalse)
+        {
+          png_set_PLTE(ping,ping_info,NULL,0);
+
+          if (logging != MagickFalse)
+            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+              "  Setting up empty PLTE chunk");
+        }
+
+      else
+        png_set_PLTE(ping,ping_info,palette,number_colors);
 
       if (logging != MagickFalse)
         {
@@ -10338,6 +10372,129 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
            }
          }
     }
+
+  /* Only write the iCCP chunk if we are not writing the sRGB chunk. */
+  if (ping_exclude_sRGB != MagickFalse ||
+     (!png_get_valid(ping,ping_info,PNG_INFO_sRGB)))
+  {
+    if ((ping_exclude_tEXt == MagickFalse ||
+       ping_exclude_zTXt == MagickFalse) &&
+       (ping_exclude_iCCP == MagickFalse || ping_exclude_zCCP == MagickFalse))
+    {
+      ResetImageProfileIterator(image);
+      for (name=GetNextImageProfile(image); name != (const char *) NULL; )
+      {
+        profile=GetImageProfile(image,name);
+
+        if (profile != (StringInfo *) NULL)
+          {
+#ifdef PNG_WRITE_iCCP_SUPPORTED
+            if ((LocaleCompare(name,"ICC") == 0) ||
+                (LocaleCompare(name,"ICM") == 0))
+             {
+
+               if (ping_exclude_iCCP == MagickFalse)
+                 {
+                       png_set_iCCP(ping,ping_info,(const png_charp) name,0,
+#if (PNG_LIBPNG_VER < 10500)
+                         (png_charp) GetStringInfoDatum(profile),
+#else
+                         (png_const_bytep) GetStringInfoDatum(profile),
+#endif
+                         (png_uint_32) GetStringInfoLength(profile));
+                 }
+             }
+
+            else
+#endif
+              if (ping_exclude_zCCP == MagickFalse)
+                {
+                  Magick_png_write_raw_profile(image_info,ping,ping_info,
+                    (unsigned char *) name,(unsigned char *) name,
+                    GetStringInfoDatum(profile),
+                    (png_uint_32) GetStringInfoLength(profile));
+                }
+          }
+
+          if (logging != MagickFalse)
+            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+              "  Setting up text chunk with %s profile",name);
+
+        name=GetNextImageProfile(image);
+      }
+    }
+  }
+
+#if defined(PNG_WRITE_sRGB_SUPPORTED)
+  if ((mng_info->have_write_global_srgb == 0) &&
+      (png_get_valid(ping,ping_info,PNG_INFO_sRGB)))
+    {
+      if (ping_exclude_sRGB == MagickFalse)
+        {
+          /*
+            Note image rendering intent.
+          */
+          if (logging != MagickFalse)
+            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+                "  Setting up sRGB chunk");
+
+          (void) png_set_sRGB(ping,ping_info,(
+            Magick_RenderingIntent_to_PNG_RenderingIntent(
+              image->rendering_intent)));
+        }
+    }
+
+  if ((!mng_info->write_mng) || (!png_get_valid(ping,ping_info,PNG_INFO_sRGB)))
+#endif
+    {
+      if (ping_exclude_gAMA == MagickFalse &&
+          (ping_exclude_sRGB == MagickFalse ||
+          (image->gamma < .45 || image->gamma > .46)))
+      {
+      if ((mng_info->have_write_global_gama == 0) && (image->gamma != 0.0))
+        {
+          /*
+            Note image gamma.
+            To do: check for cHRM+gAMA == sRGB, and write sRGB instead.
+          */
+          if (logging != MagickFalse)
+            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+              "  Setting up gAMA chunk");
+
+          png_set_gAMA(ping,ping_info,image->gamma);
+        }
+      }
+
+      if (ping_exclude_cHRM == MagickFalse)
+        {
+          if ((mng_info->have_write_global_chrm == 0) &&
+              (image->chromaticity.red_primary.x != 0.0))
+            {
+              /*
+                Note image chromaticity.
+                To do: check for cHRM+gAMA == sRGB, and write sRGB instead.
+              */
+               PrimaryInfo
+                 bp,
+                 gp,
+                 rp,
+                 wp;
+
+               wp=image->chromaticity.white_point;
+               rp=image->chromaticity.red_primary;
+               gp=image->chromaticity.green_primary;
+               bp=image->chromaticity.blue_primary;
+
+               if (logging != MagickFalse)
+                 (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+                   "  Setting up cHRM chunk");
+
+               png_set_cHRM(ping,ping_info,wp.x,wp.y,rp.x,rp.y,gp.x,gp.y,
+                   bp.x,bp.y);
+           }
+        }
+    }
+
 
   if (ping_exclude_bKGD == MagickFalse)
     {

@@ -699,8 +699,7 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                       MagickFalse,options);
                     if (colorspace < 0)
                       break;
-                    (void) SetImageColorspace(image,(ColorspaceType)
-                      colorspace);
+                    image->colorspace=(ColorspaceType) colorspace;
                     break;
                   }
                 if (LocaleCompare(keyword,"compression") == 0)
@@ -1964,8 +1963,6 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
     if ((image->storage_class == PseudoClass) &&
         (image->colors > (size_t) (GetQuantumRange(image->depth)+1)))
       (void) SetImageStorageClass(image,DirectClass);
-    if (IsGrayImage(image,&image->exception) != MagickFalse)
-      (void) SetImageColorspace(image,GRAYColorspace);
     compression=image->compression;
     if (image_info->compression != UndefinedCompression)
       compression=image_info->compression;

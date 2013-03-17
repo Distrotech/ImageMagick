@@ -37,13 +37,13 @@
 
 /* Directory where architecture-dependent configuration files live. */
 #ifndef MAGICKCORE_CONFIGURE_PATH
-#define MAGICKCORE_CONFIGURE_PATH "/usr/local/etc/ImageMagick/"
+#define MAGICKCORE_CONFIGURE_PATH "/usr/etc/ImageMagick-6/"
 #endif
 
 /* Subdirectory of lib where architecture-dependent configuration files live.
    */
 #ifndef MAGICKCORE_CONFIGURE_RELATIVE_PATH
-#define MAGICKCORE_CONFIGURE_RELATIVE_PATH "ImageMagick"
+#define MAGICKCORE_CONFIGURE_RELATIVE_PATH "ImageMagick-6"
 #endif
 
 /* Define if you have DJVU library */
@@ -51,7 +51,7 @@
 
 /* Directory where ImageMagick documents live. */
 #ifndef MAGICKCORE_DOCUMENTATION_PATH
-#define MAGICKCORE_DOCUMENTATION_PATH "/usr/local/share/doc/ImageMagick-6.8.2/"
+#define MAGICKCORE_DOCUMENTATION_PATH "/usr/share/doc/ImageMagick-6/"
 #endif
 
 /* Define if you have Display Postscript */
@@ -62,7 +62,7 @@
 
 /* Directory where executables are installed. */
 #ifndef MAGICKCORE_EXECUTABLE_PATH
-#define MAGICKCORE_EXECUTABLE_PATH "/usr/local/bin/"
+#define MAGICKCORE_EXECUTABLE_PATH "/usr/bin/"
 #endif
 
 /* Define if you have FFTW library */
@@ -1082,12 +1082,12 @@
 
 /* Directory where ImageMagick architecture headers live. */
 #ifndef MAGICKCORE_INCLUDEARCH_PATH
-#define MAGICKCORE_INCLUDEARCH_PATH "/usr/local/include/ImageMagick/"
+#define MAGICKCORE_INCLUDEARCH_PATH "/usr/include/ImageMagick-6/"
 #endif
 
 /* Directory where ImageMagick headers live. */
 #ifndef MAGICKCORE_INCLUDE_PATH
-#define MAGICKCORE_INCLUDE_PATH "/usr/local/include/ImageMagick/"
+#define MAGICKCORE_INCLUDE_PATH "/usr/include/ImageMagick-6/"
 #endif
 
 /* ImageMagick is formally installed under prefix */
@@ -1115,13 +1115,19 @@
 
 /* Directory where architecture-dependent files live. */
 #ifndef MAGICKCORE_LIBRARY_PATH
-#define MAGICKCORE_LIBRARY_PATH "/usr/local/lib/ImageMagick-6.8.2/"
+#define MAGICKCORE_LIBRARY_PATH "/usr/lib/ImageMagick-6.8.3/"
 #endif
 
 /* Subdirectory of lib where ImageMagick architecture dependent files are
    installed */
 #ifndef MAGICKCORE_LIBRARY_RELATIVE_PATH
-#define MAGICKCORE_LIBRARY_RELATIVE_PATH "ImageMagick-6.8.2"
+#define MAGICKCORE_LIBRARY_RELATIVE_PATH "ImageMagick-6.8.3"
+#endif
+
+/* Binaries in libraries path base name (will be during install linked to bin)
+   */
+#ifndef MAGICKCORE_LIB_BIN_BASEDIRNAME
+#define MAGICKCORE_LIB_BIN_BASEDIRNAME "bin"
 #endif
 
 /* Define if you have LQR library */
@@ -1196,7 +1202,7 @@
 
 /* Define to the full name and version of this package. */
 #ifndef MAGICKCORE_PACKAGE_STRING
-#define MAGICKCORE_PACKAGE_STRING "ImageMagick 6.8.2-10"
+#define MAGICKCORE_PACKAGE_STRING "ImageMagick 6.8.3-10"
 #endif
 
 /* Define to the one symbol short name of this package. */
@@ -1211,7 +1217,7 @@
 
 /* Define to the version of this package. */
 #ifndef MAGICKCORE_PACKAGE_VERSION
-#define MAGICKCORE_PACKAGE_VERSION "6.8.2-10"
+#define MAGICKCORE_PACKAGE_VERSION "6.8.3-10"
 #endif
 
 /* Define if you have PANGOCAIRO library */
@@ -1274,13 +1280,13 @@
 
 /* Directory where architecture-independent configuration files live. */
 #ifndef MAGICKCORE_SHARE_PATH
-#define MAGICKCORE_SHARE_PATH "/usr/local/share/ImageMagick-6.8.2/"
+#define MAGICKCORE_SHARE_PATH "/usr/share/ImageMagick-6/"
 #endif
 
 /* Subdirectory of lib where architecture-independent configuration files
    live. */
 #ifndef MAGICKCORE_SHARE_RELATIVE_PATH
-#define MAGICKCORE_SHARE_RELATIVE_PATH "ImageMagick-6.8.2"
+#define MAGICKCORE_SHARE_RELATIVE_PATH "ImageMagick-6"
 #endif
 
 /* The size of `double', as computed by sizeof. */
@@ -1423,7 +1429,7 @@
 
 /* Version number of package */
 #ifndef MAGICKCORE_VERSION
-#define MAGICKCORE_VERSION "6.8.2-10"
+#define MAGICKCORE_VERSION "6.8.3-10"
 #endif
 
 /* Define if you have WEBP library */

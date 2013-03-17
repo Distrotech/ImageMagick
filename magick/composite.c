@@ -655,8 +655,7 @@ static void HCLComposite(const double hue,const double chroma,const double luma,
     h,
     m,
     r,
-    x,
-    z;
+    x;
 
   /*
     Convert HCL to RGB colorspace.
@@ -706,25 +705,9 @@ static void HCLComposite(const double hue,const double chroma,const double luma,
                 b=x;
               }
   m=luma-(0.298839f*r+0.586811f*g+0.114350f*b);
-  /*
-    Choose saturation strategy to clip it into the RGB cube; hue and luma are
-    preserved and chroma may be changed.
-  */
-  z=1.0;
-  if (m < 0.0)
-    {
-      z=luma/(luma-m);
-      m=0.0;
-    }
-  else
-    if (m+c > 1.0)
-      {
-        z=(1.0-luma)/(m+c-luma);
-        m=1.0-z*c;
-      }
-  *red=(MagickRealType) ClampToQuantum(QuantumRange*(z*r+m));
-  *green=(MagickRealType) ClampToQuantum(QuantumRange*(z*g+m));
-  *blue=(MagickRealType) ClampToQuantum(QuantumRange*(z*b+m));
+  *red=(MagickRealType) ClampToQuantum(QuantumRange*(r+m));
+  *green=(MagickRealType) ClampToQuantum(QuantumRange*(g+m));
+  *blue=(MagickRealType) ClampToQuantum(QuantumRange*(b+m));
 }
 
 static void CompositeHCL(const MagickRealType red,const MagickRealType green,
@@ -1688,7 +1671,7 @@ MagickExport MagickBooleanType CompositeImageChannel(Image *image,
   if (composite_image == (const Image *) NULL)
     return(MagickFalse);
   if (IsGrayColorspace(image->colorspace) != MagickFalse)
-    (void) SetImageColorspace(image,RGBColorspace);
+    (void) SetImageColorspace(image,sRGBColorspace);
   (void) SetImageColorspace(composite_image,image->colorspace);
   GetMagickPixelPacket(image,&zero);
   destination_image=(Image *) NULL;

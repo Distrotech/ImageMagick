@@ -153,7 +153,7 @@ pkgconfig_DATA = \
 	$(MAGICKPP_PKGCONFIG)
 
 # create a copy for pc file (ideally the non abi should be symlinked)
-%@MAGICK_MAJOR_VERSION@-@MAGICK_ABI_SUFFIX@.pc: %.pc
+%-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc: %.pc
 	cp -f $^ $@
 
 # Manual pages to install
@@ -184,6 +184,20 @@ install-exec-local: $(PERLMAGICK_INSTALL_EXEC_LOCAL_TARGETS)
 install-data-local: $(MAGICK_INSTALL_DATA_LOCAL_TARGETS) $(PERLMAGICK_INSTALL_DATA_LOCAL_TARGETS) $(HTML_INSTALL_DATA_TARGETS)
 
 uninstall-local: $(MAGICK_UNINSTALL_LOCAL_TARGETS) $(PERLMAGICK_UNINSTALL_LOCAL_TARGETS) $(HTML_UNINSTALL_DATA_TARGETS)
+
+install-exec-hook:
+	$(install_sh) -d  $(DESTDIR)/$(LIB_BIN_DIR_PATH)
+	cd $(DESTDIR)/$(bindir) && \
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		mv -f ./$$CURR_PROG$(EXEEXT) $(DESTDIR)/$(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) && \
+		$(LN_S) $(LIB_BIN_DIR_PATH)/$$CURR_PROG$(EXEEXT) ./$$CURR_PROG$(EXEEXT); \
+	done;
+
+uninstall-hook:
+	for CURR_PROG in `echo $(UTILITIES_PGMS) | sed 's/utilities\///g'`; do \
+		rm -f $(DESTDIR)/$(LIB_DIR_PATH)/$$CURR_PROG$(EXEEXT)
+	done;
+	rm -r -f $(LIB_BIN_DIR_PATH)
 
 clean-local: $(PERLMAGICK_CLEAN_LOCAL_TARGETS)
 

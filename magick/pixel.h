@@ -61,6 +61,19 @@ typedef enum
   MaskPixelComponent = 5
 } PixelComponent;
 
+typedef enum
+{
+  UndefinedPixelIntensityMethod = 0,
+  AveragePixelIntensityMethod,
+  BrightnessPixelIntensityMethod,
+  LightnessPixelIntensityMethod,
+  Rec601LumaPixelIntensityMethod,
+  Rec601LuminancePixelIntensityMethod,
+  Rec709LumaPixelIntensityMethod,
+  Rec709LuminancePixelIntensityMethod,
+  RMSPixelIntensityMethod
+} PixelIntensityMethod;
+
 typedef struct _DoublePixelPacket
 {
   double
@@ -154,7 +167,9 @@ extern MagickExport MagickPixelPacket
 
 extern MagickExport MagickRealType
   DecodePixelGamma(const MagickRealType) magick_hot_spot,
-  EncodePixelGamma(const MagickRealType) magick_hot_spot;
+  EncodePixelGamma(const MagickRealType) magick_hot_spot,
+  GetPixelIntensity(const Image *image,const PixelPacket *restrict)
+    magick_hot_spot;
 
 extern MagickExport void
   GetMagickPixelPacket(const Image *,MagickPixelPacket *);
