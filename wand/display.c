@@ -543,6 +543,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
                   state|=RetainColorsState;
                   status=MagickFalse;
                 }
+              if (GetNextImageInList(display_image) == (Image *) NULL)
+                state|=ExitState;
             }
           else
             do
@@ -617,7 +619,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
                 break;
               display_image=GetNextImageInList(display_image);
             }
-        } while ((display_image != (Image *) NULL) && ((state & ExitState) == 0));
+        } while ((display_image != (Image *) NULL) &&
+                 ((state & ExitState) == 0));
         /*
           Free image resources.
         */

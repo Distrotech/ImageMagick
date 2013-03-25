@@ -131,8 +131,8 @@ static void
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AddValueToSplayTree() adds the given key and value to the splay-tree.
-%  Both key and value are used as is, without coping or cloning.  It returns
+%  AddValueToSplayTree() adds the given key and value to the splay-tree.  Both
+%  key and value are used as is, without coping or cloning.  It returns
 %  MagickTrue on success, otherwise MagickFalse.
 %
 %  The format of the AddValueToSplayTree method is:
@@ -1587,8 +1587,7 @@ static void SplaySplayTree(SplayTreeInfo *splay_tree,const void *key)
       (void) Splay(splay_tree,0UL,key,&splay_tree->root,(NodeInfo **) NULL,
         (NodeInfo **) NULL);
       if (splay_tree->balance != MagickFalse)
-        ThrowFatalException(ResourceLimitFatalError,
-          "MemoryAllocationFailed");
+        ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
     }
   splay_tree->key=(void *) key;
 }
