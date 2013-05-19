@@ -71,7 +71,7 @@
 #include "magick/string-private.h"
 #include "magick/version.h"
 #include "magick/version-private.h"
-#if defined(MAGICKCORE_HAVE_SOCKET)
+#if defined(MAGICKCORE_HAVE_SOCKET) && defined(MAGICKCORE_HAVE_PTHREAD)
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -152,7 +152,7 @@ static inline MagickOffsetType dpc_read(int file,const MagickSizeType length,
 static int ConnectPixelCacheServer(const char *hostname,const int port,
   size_t *session_key,ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_HAVE_SOCKET)
+#if defined(MAGICKCORE_HAVE_SOCKET) && defined(MAGICKCORE_HAVE_PTHREAD)
   char
     service[MaxTextExtent];
 
@@ -833,7 +833,7 @@ static void *DistributePixelCacheClient(void *socket)
 MagickExport void DistributePixelCacheServer(const int port,
   ExceptionInfo *exception)
 {
-#if defined(MAGICKCORE_HAVE_SOCKET)
+#if defined(MAGICKCORE_HAVE_SOCKET) && defined(MAGICKCORE_HAVE_PTHREAD)
   char
     service[MaxTextExtent];
 
@@ -1179,7 +1179,7 @@ MagickPrivate MagickOffsetType ReadDistributePixelCacheIndexes(
 %
 %      MagickOffsetType ReadDistributePixelCachePixels(
 %        DistributeCacheInfo *server_info,const RectangleInfo *region,
-%        const MagickSizeType length,unsigned char *pixels)
+%        const MagickSizeType length,unsigned char *restrict pixels)
 %
 %  A description of each parameter follows:
 %
@@ -1196,7 +1196,7 @@ MagickPrivate MagickOffsetType ReadDistributePixelCacheIndexes(
 */
 MagickPrivate MagickOffsetType ReadDistributePixelCachePixels(
   DistributeCacheInfo *server_info,const RectangleInfo *region,
-  const MagickSizeType length,unsigned char *pixels)
+  const MagickSizeType length,unsigned char *restrict pixels)
 {
   MagickOffsetType
     count;
@@ -1386,7 +1386,7 @@ MagickPrivate MagickOffsetType WriteDistributePixelCacheIndexes(
 %
 %      MagickBooleanType WriteDistributePixelCachePixels(
 %        DistributeCacheInfo *server_info,const RectangleInfo *region,
-%        const MagickSizeType length,const unsigned char *pixels)
+%        const MagickSizeType length,const unsigned char *restrict pixels)
 %
 %  A description of each parameter follows:
 %
@@ -1403,7 +1403,7 @@ MagickPrivate MagickOffsetType WriteDistributePixelCacheIndexes(
 */
 MagickPrivate MagickOffsetType WriteDistributePixelCachePixels(
   DistributeCacheInfo *server_info,const RectangleInfo *region,
-  const MagickSizeType length,const unsigned char *pixels)
+  const MagickSizeType length,const unsigned char *restrict pixels)
 {
   MagickOffsetType
     count;

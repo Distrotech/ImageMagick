@@ -1061,7 +1061,7 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
   if (units == 2)
     image->units=PixelsPerCentimeterResolution;
   number_pixels=(MagickSizeType) image->columns*image->rows;
-  option=GetImageArtifact(image,"jpeg:size");
+  option=GetImageOption(image_info,"jpeg:size");
   if (option != (const char *) NULL)
     {
       double
@@ -1117,7 +1117,7 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
   image->compression=JPEGCompression;
   image->interlace=JPEGInterlace;
 #endif
-  option=GetImageArtifact(image,"jpeg:colors");
+  option=GetImageOption(image_info,"jpeg:colors");
   if (option != (const char *) NULL)
     {
       /*
@@ -1126,11 +1126,11 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
       jpeg_info.quantize_colors=MagickTrue;
       jpeg_info.desired_number_of_colors=(int) StringToUnsignedLong(option);
     }
-  option=GetImageArtifact(image,"jpeg:block-smoothing");
+  option=GetImageOption(image_info,"jpeg:block-smoothing");
   if (option != (const char *) NULL)
     jpeg_info.do_block_smoothing=IsStringTrue(option);
   jpeg_info.dct_method=JDCT_FLOAT;
-  option=GetImageArtifact(image,"jpeg:dct-method");
+  option=GetImageOption(image_info,"jpeg:dct-method");
   if (option != (const char *) NULL)
     switch (*option)
     {
@@ -1160,7 +1160,7 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
         break;
       }
     }
-  option=GetImageArtifact(image,"jpeg:fancy-upsampling");
+  option=GetImageOption(image_info,"jpeg:fancy-upsampling");
   if (option != (const char *) NULL)
     jpeg_info.do_fancy_upsampling=IsStringTrue(option);
   (void) jpeg_start_decompress(&jpeg_info);
@@ -1991,6 +1991,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
     error_manager;
 
   int
+    colorspace,
     quality;
 
   JSAMPLE
@@ -2121,7 +2122,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
         jpeg_info.density_unit=(UINT8) 2;
     }
   jpeg_info.dct_method=JDCT_FLOAT;
-  option=GetImageArtifact(image,"jpeg:dct-method");
+  option=GetImageOption(image_info,"jpeg:dct-method");
   if (option != (const char *) NULL)
     switch (*option)
     {
@@ -2151,7 +2152,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
         break;
       }
     }
-  option=GetImageArtifact(image,"jpeg:optimize-coding");
+  option=GetImageOption(image_info,"jpeg:optimize-coding");
   if (option != (const char *) NULL)
     jpeg_info.optimize_coding=IsStringTrue(option);
   else
@@ -2189,7 +2190,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
     (void) LogMagickEvent(CoderEvent,GetMagickModule(),
       "Interlace: nonprogressive");
 #endif
-  option=GetImageArtifact(image,"jpeg:extent");
+  option=GetImageOption(image_info,"jpeg:extent");
   if (option != (const char *) NULL)
     {
       Image
@@ -2215,6 +2216,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
           jpeg_info->quality=0;
           extent=(MagickSizeType) SiPrefixToDoubleInterval(option,100.0);
           (void) DeleteImageOption(jpeg_info,"jpeg:extent");
+          (void) DeleteImageArtifact(jpeg_image,"jpeg:extent");
           (void) AcquireUniqueFilename(jpeg_image->filename);
           maximum=101;
           for (minimum=2; minimum != maximum; )
@@ -2275,7 +2277,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
     }
   jpeg_set_quality(&jpeg_info,quality,MagickTrue);
 #if (JPEG_LIB_VERSION >= 70)
-  option=GetImageArtifact(image,"quality");
+  option=GetImageOption(image_info,"quality");
   if (option != (const char *) NULL)
     {
       GeometryInfo
@@ -2298,16 +2300,25 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
         }
     }
 #endif
-  sampling_factor=(const char *) NULL;
-  value=GetImageArtifact(image,"jpeg:sampling-factor");
+  colorspace=jpeg_info.in_color_space;
+  value=GetImageOption(image_info,"jpeg:colorspace");
   if (value == (char *) NULL)
-    value=GetImageProperty(image,"jpeg:sampling-factor");
+    value=GetImageProperty(image,"jpeg:colorspace",exception);
   if (value != (char *) NULL)
+    colorspace=StringToInteger(value);
+  sampling_factor=(const char *) NULL;
+  if (colorspace == jpeg_info.in_color_space)
     {
-      sampling_factor=value;
-      if (image->debug != MagickFalse)
-        (void) LogMagickEvent(CoderEvent,GetMagickModule(),
-          "  Input sampling-factors=%s",sampling_factor);
+      value=GetImageOption(image_info,"jpeg:sampling-factor");
+      if (value == (char *) NULL)
+        value=GetImageProperty(image,"jpeg:sampling-factor");
+      if (value != (char *) NULL)
+        {
+          sampling_factor=value;
+          if (image->debug != MagickFalse)
+            (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+              "  Input sampling-factors=%s",sampling_factor);
+        }
     }
   if (image_info->sampling_factor != (char *) NULL)
     sampling_factor=image_info->sampling_factor;
@@ -2357,13 +2368,7 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
         jpeg_info.comp_info[i].v_samp_factor=1;
       }
     }
-  if (jpeg_info.input_components == 1)
-    for (i=0; i < MAX_COMPONENTS; i++)
-    {
-      jpeg_info.comp_info[i].h_samp_factor=1;
-      jpeg_info.comp_info[i].v_samp_factor=1;
-    }
-  option=GetImageArtifact(image,"jpeg:q-table");
+  option=GetImageOption(image_info,"jpeg:q-table");
   if (option != (const char *) NULL)
     {
       QuantizationTable
@@ -2375,29 +2380,37 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
       table=GetQuantizationTable(option,"0",&image->exception);
       if (table != (QuantizationTable *) NULL)
         {
-          jpeg_add_quant_table(&jpeg_info,0,table->levels,jpeg_quality_scaling(
-            quality),0);
+          for (i=0; i < MAX_COMPONENTS; i++)
+            jpeg_info.comp_info[i].quant_tbl_no=0;
+          jpeg_add_quant_table(&jpeg_info,0,table->levels,
+            jpeg_quality_scaling(quality),0);
           table=DestroyQuantizationTable(table);
         }
       table=GetQuantizationTable(option,"1",&image->exception);
       if (table != (QuantizationTable *) NULL)
         {
-          jpeg_add_quant_table(&jpeg_info,1,table->levels,jpeg_quality_scaling(
-            quality),0);
+          for (i=1; i < MAX_COMPONENTS; i++)
+            jpeg_info.comp_info[i].quant_tbl_no=1;
+          jpeg_add_quant_table(&jpeg_info,1,table->levels,
+            jpeg_quality_scaling(quality),0);
           table=DestroyQuantizationTable(table);
         }
       table=GetQuantizationTable(option,"2",&image->exception);
       if (table != (QuantizationTable *) NULL)
         {
-          jpeg_add_quant_table(&jpeg_info,2,table->levels,jpeg_quality_scaling(
-            quality),0);
+          for (i=2; i < MAX_COMPONENTS; i++)
+            jpeg_info.comp_info[i].quant_tbl_no=2;
+          jpeg_add_quant_table(&jpeg_info,2,table->levels,
+            jpeg_quality_scaling(quality),0);
           table=DestroyQuantizationTable(table);
         }
       table=GetQuantizationTable(option,"3",&image->exception);
       if (table != (QuantizationTable *) NULL)
         {
-          jpeg_add_quant_table(&jpeg_info,3,table->levels,jpeg_quality_scaling(
-            quality),0);
+          for (i=3; i < MAX_COMPONENTS; i++)
+            jpeg_info.comp_info[i].quant_tbl_no=3;
+          jpeg_add_quant_table(&jpeg_info,3,table->levels,
+            jpeg_quality_scaling(quality),0);
           table=DestroyQuantizationTable(table);
         }
     }

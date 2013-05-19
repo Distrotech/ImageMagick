@@ -53,6 +53,892 @@
 #include "validate.h"
 
 /*
+  Define declarations.
+*/
+#define CIEEpsilon  (216.0/24389.0)
+#define CIEK  (24389.0/27.0)
+#define D65X  0.950456
+#define D65Y  1.0
+#define D65Z  1.088754
+#define ReferenceEpsilon  (1.0e-0)
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   V a l i d a t e C o l o r s p a c e s                                     %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  ValidateColorspaces() validates the ImageMagick colorspaces and returns the
+%  number of validation tests that passed and failed.
+%
+%  The format of the ValidateColorspaces method is:
+%
+%      size_t ValidateColorspaces(ImageInfo *image_info,size_t *fail,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image_info: the image info.
+%
+%    o reference_filename: the reference image filename.
+%
+%    o output_filename: the output image filename.
+%
+%    o fail: return the number of validation tests that pass.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+
+static inline void ConvertRGBToXYZ(const double red,const double green,
+  const double blue,double *X,double *Y,double *Z)
+{
+  double
+    b,
+    g,
+    r;
+
+  r=QuantumScale*DecodePixelGamma(red);
+  g=QuantumScale*DecodePixelGamma(green);
+  b=QuantumScale*DecodePixelGamma(blue);
+  *X=0.41239558896741421610*r+0.35758343076371481710*g+0.18049264738170157350*b;
+  *Y=0.21258623078559555160*r+0.71517030370341084990*g+0.07220049864333622685*b;
+  *Z=0.01929721549174694484*r+0.11918386458084853180*g+0.95049712513157976600*b;
+}
+
+static inline void ConvertXYZToLab(const double X,const double Y,const double Z,
+  double *L,double *a,double *b)
+{
+  double
+    x,
+    y,
+    z;
+
+  if ((X/D65X) > CIEEpsilon)
+    x=pow(X/D65X,1.0/3.0);
+  else
+    x=(CIEK*X/D65X+16.0)/116.0;
+  if ((Y/D65Y) > CIEEpsilon)
+    y=pow(Y/D65Y,1.0/3.0);
+  else
+    y=(CIEK*Y/D65Y+16.0)/116.0;
+  if ((Z/D65Z) > CIEEpsilon)
+    z=pow(Z/D65Z,1.0/3.0);
+  else
+    z=(CIEK*Z/D65Z+16.0)/116.0;
+  *L=((116.0*y)-16.0)/100.0;
+  *a=(500.0*(x-y))/255.0+0.5;
+  *b=(200.0*(y-z))/255.0+0.5;
+}
+
+static void ConvertRGBToLab(const double red,const double green,
+  const double blue,double *L,double *a,double *b)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertRGBToXYZ(red,green,blue,&X,&Y,&Z);
+  ConvertXYZToLab(X,Y,Z,L,a,b);
+}
+
+static inline void ConvertLabToXYZ(const double L,const double a,const double b,
+  double *X,double *Y,double *Z)
+{
+  double
+    x,
+    y,
+    z;
+
+  y=(L+16.0)/116.0;
+  x=y+a/500.0;
+  z=y-b/200.0;
+  if ((x*x*x) > CIEEpsilon)
+    x=(x*x*x);
+  else
+    x=(116.0*x-16.0)/CIEK;
+  if ((y*y*y) > CIEEpsilon)
+    y=(y*y*y);
+  else
+    y=L/CIEK;
+  if ((z*z*z) > CIEEpsilon)
+    z=(z*z*z);
+  else
+    z=(116.0*z-16.0)/CIEK;
+  *X=D65X*x;
+  *Y=D65Y*y;
+  *Z=D65Z*z;
+}
+
+static inline void ConvertXYZToRGB(const double x,const double y,const double z,
+  Quantum *red,Quantum *green,Quantum *blue)
+{
+  double
+    b,
+    g,
+    r;
+
+  r=3.2406*x-1.5372*y-0.4986*z;
+  g=(-0.9689*x+1.8758*y+0.0415*z);
+  b=0.0557*x-0.2040*y+1.0570*z;
+  *red=ClampToQuantum(EncodePixelGamma(QuantumRange*r));
+  *green=ClampToQuantum(EncodePixelGamma(QuantumRange*g));
+  *blue=ClampToQuantum(EncodePixelGamma(QuantumRange*b));
+}
+
+static inline void ConvertLabToRGB(const double L,const double a,
+  const double b,Quantum *red,Quantum *green,Quantum *blue)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertLabToXYZ(L*100.0,255.0*(a-0.5),255.0*(b-0.5),&X,&Y,&Z);
+  ConvertXYZToRGB(X,Y,Z,red,green,blue);
+}
+
+static void ConvertRGBToYPbPr(const double red,const double green,
+  const double blue,double *Y,double *Pb,double *Pr)
+{
+  *Y=QuantumScale*(0.298839*red+0.586811*green+0.114350*blue);
+  *Pb=QuantumScale*((-0.1687367)*red-0.331264*green+0.5*blue)+0.5;
+  *Pr=QuantumScale*(0.5*red-0.418688*green-0.081312*blue)+0.5;
+}
+
+static void ConvertRGBToYCbCr(const double red,const double green,
+  const double blue,double *Y,double *Cb,double *Cr)
+{
+  ConvertRGBToYPbPr(red,green,blue,Y,Cb,Cr);
+}
+
+static void ConvertYPbPrToRGB(const double Y,const double Pb,const double Pr,
+  Quantum *red,Quantum *green,Quantum *blue)
+{
+  *red=ClampToQuantum(QuantumRange*(0.99999999999914679361*Y-
+    1.2188941887145875e-06*(Pb-0.5)+1.4019995886561440468*(Pr-0.5)));
+  *green=ClampToQuantum(QuantumRange*(0.99999975910502514331*Y-
+    0.34413567816504303521*(Pb-0.5)-0.71413649331646789076*(Pr-0.5)));
+  *blue=ClampToQuantum(QuantumRange*(1.00000124040004623180*Y+
+    1.77200006607230409200*(Pb-0.5)+2.1453384174593273e-06*(Pr-0.5)));
+}
+
+static void ConvertYCbCrToRGB(const double Y,const double Cb,
+  const double Cr,Quantum *red,Quantum *green,Quantum *blue)
+{
+  ConvertYPbPrToRGB(Y,Cb,Cr,red,green,blue);
+}
+
+static inline void ConvertLCHabToXYZ(const double luma,const double chroma,
+  const double hue,double *X,double *Y,double *Z)
+{
+  ConvertLabToXYZ(luma,chroma*cos(hue*MagickPI/180.0),chroma*
+    sin(hue*MagickPI/180.0),X,Y,Z);
+}
+
+static inline void ConvertXYZToLCHab(const double X,const double Y,
+  const double Z,double *luma,double *chroma,double *hue)
+{
+  double
+    a,
+    b;
+
+  ConvertXYZToLab(X,Y,Z,luma,&a,&b);
+  *chroma=hypot(255.0*(a-0.5),255.0*(b-0.5));
+  *hue=180.0*atan2(255.0*(b-0.5),255.0*(a-0.5))/MagickPI;
+  *chroma=(*chroma)/255.0+0.5;
+  *hue=(*hue)/255.0+0.5;
+  if (*hue < 0.0)
+    *hue+=1.0;
+}
+
+static inline void ConvertLMSToXYZ(const double L,const double M,const double S,
+  double *X,double *Y,double *Z)
+{
+  *X=1.096123820835514*L-0.278869000218287*M+0.182745179382773*S;
+  *Y=0.454369041975359*L+0.473533154307412*M+0.072097803717229*S;
+  *Z=(-0.009627608738429)*L-0.005698031216113*M+1.015325639954543*S;
+}
+
+static inline void ConvertLMSToRGB(const double L,const double M,
+  const double S,Quantum *red,Quantum *green,Quantum *blue)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertLMSToXYZ(L,M,S,&X,&Y,&Z);
+  ConvertXYZToRGB(X,Y,Z,red,green,blue);
+}
+
+static inline void ConvertXYZToLMS(const double x,const double y,
+  const double z,double *L,double *M,double *S)
+{
+  *L=0.7328*x+0.4296*y-0.1624*z;
+  *M=(-0.7036*x+1.6975*y+0.0061*z);
+  *S=0.0030*x+0.0136*y+0.9834*z;
+}
+
+static void ConvertRGBToLMS(const double red,const double green,
+  const double blue,double *L,double *M,double *S)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertRGBToXYZ(red,green,blue,&X,&Y,&Z);
+  ConvertXYZToLMS(X,Y,Z,L,M,S);
+}
+
+static inline double PerceptibleReciprocal(const double x)
+{
+  double
+    sign;
+
+  /*
+    Return 1/x where x is perceptible (not unlimited or infinitesimal).
+  */
+  sign=x < 0.0 ? -1.0 : 1.0;
+  if ((sign*x) >= MagickEpsilon)
+    return(1.0/x);
+  return(sign/MagickEpsilon);
+}
+
+static inline void ConvertXYZToLuv(const double X,const double Y,const double Z,
+  double *L,double *u,double *v)
+{
+  double
+    alpha;
+
+  if ((Y/D65Y) > CIEEpsilon)
+    *L=(double) (116.0*pow(Y/D65Y,1.0/3.0)-16.0);
+  else
+    *L=CIEK*(Y/D65Y);
+  alpha=PerceptibleReciprocal(X+15.0*Y+3.0*Z);
+  *u=13.0*(*L)*((4.0*alpha*X)-(4.0*D65X/(D65X+15.0*D65Y+3.0*D65Z)));
+  *v=13.0*(*L)*((9.0*alpha*Y)-(9.0*D65Y/(D65X+15.0*D65Y+3.0*D65Z)));
+  *L/=100.0;
+  *u=(*u+134.0)/354.0;
+  *v=(*v+140.0)/262.0;
+}
+
+static void ConvertRGBToLuv(const double red,const double green,
+  const double blue,double *L,double *u,double *v)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertRGBToXYZ(red,green,blue,&X,&Y,&Z);
+  ConvertXYZToLuv(X,Y,Z,L,u,v);
+}
+
+static inline void ConvertLuvToXYZ(const double L,const double u,const double v,
+  double *X,double *Y,double *Z)
+{
+  if (L > (CIEK*CIEEpsilon))
+    *Y=(double) pow((L+16.0)/116.0,3.0);
+  else
+    *Y=L/CIEK;
+  *X=((*Y*((39.0*L/(v+13.0*L*(9.0*D65Y/(D65X+15.0*D65Y+3.0*D65Z))))-5.0))+
+    5.0*(*Y))/((((52.0f*L/(u+13.0*L*(4.0*D65X/(D65X+15.0*D65Y+3.0*D65Z))))-1.0)/
+    3.0)-(-1.0/3.0));
+  *Z=(*X*(((52.0f*L/(u+13.0*L*(4.0*D65X/(D65X+15.0*D65Y+3.0*D65Z))))-1.0)/3.0))-
+    5.0*(*Y);
+}
+
+static inline void ConvertLuvToRGB(const double L,const double u,
+  const double v,Quantum *red,Quantum *green,Quantum *blue)
+{
+  double
+    X,
+    Y,
+    Z;
+
+  ConvertLuvToXYZ(100.0*L,354.0*u-134.0,262.0*v-140.0,&X,&Y,&Z);
+  ConvertXYZToRGB(X,Y,Z,red,green,blue);
+}
+
+static void ConvertRGBToYDbDr(const double red,const double green,
+  const double blue,double *Y,double *Db,double *Dr)
+{
+  *Y=QuantumScale*(0.298839*red+0.586811*green+0.114350*blue);
+  *Db=QuantumScale*(-0.450*red-0.883*green+1.333*blue)+0.5;
+  *Dr=QuantumScale*(-1.333*red+1.116*green+0.217*blue)+0.5;
+}
+
+static void ConvertYDbDrToRGB(const double Y,const double Db,const double Dr,
+  Quantum *red,Quantum *green,Quantum *blue)
+{
+  *red=ClampToQuantum(QuantumRange*(Y+9.2303716147657e-05*(Db-0.5)-
+    0.52591263066186533*(Dr-0.5)));
+  *green=ClampToQuantum(QuantumRange*(Y-0.12913289889050927*(Db-0.5)+
+    0.26789932820759876*(Dr-0.5)));
+  *blue=ClampToQuantum(QuantumRange*(Y+0.66467905997895482*(Db-0.5)-
+    7.9202543533108e-05*(Dr-0.5)));
+}
+
+static void ConvertRGBToYIQ(const double red,const double green,
+  const double blue,double *Y,double *I,double *Q)
+{
+  *Y=QuantumScale*(0.298839*red+0.586811*green+0.114350*blue);
+  *I=QuantumScale*(0.595716*red-0.274453*green-0.321263*blue)+0.5;
+  *Q=QuantumScale*(0.211456*red-0.522591*green+0.311135*blue)+0.5;
+}
+
+static void ConvertYIQToRGB(const double Y,const double I,const double Q,
+  Quantum *red,Quantum *green,Quantum *blue)
+{
+  *red=ClampToQuantum(QuantumRange*(Y+0.9562957197589482261*(I-0.5)+
+    0.6210244164652610754*(Q-0.5)));
+  *green=ClampToQuantum(QuantumRange*(Y-0.2721220993185104464*(I-0.5)-
+    0.6473805968256950427*(Q-0.5)));
+  *blue=ClampToQuantum(QuantumRange*(Y-1.1069890167364901945*(I-0.5)+
+    1.7046149983646481374*(Q-0.5)));
+}
+
+static void ConvertRGBToYUV(const double red,const double green,
+  const double blue,double *Y,double *U,double *V)
+{
+  *Y=QuantumScale*(0.298839*red+0.586811*green+0.114350*blue);
+  *U=QuantumScale*((-0.147)*red-0.289*green+0.436*blue)+0.5;
+  *V=QuantumScale*(0.615*red-0.515*green-0.100*blue)+0.5;
+}
+
+static void ConvertYUVToRGB(const double Y,const double U,const double V,
+  Quantum *red,Quantum *green,Quantum *blue)
+{
+  *red=ClampToQuantum(QuantumRange*(Y-3.945707070708279e-05*(U-0.5)+
+    1.1398279671717170825*(V-0.5)));
+  *green=ClampToQuantum(QuantumRange*(Y-0.3946101641414141437*(U-0.5)-
+    0.5805003156565656797*(V-0.5)));
+  *blue=ClampToQuantum(QuantumRange*(Y+2.0319996843434342537*(U-0.5)-
+    4.813762626262513e-04*(V-0.5)));
+}
+
+static MagickBooleanType ValidateHSIToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  HSIToRGB");
+  ConvertHSIToRGB(111.244375/360.0,0.295985,0.658734,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToHSI()
+{
+  double
+    h,
+    i,
+    s;
+
+  (void) FormatLocaleFile(stdout,"  RGBToHSI");
+  ConvertRGBToHSI(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&h,&s,&i);
+  if ((fabs(h-111.244374/360.0) >= ReferenceEpsilon) ||
+      (fabs(s-0.295985) >= ReferenceEpsilon) ||
+      (fabs(i-0.658734) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateHSLToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  HSLToRGB");
+  ConvertHSLToRGB(110.200859/360.0,0.882623,0.715163,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToHSL()
+{
+  double
+    h,
+    l,
+    s;
+
+  (void) FormatLocaleFile(stdout,"  RGBToHSL");
+  ConvertRGBToHSL(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&h,&s,&l);
+  if ((fabs(h-110.200859/360.0) >= ReferenceEpsilon) ||
+      (fabs(s-0.882623) >= ReferenceEpsilon) ||
+      (fabs(l-0.715163) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateHSVToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  HSVToRGB");
+  ConvertHSVToRGB(110.200859/360.0,0.520200,0.966567,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToHSV()
+{
+  double
+    h,
+    s,
+    v;
+
+  (void) FormatLocaleFile(stdout,"  RGBToHSV");
+  ConvertRGBToHSV(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&h,&s,&v);
+  if ((fabs(h-110.200859/360.0) >= ReferenceEpsilon) ||
+      (fabs(s-0.520200) >= ReferenceEpsilon) ||
+      (fabs(v-0.966567) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToJPEGYCbCr()
+{
+  double
+    Cb,
+    Cr,
+    Y;
+
+  (void) FormatLocaleFile(stdout,"  RGBToJPEGYCbCr");
+  ConvertRGBToYCbCr(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&Y,&Cb,&Cr);
+  if ((fabs(Y-0.783460) >= ReferenceEpsilon) ||
+      (fabs(Cb-0.319581) >= ReferenceEpsilon) ||
+      (fabs(Cr-0.330539) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateJPEGYCbCrToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  JPEGYCbCrToRGB");
+  ConvertYCbCrToRGB(0.783460,0.319581,0.330539,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateLabToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  LabToRGB");
+  ConvertLabToRGB(88.456154/100.0,-54.671483/255+0.5,51.662818/255.0+0.5,
+    &r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToLab()
+{
+  double
+    a,
+    b,
+    L;
+
+  (void) FormatLocaleFile(stdout,"  RGBToLab");
+  ConvertRGBToLab(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&L,&a,&b);
+  if ((fabs(L-(88.456154/100.0)) >= ReferenceEpsilon) ||
+      (fabs(a-(-54.671483/255.0+0.5)) >= ReferenceEpsilon) ||
+      (fabs(b-(51.662818/255.0+0.5)) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateLchToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  LchToRGB");
+  ConvertLCHabToRGB(88.456154/100.0,75.219797/255.0+0.5,136.620717/255.0+0.5,
+    &r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToLch()
+{
+  double
+    c,
+    h,
+    L;
+
+  (void) FormatLocaleFile(stdout,"  RGBToLch");
+  ConvertRGBToLCHab(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&L,&c,&h);
+  if ((fabs(L-88.456154/100.0) >= ReferenceEpsilon) ||
+      (fabs(c-(75.219797/255.0+0.5)) >= ReferenceEpsilon) ||
+      (fabs(h-(136.620717/255.0+0.5)) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToLMS()
+{
+  double
+    L,
+    M,
+    S;
+
+  (void) FormatLocaleFile(stdout,"  RGBToLMS");
+  ConvertRGBToLMS(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&L,&M,&S);
+  if ((fabs(L-0.611749) >= ReferenceEpsilon) ||
+      (fabs(M-0.910088) >= ReferenceEpsilon) ||
+      (fabs(S-0.294880) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateLMSToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  LMSToRGB");
+  ConvertLMSToRGB(0.611749,0.910088,0.294880,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToLuv()
+{
+  double
+    L,
+    u,
+    v;
+
+  (void) FormatLocaleFile(stdout,"  RGBToLuv");
+  ConvertRGBToLuv(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&L,&u,&v);
+  if ((fabs(L-88.456154/262.0) >= ReferenceEpsilon) ||
+      (fabs(u-(-51.330414+134.0)/354.0) >= ReferenceEpsilon) ||
+      (fabs(v-(76.405526+140.0)/262.0) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateLuvToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  LuvToRGB");
+  ConvertLuvToRGB(88.456154/100.0,(-51.330414+134.0)/354.0,
+    (76.405526+140.0)/262.0,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToXYZ()
+{
+  double
+    x,
+    y,
+    z;
+
+  (void) FormatLocaleFile(stdout,"  RGBToXYZ");
+  ConvertRGBToXYZ(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&x,&y,&z);
+  if ((fabs(x-0.470646) >= ReferenceEpsilon) ||
+      (fabs(y-0.730178) >= ReferenceEpsilon) ||
+      (fabs(z-0.288324) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateXYZToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  XYZToRGB");
+  ConvertXYZToRGB(0.470646,0.730178,0.288324,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateYDbDrToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  YDbDrToRGB");
+  ConvertYDbDrToRGB(0.783460,-0.480932+0.5,0.451670+0.5,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToYDbDr()
+{
+  double
+    Db,
+    Dr,
+    Y;
+
+  (void) FormatLocaleFile(stdout,"  RGBToYDbDr");
+  ConvertRGBToYDbDr(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&Y,&Db,&Dr);
+  if ((fabs(Y-0.783460) >= ReferenceEpsilon) ||
+      (fabs(Db-(-0.480932)) >= ReferenceEpsilon) ||
+      (fabs(Dr-0.451670) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToYIQ()
+{
+  double
+    i,
+    q,
+    y;
+
+  (void) FormatLocaleFile(stdout,"  RGBToYIQ");
+  ConvertRGBToYIQ(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&y,&i,&q);
+  if ((fabs(y-0.783460) >= ReferenceEpsilon) ||
+      (fabs(i-(-0.089078)) >= ReferenceEpsilon) ||
+      (fabs(q-(-0.245399)) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateYIQToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  YIQToRGB");
+  ConvertYIQToRGB(0.783460,-0.089078+0.5,-0.245399+0.5,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToYPbPr()
+{
+  double
+    Pb,
+    Pr,
+    Y;
+
+  (void) FormatLocaleFile(stdout,"  RGBToYPbPr");
+  ConvertRGBToYPbPr(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&Y,&Pb,&Pr);
+  if ((fabs(Y-0.783460) >= ReferenceEpsilon) ||
+      (fabs(Pb-(-0.180419)) >= ReferenceEpsilon) ||
+      (fabs(Pr-(-0.169461)) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateYPbPrToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  YPbPrToRGB");
+  ConvertYPbPrToRGB(0.783460,-0.180419+0.5,-0.169461+0.5,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateRGBToYUV()
+{
+  double
+    U,
+    V,
+    Y;
+
+  (void) FormatLocaleFile(stdout,"  RGBToYUV");
+  ConvertRGBToYUV(0.545877*QuantumRange,0.966567*QuantumRange,
+    0.463759*QuantumRange,&Y,&U,&V);
+  if ((fabs(Y-0.783460) >= ReferenceEpsilon) ||
+      (fabs(U-(-0.157383)) >= ReferenceEpsilon) ||
+      (fabs(V-(-0.208443)) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static MagickBooleanType ValidateYUVToRGB()
+{
+  Quantum
+    b,
+    g,
+    r;
+
+  (void) FormatLocaleFile(stdout,"  YUVToRGB");
+  ConvertYUVToRGB(0.783460,-0.157383+0.5,-0.208443+0.5,&r,&g,&b);
+  if ((fabs(r-0.545877*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(g-0.966567*QuantumRange) >= ReferenceEpsilon) ||
+      (fabs(b-0.463759*QuantumRange) >= ReferenceEpsilon))
+    return(MagickFalse);
+  return(MagickTrue);
+}
+
+static size_t ValidateColorspaces(ImageInfo *image_info,size_t *fail,
+  ExceptionInfo *exception)
+{
+  MagickBooleanType
+    status;
+
+  size_t
+    test;
+
+  /*
+     Reference: https://code.google.com/p/chroma.
+
+     Illuminant =  D65
+     Observer   =  2° (1931)
+
+     XYZ            0.470645,   0.730177,   0.288323
+     sRGB           0.545877,   0.966567,   0.463759
+     CAT02 LMS      0.611749,   0.910088,   0.294880
+     Y'DbDr         0.783460,  -0.480932,   0.451670
+     Y'IQ           0.783460,  -0.089078,  -0.245399
+     Y'PbPr         0.783460,  -0.180419,  -0.169461
+     Y'UV           0.783460,  -0.157383,  -0.208443
+     JPEG-Y'CbCr    0.783460,   0.319581,   0.330539
+     L*u*v*        88.456154, -51.330414,  76.405526
+     L*a*b*        88.456154, -54.671483,  51.662818
+     L*C*H*        88.456154,  75.219797, 136.620717
+     HSV          110.200859,   0.520200,   0.966567
+     HSL          110.200859,   0.882623,   0.715163
+     HSI          111.244375,   0.295985,   0.658734
+     Y'CbCr       187.577791,  87.586330,  90.040886
+  */
+  (void) FormatLocaleFile(stdout,"validate colorspaces:\n");
+  for (test=0; test < 26; test++)
+  {
+    CatchException(exception);
+    (void) FormatLocaleFile(stdout,"  test %.20g: ",(double) test);
+    switch (test)
+    {
+      case  0: status=ValidateHSIToRGB(); break;
+      case  1: status=ValidateRGBToHSI(); break;
+      case  2: status=ValidateHSLToRGB(); break;
+      case  3: status=ValidateRGBToHSL(); break;
+      case  4: status=ValidateHSVToRGB(); break;
+      case  5: status=ValidateRGBToHSV(); break;
+      case  6: status=ValidateJPEGYCbCrToRGB(); break;
+      case  7: status=ValidateRGBToJPEGYCbCr(); break;
+      case  8: status=ValidateLabToRGB(); break;
+      case  9: status=ValidateRGBToLab(); break;
+      case 10: status=ValidateLchToRGB(); break;
+      case 11: status=ValidateRGBToLch(); break;
+      case 12: status=ValidateLMSToRGB(); break;
+      case 13: status=ValidateRGBToLMS(); break;
+      case 14: status=ValidateLuvToRGB(); break;
+      case 15: status=ValidateRGBToLuv(); break;
+      case 16: status=ValidateXYZToRGB(); break;
+      case 17: status=ValidateRGBToXYZ(); break;
+      case 18: status=ValidateYDbDrToRGB(); break;
+      case 19: status=ValidateRGBToYDbDr(); break;
+      case 20: status=ValidateYIQToRGB(); break;
+      case 21: status=ValidateRGBToYIQ(); break;
+      case 22: status=ValidateYPbPrToRGB(); break;
+      case 23: status=ValidateRGBToYPbPr(); break;
+      case 24: status=ValidateYUVToRGB(); break;
+      case 25: status=ValidateRGBToYUV(); break;
+      default: status=MagickFalse;
+    }
+    if (status == MagickFalse)
+      {
+        (void) FormatLocaleFile(stdout,"... fail @ %s/%s/%lu.\n",
+          GetMagickModule());
+        (*fail)++;
+        continue;
+      }
+    (void) FormatLocaleFile(stdout,"... pass.\n");
+  }
+  (void) FormatLocaleFile(stdout,
+    "  summary: %.20g subtests; %.20g passed; %.20g failed.\n",(double) test,
+    (double) (test-(*fail)),(double) *fail);
+  return(test);
+}
+
+/*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
@@ -1510,6 +2396,8 @@ int main(int argc,char **argv)
           (void) FormatLocaleFile(stdout,
             "ImageMagick Validation Suite (%s)\n\n",CommandOptionToMnemonic(
             MagickValidateOptions,(ssize_t) type));
+          if ((type & ColorspaceValidate) != 0)
+            tests+=ValidateColorspaces(image_info,&fail,exception);
           if ((type & CompareValidate) != 0)
             tests+=ValidateCompareCommand(image_info,reference_filename,
               output_filename,&fail,exception);

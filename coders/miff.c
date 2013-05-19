@@ -617,7 +617,8 @@ static Image *ReadMIFFImage(const ImageInfo *image_info,
                       p=options+strlen(options);
                     }
                   if (options == (char *) NULL)
-                    ThrowReaderException(ResourceLimitError, "MemoryAllocationFailed");
+                    ThrowReaderException(ResourceLimitError,
+                      "MemoryAllocationFailed");
                   *p++=(char) c;
                   c=ReadBlobByte(image);
                   if (c == '\\')
@@ -1960,13 +1961,21 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
     if ((image->storage_class == PseudoClass) &&
         (image->colors > (size_t) (GetQuantumRange(image->depth)+1)))
       (void) SetImageStorageClass(image,DirectClass);
-    if (IsGrayImage(image,&image->exception) != MagickFalse)
-      (void) SetImageColorspace(image,GRAYColorspace);
     image->depth=image->depth <= 8 ? 8UL : image->depth <= 16 ? 16UL :
       image->depth <= 32 ? 32UL : 64UL;
+    if (IsGrayImage(image,&image->exception) == MagickFalse)
+      {
+        /*
+          sRGB masquerading as a grayscale image?
+        */
+        if (IsGrayColorspace(image->colorspace) != MagickFalse)
+          (void) SetImageColorspace(image,sRGBColorspace);
+      }
+    else
+      if (IsGrayColorspace(image->colorspace) == MagickFalse)
+        (void) SetImageColorspace(image,GRAYColorspace);
     quantum_info=AcquireQuantumInfo(image_info,image);
     if (quantum_info == (QuantumInfo *) NULL)
-      ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     if ((image->storage_class != PseudoClass) && (image->depth >= 32) &&
         (quantum_info->format == UndefinedQuantumFormat) &&
         (IsHighDynamicRangeImage(image,&image->exception) != MagickFalse))
@@ -1980,7 +1989,7 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
       compression=image_info->compression;
     switch (compression)
     {
-#if !defined(MAGICKCORE_ZLIB_DELEGATE)
+#if !defined(MAGICKCORE_LZMA_DELEGATE)
       case LZMACompression: compression=NoCompression; break;
 #endif
 #if !defined(MAGICKCORE_ZLIB_DELEGATE)
@@ -2642,8 +2651,7 @@ static MagickBooleanType WriteMIFFImage(const ImageInfo *image_info,
           if (status == MagickFalse)
             break;
           zip_info.next_out=compress_pixels;
-          zip_info.avail_out=(uInt) ZipMaxExtent(packet_size*
-            image->columns);
+          zip_info.avail_out=(uInt) ZipMaxExtent(packet_size*image->columns);
           code=deflate(&zip_info,Z_FINISH);
           length=(size_t) (zip_info.next_out-compress_pixels);
           if (length > 6)

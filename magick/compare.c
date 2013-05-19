@@ -1821,7 +1821,7 @@ MagickExport Image *SimilarityMetricImage(Image *image,const Image *reference,
   /*
     Measure similarity of reference image against image.
   */
-  similarity_threshold=0.0;
+  similarity_threshold=(-1.0);
   artifact=GetImageArtifact(image,"compare:similarity-threshold");
   if (artifact != (const char *) NULL)
     similarity_threshold=StringToDouble(artifact,(char **) NULL);
@@ -1846,6 +1846,9 @@ MagickExport Image *SimilarityMetricImage(Image *image,const Image *reference,
 
     if (status == MagickFalse)
       continue;
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+    #pragma omp flush(similarity_metric)
+#endif
     if (*similarity_metric <= similarity_threshold)
       continue;
     q=GetCacheViewAuthenticPixels(similarity_view,0,y,similarity_image->columns,
@@ -1857,6 +1860,9 @@ MagickExport Image *SimilarityMetricImage(Image *image,const Image *reference,
       }
     for (x=0; x < (ssize_t) (image->columns-reference->columns+1); x++)
     {
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+      #pragma omp flush(similarity_metric)
+#endif
       if (*similarity_metric <= similarity_threshold)
         break;
       similarity=GetSimilarityMetric(image,reference,metric,x,y,exception);
@@ -1869,8 +1875,7 @@ MagickExport Image *SimilarityMetricImage(Image *image,const Image *reference,
           offset->x=x;
           offset->y=y;
         }
-      SetPixelRed(q,ClampToQuantum(QuantumRange-QuantumRange*
-        similarity));
+      SetPixelRed(q,ClampToQuantum(QuantumRange-QuantumRange*similarity));
       SetPixelGreen(q,GetPixelRed(q));
       SetPixelBlue(q,GetPixelRed(q));
       q++;

@@ -5615,11 +5615,11 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
   if (window->shared_memory == MagickFalse)
     {
       if (ximage->format != XYBitmap)
-        ximage->data=(char *) AcquireQuantumMemory((size_t)
-          ximage->bytes_per_line,(size_t) ximage->height);
+        ximage->data=(char *) malloc((size_t) ximage->bytes_per_line*
+          ximage->height);
       else
-        ximage->data=(char *) AcquireQuantumMemory((size_t)
-          ximage->bytes_per_line*ximage->depth,(size_t) ximage->height);
+        ximage->data=(char *) malloc((size_t) ximage->bytes_per_line*
+          ximage->depth*ximage->height);
     }
   if (ximage->data == (char *) NULL)
     {
@@ -5697,9 +5697,9 @@ MagickExport MagickBooleanType XMakeImage(Display *display,
             /*
               Allocate matte image pixel data.
             */
-            matte_image->data=(char *) AcquireQuantumMemory((size_t)
-              matte_image->bytes_per_line*matte_image->depth,
-              (size_t) matte_image->height);
+            matte_image->data=(char *) malloc((size_t)
+              matte_image->bytes_per_line*matte_image->depth*
+              matte_image->height);
             if (matte_image->data == (char *) NULL)
               {
                 XDestroyImage(matte_image);
@@ -7606,7 +7606,7 @@ static inline MagickRealType DiversityPixelIntensity(
   MagickRealType
     intensity;
 
-  intensity=0.298839f*pixel->red+0.586811f*pixel->green+0.114350f*pixel->blue;
+  intensity=0.298839*pixel->red+0.586811*pixel->green+0.114350*pixel->blue;
   return(intensity);
 }
 

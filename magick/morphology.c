@@ -1204,7 +1204,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 #endif
         /* Note the above kernel may have been 'clipped' by a user defined
         ** radius, producing a smaller (darker) kernel.  Also for very small
-        ** sigma's (> 0.1) the central value becomes larger than one, as a
+        ** sigma's (< 0.1) the central value becomes larger than one, as a
         ** result of not generating a actual 'discrete' kernel, and thus
         ** producing a very bright 'impulse'.
         **
@@ -2550,12 +2550,18 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
     *p_view,
     *q_view;
 
-  ssize_t
-    y, offx, offy;
+  register ssize_t
+    i;
 
   size_t
-    virt_width,
-    changed;
+    *changes,
+    changed,
+    virt_width;
+
+  ssize_t
+    y,
+    offx,
+    offy;
 
   MagickBooleanType
     status;
@@ -2573,7 +2579,6 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
   assert(exception->signature == MagickSignature);
 
   status=MagickTrue;
-  changed=0;
   progress=0;
 
   p_view=AcquireVirtualCacheView(image,exception);
@@ -2605,7 +2610,13 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
       assert("Not a Primitive Morphology Method" != (char *) NULL);
       break;
   }
-
+  changed=0;
+  changes=(size_t *) AcquireQuantumMemory(GetOpenMPMaximumThreads(),
+    sizeof(*changes));
+  if (changes == (size_t *) NULL)
+    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+    changes[i]=0;
   if ( method == ConvolveMorphology && kernel->width == 1 )
   { /* Special handling (for speed) of vertical (blur) kernels.
     ** This performs its handling in columns rather than in rows.
@@ -2631,6 +2642,9 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
 #endif
     for (x=0; x < (ssize_t) image->columns; x++)
     {
+      const int
+        id = GetOpenMPThreadId();
+
       register const PixelPacket
         *restrict p;
 
@@ -2786,7 +2800,7 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
             || ( p[r].opacity != GetPixelOpacity(q))
             || ( image->colorspace == CMYKColorspace &&
                 GetPixelIndex(p_indexes+r) != GetPixelIndex(q_indexes+x) ) )
-          changed++;  /* The pixel was changed in some way! */
+          changes[id]++;
         p++;
         q++;
       } /* y */
@@ -2798,7 +2812,7 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
             proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-          #pragma omp critical (MagickCore_MorphologyImage)
+          #pragma omp critical (MagickCore_MorphologyPrimitive)
 #endif
           proceed=SetImageProgress(image,MorphologyTag,progress++,image->rows);
           if (proceed == MagickFalse)
@@ -2808,6 +2822,9 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
     result_image->type=image->type;
     q_view=DestroyCacheView(q_view);
     p_view=DestroyCacheView(p_view);
+    for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+      changed+=changes[i];
+    changes=(size_t *) RelinquishMagickMemory(changes);
     return(status ? (ssize_t) changed : 0);
   }
 
@@ -2820,6 +2837,9 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    const int
+      id = GetOpenMPThreadId();
+
     register const PixelPacket
       *restrict p;
 
@@ -3154,7 +3174,8 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
                      GetPixelIntensity(image,&(k_pixels[u])) < GetPixelIntensity(result_image,q) ) {
                   /* copy the whole pixel - no channel selection */
                   *q = k_pixels[u];
-                  if ( result.red > 0.0 ) changed++;
+                
+                  if ( result.red > 0.0 ) changes[id]++;
                   result.red = 1.0;
                 }
               }
@@ -3184,7 +3205,7 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
                      GetPixelIntensity(image,&(k_pixels[u])) > GetPixelIntensity(result_image,q) ) {
                   /* copy the whole pixel - no channel selection */
                   *q = k_pixels[u];
-                  if ( result.red > 0.0 ) changed++;
+                  if ( result.red > 0.0 ) changes[id]++;
                   result.red = 1.0;
                 }
               }
@@ -3304,7 +3325,7 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
           || ( p[r].opacity != GetPixelOpacity(q) )
           || ( image->colorspace == CMYKColorspace &&
                GetPixelIndex(p_indexes+r) != GetPixelIndex(q_indexes+x) ) )
-        changed++;  /* The pixel was changed in some way! */
+        changes[id]++;
       p++;
       q++;
     } /* x */
@@ -3316,7 +3337,7 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_MorphologyImage)
+        #pragma omp critical (MagickCore_MorphologyPrimitive)
 #endif
         proceed=SetImageProgress(image,MorphologyTag,progress++,image->rows);
         if (proceed == MagickFalse)
@@ -3325,6 +3346,9 @@ static ssize_t MorphologyPrimitive(const Image *image, Image *result_image,
   } /* y */
   q_view=DestroyCacheView(q_view);
   p_view=DestroyCacheView(p_view);
+  for (i=0; i < (ssize_t) GetOpenMPMaximumThreads(); i++)
+    changed+=changes[i];
+  changes=(size_t *) RelinquishMagickMemory(changes);
   return(status ? (ssize_t)changed : -1);
 }
 
@@ -3358,8 +3382,8 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     y, offx, offy;
 
   size_t
-    virt_width,
-    changed;
+    changed,
+    virt_width;
 
   status=MagickTrue;
   changed=0;

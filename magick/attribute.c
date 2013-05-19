@@ -46,6 +46,7 @@
 #include "magick/blob.h"
 #include "magick/blob-private.h"
 #include "magick/cache.h"
+#include "magick/cache-private.h"
 #include "magick/cache-view.h"
 #include "magick/client.h"
 #include "magick/channel.h"
@@ -528,9 +529,8 @@ MagickExport size_t GetImageChannelDepth(const Image *image,
             ScaleQuantumToAny(GetPixelOpacity(p),range),range);
         if (((channel & IndexChannel) != 0) &&
             (image->colorspace == CMYKColorspace))
-          status|=GetPixelIndex(indexes+x) !=
-            ScaleAnyToQuantum(ScaleQuantumToAny(GetPixelIndex(indexes+
-            x),range),range);
+          status|=GetPixelIndex(indexes+x) != ScaleAnyToQuantum(
+            ScaleQuantumToAny(GetPixelIndex(indexes+x),range),range);
         if (status == 0)
           break;
         current_depth[id]++;
@@ -749,10 +749,11 @@ MagickExport MagickBooleanType IsGrayImage(const Image *image,
   image_view=DestroyCacheView(image_view);
   if (type == UndefinedType)
     return(MagickFalse);
+  ((Image *) image)->colorspace=GRAYColorspace;
   ((Image *) image)->type=type;
   if ((type == GrayscaleType) && (image->matte != MagickFalse))
     ((Image *) image)->type=GrayscaleMatteType;
-  return(SetImageColorspace((Image *) image,GRAYColorspace));
+  return(SyncImagePixelCache((Image *) image,exception));
 }
 
 /*
@@ -831,8 +832,9 @@ MagickExport MagickBooleanType IsMonochromeImage(const Image *image,
   image_view=DestroyCacheView(image_view);
   if (type == UndefinedType)
     return(MagickFalse);
+  ((Image *) image)->colorspace=GRAYColorspace;
   ((Image *) image)->type=type;
-  return(SetImageColorspace((Image *) image,GRAYColorspace));
+  return(SyncImagePixelCache((Image *) image,exception));
 }
 
 /*

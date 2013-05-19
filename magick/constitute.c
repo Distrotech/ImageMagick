@@ -40,12 +40,14 @@
   Include declarations.
 */
 #include "magick/studio.h"
+#include "magick/attribute.h"
 #include "magick/blob.h"
 #include "magick/blob-private.h"
 #include "magick/exception.h"
 #include "magick/exception-private.h"
 #include "magick/cache.h"
 #include "magick/client.h"
+#include "magick/colorspace-private.h"
 #include "magick/constitute.h"
 #include "magick/delegate.h"
 #include "magick/geometry.h"
@@ -1099,7 +1101,7 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
             image->endian=(*(char *) &lsb_first) == 1 ? LSBEndian : MSBEndian;
          }
     }
-  (void) SyncImageProfiles(image);
+ (void) SyncImageProfiles(image);
   option=GetImageOption(image_info,"delegate:bimodal");
   if ((option != (const char *) NULL) &&
       (IsMagickTrue(option) != MagickFalse) &&

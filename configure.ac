@@ -22,8 +22,8 @@ AC_PREREQ(2.69)
 
 m4_define([magick_major_version], [6])
 m4_define([magick_minor_version], [8])
-m4_define([magick_micro_version], [4])
-m4_define([magick_patchlevel_version], [10])
+m4_define([magick_micro_version], [5])
+m4_define([magick_patchlevel_version], [7])
 m4_define([magick_version],
           [magick_major_version.magick_minor_version.magick_micro_version-magick_patchlevel_version])
 m4_define([magick_svn_revision], esyscmd([sh -c "(svnversion .) | awk '{ print \$1 }' | tr -d '\n'"]))
@@ -663,6 +663,12 @@ fi
 # option to avoid confusing end users.
 AM_MAINTAINER_MODE
 
+# Enable hugepages support
+AC_ARG_ENABLE([hugepages],
+    [AC_HELP_STRING([--enable-hugepages],
+                    [enable 'huge pages' support])],
+    [enable_hugepages=$enableval],
+    [enable_hugepages='no'])
 
 # Enable ccmalloc memory debugging support
 AC_ARG_ENABLE([ccmalloc],
@@ -1420,6 +1426,13 @@ if test "$with_umem" != 'no'; then
 fi
 AM_CONDITIONAL(HasUMEM, test "$have_umem" = 'yes')
 AC_SUBST(UMEM_LIBS)
+
+#
+# Add support for 'huge pages' if requested
+#
+AS_IF([test "x$enable_hugepages" != "xno"],[
+  AC_DEFINE(HAVE_HUGEPAGES, 1, [Compile with hugepage support])
+])
 
 #
 # Add support for ccmalloc memory debugging library if requested
@@ -2663,7 +2676,7 @@ dnl ===========================================================================
 # Check for RSVG delegate library.
 #
 AC_ARG_WITH([rsvg],
-    [AC_HELP_STRING([--without-rsvg],
+    [AC_HELP_STRING([--with-rsvg],
                     [enable RSVG support])],
     [with_rsvg=$withval],
     [with_rsvg='no'])
@@ -3160,6 +3173,8 @@ HPGLDecodeDelegateDefault='hp2xx'
 HTMLDecodeDelegateDefault='html2ps'
 ILBMDecodeDelegateDefault='ilbmtoppm'
 ILBMEncodeDelegateDefault='ppmtoilbm'
+JXRDecodeDelegateDefault='JxrDecApp'
+JXRMEncodeDelegateDefault='JxrEncApp'
 LPDelegateDefault='lp'
 LPRDelegateDefault='lpr'
 LaunchDelegateDefault='gimp'
@@ -3211,6 +3226,8 @@ AC_PATH_PROG(HPGLDecodeDelegate, "$HPGLDecodeDelegateDefault", "$HPGLDecodeDeleg
 AC_PATH_PROG(HTMLDecodeDelegate, "$HTMLDecodeDelegateDefault", "$HTMLDecodeDelegateDefault")
 AC_PATH_PROG(ILBMDecodeDelegate, "$ILBMDecodeDelegateDefault", "$ILBMDecodeDelegateDefault")
 AC_PATH_PROG(ILBMEncodeDelegate, "$ILBMEncodeDelegateDefault", "$ILBMEncodeDelegateDefault")
+AC_PATH_PROG(JXRDecodeDelegate, "$JXRDecodeDelegateDefault", "$JXRDecodeDelegateDefault")
+AC_PATH_PROG(JXREncodeDelegate, "$JXREncodeDelegateDefault", "$JXREncodeDelegateDefault")
 AC_PATH_PROG(LPDelegate, "$LPDelegateDefault", no)
 AC_PATH_PROG(LPRDelegate, "$LPRDelegateDefault", "$LPRDelegateDefault")
 AC_PATH_PROG(LaunchDelegate, "$LaunchDelegateDefault", "$LaunchDelegateDefault")
@@ -3366,16 +3383,20 @@ if test "$with_frozenpaths" != 'yes'; then
   CGMDecodeDelegate="$CGMDecodeDelegateDefault"
   CatDelegate="$CatDelegateDefault"
   ConvertDelegate="$ConvertDelegateDefault"
-  GVCDecodeDelegate="$GVCDecodeDelegateDefault"
+  DisplayDelegate="$DisplayDelegateDefault"
+  DNGDecodeDelegate="$DNGDecodeDelegateDefault"
   DVIDecodeDelegate="$DVIDecodeDelegateDefault"
   EchoDelegate="$EchoDelegateDefault"
   EditorDelegate="$EditorDelegateDefault"
   FIGDecodeDelegate="$FIGDecodeDelegateDefault"
   GnuplotDecodeDelegate="$GnuplotDecodeDelegateDefault"
+  GVCDecodeDelegate="$GVCDecodeDelegateDefault"
   HPGLDecodeDelegate="$HPGLDecodeDelegateDefault"
   HTMLDecodeDelegate="$HTMLDecodeDelegateDefault"
   ILBMDecodeDelegate="$ILBMDecodeDelegateDefault"
   ILBMEncodeDelegate="$ILBMEncodeDelegateDefault"
+  JXRDecodeDelegate="$JXRDecodeDelegateDefault"
+  JXREncodeDelegate="$JXREncodeDelegateDefault"
   LPDelegate="$LPDelegateDefault"
   LaunchDelegate="$LaunchDelegateDefault"
   MANDelegate="$MANDelegateDefault"
@@ -3420,6 +3441,8 @@ AC_SUBST(HPGLDecodeDelegate)
 AC_SUBST(HTMLDecodeDelegate)
 AC_SUBST(ILBMDecodeDelegate)
 AC_SUBST(ILBMEncodeDelegate)
+AC_SUBST(JXRDecodeDelegate)
+AC_SUBST(JXREncodeDelegate)
 AC_SUBST(LPDelegate)
 AC_SUBST(LaunchDelegate)
 AC_SUBST(MANDelegate)

@@ -73,7 +73,7 @@ typedef struct
    } RGB_Record;
 
 /* Default palette for WPG level 1 */
-const RGB_Record WPG1_Palette[256]={
+static const RGB_Record WPG1_Palette[256]={
 {  0,  0,  0},    {  0,  0,168},
 {  0,168,  0},    {  0,168,168},
 {168,  0,  0},    {168,  0,168},
@@ -945,9 +945,6 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
   WPGColorMapRec
     WPG_Palette;
 
-  WPGPSl1Record
-    WPG_Record;
-
   int
     i,
     bpp,
@@ -972,7 +969,6 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickSignature);
   one=1;
-  (void) WPG_Record;
   image=AcquireImage(image_info);
   image->depth=8;
   status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
