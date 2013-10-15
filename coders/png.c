@@ -3653,6 +3653,7 @@ static Image *ReadOnePNGImage(MngInfo *mng_info,
           /* Set image->gamma to 1.0, image->rendering_intent to Undefined,
            * image->colorspace to GRAY, and reset image->chromaticity.
            */
+          image->intensity = Rec709LuminancePixelIntensityMethod;
           SetImageColorspace(image,GRAYColorspace);
         }
     }
@@ -8698,13 +8699,6 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
 
      image_colors=number_opaque+number_transparent+number_semitransparent;
 
-     if (mng_info->write_png8 != MagickFalse && image_colors > 256)
-       {
-         /* No room for the background color; remove it. */
-         number_opaque--;
-         image_colors--;
-       }
-
      if (logging != MagickFalse)
        {
          if (image_colors > 256)
@@ -9186,21 +9180,28 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
       }
       continue;
     }
-    break;
 
     if (image_colors == 0 || image_colors > 256)
     {
-      /* Take care of special case with 256 colors + 1 transparent
+      /* Take care of special case with 256 opaque colors + 1 transparent
        * color.  We don't need to quantize to 2-3-2-1; we only need to
        * eliminate one color, so we'll merge the two darkest red
        * colors (0x49, 0, 0) -> (0x24, 0, 0).
        */
+      if (logging != MagickFalse)
+        (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+            "    Merging two dark red background colors to 3-3-2-1");
+
       if (ScaleQuantumToChar(image->background_color.red) == 0x49 &&
           ScaleQuantumToChar(image->background_color.green) == 0x00 &&
           ScaleQuantumToChar(image->background_color.blue) == 0x00)
       {
          image->background_color.red=ScaleCharToQuantum(0x24);
       }
+
+      if (logging != MagickFalse)
+        (void) LogMagickEvent(CoderEvent,GetMagickModule(),
+            "    Merging two dark red pixel colors to 3-3-2-1");
 
       if (image->colormap == NULL)
       {
@@ -10288,7 +10289,7 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
 
      10's digit:
 
-        0: Use Z_HUFFMAN_ONLY strategy with the
+        0 or omitted: Use Z_HUFFMAN_ONLY strategy with the
            zlib default compression level
 
         1-9: the zlib compression level
@@ -10304,13 +10305,13 @@ static MagickBooleanType WriteOnePNGImage(MngInfo *mng_info,
         6:   libpng adaptive filtering
 
         7:   "LOCO" filtering (intrapixel differing) if writing
-             a MNG, othewise "none".  Did not work in IM-6.7.0-9
+             a MNG, otherwise "none".  Did not work in IM-6.7.0-9
              and earlier because of a missing "else".
 
-        8:   Z_RLE strategy, all filters
-             Unused prior to IM-6.7.0-10, was same as 6
+        8:   Z_RLE strategy (or Z_HUFFMAN_ONLY if quality < 10), adaptive
+             filtering. Unused prior to IM-6.7.0-10, was same as 6
 
-        9:   Z_RLE strategy, no PNG filters
+        9:   Z_RLE strategy (or Z_HUFFMAN_ONLY if quality < 10), no PNG filters
              Unused prior to IM-6.7.0-10, was same as 6
 
     Note that using the -quality option, not all combinations of

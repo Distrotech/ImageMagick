@@ -544,12 +544,12 @@ static inline MagickBooleanType IsFloatDefined(const float value)
     unsigned int
       unsigned_value;
 
-    double
+    float
       float_value;
   } quantum;
 
   quantum.unsigned_value=0U;
-  quantum.float_value=(double) value;
+  quantum.float_value=value;
   if (quantum.unsigned_value == 0U)
     return(MagickFalse);
   return(MagickTrue);
@@ -780,7 +780,7 @@ static Image *ReadDPXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   dpx.image.orientation=ReadBlobShort(image);
   offset+=2;
-  if (dpx.image.orientation != (unsigned short) (~0U))
+  if (dpx.image.orientation != ~0U)
     (void) FormatImageProperty(image,"dpx:image.orientation","%d",
       dpx.image.orientation);
   switch (dpx.image.orientation)

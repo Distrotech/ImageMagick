@@ -194,7 +194,7 @@ WriteMakefile
    'AUTHOR' => 'ImageMagick Studio LLC',
 
    # Module version
-   'VERSION' => '6.86',
+   'VERSION' => '6.87',
 
    # Prerequisite version
    'PREREQ_PM' => {'parent' => '0'},
@@ -236,9 +236,9 @@ WriteMakefile
    # 'OPTIMIZE'	=> '',
 
    # Use same compiler as ImageMagick
-   'PERLMAINCC'	=> ' -fopenmp',
+   'PERLMAINCC'	=> 'g++ -fopenmp',
    'AR' => 'ar',
-   'LD' => '',
+   'LD' => 'g++',
 
    # Set Perl installation prefix to ImageMagick installation prefix
 #   'PREFIX'	=> '/usr',

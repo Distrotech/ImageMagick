@@ -1,3 +1,42 @@
+2013-10-10  6.8.7-1 Cristy  <quetzlzacatenango@image...>
+  * Add support for the -complex option, perform complex mathematics on an
+    image sequence.
+
+2013-09-27  6.8.7-1 Glenn Randers-Pehrson <glennrp@image...>
+  * Fixed problem with PNG8 reduction in coders/png.c (special case where
+    exactly 256 colors plus one transparent color are present).
+  * Set image->intensity = Rec709LuminancePixelIntensityMethod before
+    transforming the colorspace to Gray while reading a gray PNG (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24205).
+
+2013-09-26  6.8.7-1 Dirk Lemstra <dirk@snakeware...>
+  * Fixed incorrect size of DICOM image (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24135).
+  * Fixed rounding in YUV coder (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24148).
+  * Fixed colorspace issue when combining images (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24173).
+  * Replaced libjpeg with libjpeg-turbo in the windows distribution.
+  * Added support for liquid rescale to the windows distribution.
+  * Set image type after syncing the pixel cache.
+
+2013-09-25  6.8.7-0 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.7-0, SVN revision 13290.
+
+2013-09-23  6.8.7-0 Glenn Randers-Pehrson <glennrp@image...>
+  * Fixed comments about the -quality value in PNG coder (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=24134).
+
+2013-09-19  6.8.7-0 Dirk Lemstra <dirk@snakeware...>
+  * Fixed issue with colormap when reading Viff image.
+  * Added support for opening https files under windows (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24121).
+  * Fixed incorrect format when reading EPT image from a blob (reference
+    http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24129).
+
+2013-09-18  6.8.6-10 Cristy  <quetzlzacatenango@image...>
+  * New version 6.8.6-10, SVN revision 13240.
+
 2013-09-07  6.8.6-10 Dirk Lemstra <dirk@snakeware...>
   * Added support for writing DDS files.
 
@@ -19,6 +58,10 @@
     http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24106).
   * Return label for identify -format "%l" (reference
     http://www.imagemagick.org/discourse-server/viewtopic.php?f=3&t=24105).
+  * Add option to perform Fourier normalization in either the forward or
+    inverse transform (e.g -define fourier:normalize=inverse). The default
+    remains as it was in the forward transform (i.e. -define
+    fourier:normalize=forward)
 
 2013-08-26  6.8.6-9 Cristy  <quetzlzacatenango@image...>
   * New version 6.8.6-9, SVN revision 13087.
@@ -1410,19 +1453,16 @@ http://www.imagemagick.org/discourse-server/viewtopic.php?f=2&t=21884).
 
     Convolve kernel weights have been separated from alpha blend handling.
     Un-normalized kernels applied to images with active alpha will no longer
-    be auto-normalized due to the effect of alpha blending.
-
-    The bug causes images using the default channel setting and having an
-    alpha channel to automatically 'normalize' the results of a convolve
-    during the handling of alpha blending.  This probably would cause severe
-    effects when a zero-summing kernel is being used on an image containing
-    an active (though likely fully-opaque) alpha channel, as division by near
-    zero weights would cause extreme color values in results.
-
-    This bug is not normally seen as convolution, which is normally applied only
-    to fully-opaque images. And using a zero-summing kernel on an image with
-    alpha also results in a transparent image!  This is why it was not fixed
-    up until now.
+    be auto-normalized due to the effect of alpha blending.  The bug causes
+    images using the default channel setting and having an alpha channel to
+    automatically 'normalize' the results of a convolve during the handling
+    of alpha blending.  This probably would cause severe effects when a
+    zero-summing kernel is being used on an image containing an active (though
+    likely fully-opaque) alpha channel, as division by near zero weights
+    would cause extreme color values in results.  This bug is not normally
+    seen as convolution, which is normally applied only to fully-opaque
+    images. And using a zero-summing kernel on an image with alpha also
+    results in a transparent image!  This is why it was not fixed up until now.
 
 2012-04-08  6.7.6-6 Cristy  <quetzlzacatenango@image...>
   * Pixel allocation for Pango is stride*rows not stride*columns.
